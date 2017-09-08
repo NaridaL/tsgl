@@ -64,7 +64,10 @@ class LightGLContext extends WebGLRenderingContext {
 		// debugging. This intentionally doesn't implement fixed-function lighting
 		// because it's only meant for quick debugging tasks.
 		this.immediate = {
-			mesh: new Mesh({ coords: true, colors: true, triangles: false }),
+			mesh: new Mesh()
+                .addVertexBuffer('coords', 'LGL_TexCoord')
+                .addVertexBuffer('vertices', 'LGL_Vertex')
+                .addVertexBuffer('colors', 'LGL_Color'),
 			mode: -1,
 			coord: [0, 0, 0, 0],
 			color: [1, 1, 1, 1],
@@ -226,31 +229,13 @@ void main() {
 // debugging. This intentionally doesn't implement fixed-function lighting
 // because it's only meant for quick debugging tasks.
 
-	private immediate = {
-		mesh: new Mesh({coords: true, colors: true, triangles: false}),
-		mode: -1 as DRAW_MODES | -1,
-		coord: [0, 0, 0, 0],
-		color: [1, 1, 1, 1] as GL_COLOR,
-		pointSize: 1 as number,
-		shader: new Shader(`
-uniform float pointSize;
-varying vec4 color;
-varying vec4 coord;
-void main() {
-	color = LGL_Color;
-	coord = LGL_TexCoord;
-	gl_Position = LGL_ModelViewProjectionMatrix * LGL_Vertex;
-	gl_PointSize = pointSize;
-}`, `
-uniform sampler2D texture;
-uniform float pointSize;
-uniform bool useTexture;
-varying vec4 color;
-varying vec4 coord;
-void main() {
-	gl_FragColor = color;
-	if (useTexture) gl_FragColor *= texture2D(texture, coord.xy);
-}`)}
+	private immediate: {
+		mesh: Mesh & { coords: [number, number][], vertices: V3[], colors: GL_COLOR[] },
+		mode: DRAW_MODES | -1,
+		coord: [number, number],
+		color: GL_COLOR,
+		pointSize: number,
+		shader: Shader}
 
 	pointSize(pointSize: number): void {
 		this.immediate.shader.uniforms({pointSize: pointSize})
@@ -400,10 +385,10 @@ void main() {
     }
 
 	handleError(): void {
-	    //const errorCode = this.getError()
-        //if (0 !== errorCode) {
-			//throw new Error('' + errorCode + WGL_ERROR[errorCode])
-		//}
+	    const errorCode = this.getError()
+        if (0 !== errorCode) {
+			throw new Error('' + errorCode + WGL_ERROR[errorCode])
+		}
 	}
 
 
@@ -489,6 +474,8 @@ enum DRAW_MODES {
     TRIANGLE_STRIP = WGL.TRIANGLE_STRIP,
     TRIANGLE_FAN = WGL.TRIANGLE_FAN
 }
+type DRAW_MODES_ENUM = keyof typeof DRAW_MODES
+const x: DRAW_MODES_ENUM = 'TRIANGLES'
 type GL_COLOR = [number, number, number, number]
 const GL_COLOR_BLACK = [0, 0, 0, 1] as GL_COLOR // there's only one constant, use it for default values. Use chroma-js or similar for actual colors.
 const SHADER_VAR_TYPES = ['FLOAT', 'FLOAT_MAT2', 'FLOAT_MAT3', 'FLOAT_MAT4', 'FLOAT_VEC2', 'FLOAT_VEC3', 'FLOAT_VEC4', 'INT', 'INT_VEC2', 'INT_VEC3', 'INT_VEC4', 'UNSIGNED_INT']

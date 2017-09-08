@@ -44,7 +44,8 @@ class Texture {
 	 */
 	constructor(width: int, height: int, options: TextureOptions, readonly gl = currentGL()) {
 		options = options || {}
-		this.texture = gl.createTexture()
+		this.texture = gl.createTexture()!
+        gl.handleError() // in case createTexture returns null & fails
 		this.width = width
         this.gl = gl
 		this.height = height
@@ -170,6 +171,7 @@ class Texture {
 	static fromURL(url: string, options: TextureOptions, gl = currentGL()): Texture {
 		Texture.checkerBoardCanvas = Texture.checkerBoardCanvas || (function () {
 				const c = document.createElement('canvas').getContext('2d')
+                if (!c) throw new Error('Could not create 2d canvas.')
 				c.canvas.width = c.canvas.height = 128
 				for (let y = 0; y < c.canvas.height; y += 16) {
 					for (let x = 0; x < c.canvas.width; x += 16) {
@@ -182,10 +184,8 @@ class Texture {
 			})()
 		const texture = Texture.fromImage(Texture.checkerBoardCanvas, options)
 		const image = new Image()
-		image.onload = function () {
-			Texture.fromImage(image, options, gl).swapWith(texture)
-		}
-		image.src = url
+		image.onload = () => Texture.fromImage(image, options, gl).swapWith(texture)
+        image.src = url
 		return texture
 	}
 }

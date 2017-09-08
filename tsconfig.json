@@ -7,7 +7,7 @@
     "rootDir": ".",
     "target": "es6",
     "noImplicitAny": true,
-//    "strictNullChecks": true,
+    "strictNullChecks": true,
     "alwaysStrict": true,
     "sourceMap": true,
     "emitDecoratorMetadata": true,

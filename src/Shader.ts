@@ -90,7 +90,11 @@ class Shader<UniformTypes extends { [uniformName: string]: keyof UniformTypesMap
 		}
 
 		this.gl = gl
-		this.program = gl.createProgram()
+        const program = gl.createProgram()
+        if (!program) {
+		    gl.handleError()
+        }
+		this.program = program!
 		gl.attachShader(this.program, compileSource(WGL.VERTEX_SHADER, vertexHeader + vertexSource))
 		gl.attachShader(this.program, compileSource(WGL.FRAGMENT_SHADER, fragmentHeader + fragmentSource))
 		gl.linkProgram(this.program)
@@ -103,7 +107,7 @@ class Shader<UniformTypes extends { [uniformName: string]: keyof UniformTypesMap
 		// Check for the use of built-in matrices that require expensive matrix
 		// multiplications to compute, and record these in `activeMatrices`.
 		this.activeMatrices = {}
-		matrixNames.forEach(name => {
+        matrixNames && matrixNames.forEach(name => {
 			if (gl.getUniformLocation(this.program, name)) {
 				this.activeMatrices[name] = true
 			}
@@ -111,7 +115,10 @@ class Shader<UniformTypes extends { [uniformName: string]: keyof UniformTypesMap
 
 		this.uniformInfos = {}
 		for (let i = gl.getProgramParameter(this.program, WGL.ACTIVE_UNIFORMS); i-- > 0;) {
-			const info = gl.getActiveUniform(this.program, i)
+            // see https://www.khronos.org/registry/OpenGL-Refpages/es2.0/xhtml/glGetActiveUniform.xml
+            // this.program has already been checked
+            // i is in bounds
+			const info = gl.getActiveUniform(this.program, i)!
 			this.uniformInfos[info.name] = info
 		}
         gl.handleError()
@@ -128,8 +135,7 @@ class Shader<UniformTypes extends { [uniformName: string]: keyof UniformTypesMap
         gl.handleError()
 
 		for (const name in uniforms) {
-			const location = this.uniformLocations[name] ||
-                (this.uniformLocations[name] = gl.getUniformLocation(this.program, name))
+			const location = this.uniformLocations[name] || gl.getUniformLocation(this.program, name)
 			assert(!!location, name + ' uniform is not used in shader')
 			if (!location) continue
 			this.uniformLocations[name] = location
@@ -273,7 +279,7 @@ class Shader<UniformTypes extends { [uniformName: string]: keyof UniformTypesMap
 		on['LGL_ModelViewMatrix']
             && this.modelViewMatrixVersion != gl.modelViewMatrixVersion
             && (uni['LGL_ModelViewMatrix'] = gl.modelViewMatrix)
-        on['LGL_ModelViewMatrixInverse'] && (uni['LGL_ModelViewMatrixInverse'] = modelViewMatrixInverse)
+        on['LGL_ModelViewMatrixInverse'] && (uni['LGL_ModelViewMatrixInverse'] = modelViewMatrixInverse as M4)
 		on['LGL_ProjectionMatrix']
             && this.projectionMatrixVersion != gl.projectionMatrixVersion
             && (uni['LGL_ProjectionMatrix'] = gl.projectionMatrix)
@@ -283,7 +289,7 @@ class Shader<UniformTypes extends { [uniformName: string]: keyof UniformTypesMap
                 && (uni['LGL_ModelViewProjectionMatrixInverse'] = modelViewProjectionMatrix.inversed())
         on['LGL_NormalMatrix']
             && this.modelViewMatrixVersion != gl.modelViewMatrixVersion
-            && (uni['LGL_NormalMatrix'] = modelViewMatrixInverse.transposed())
+            && (uni['LGL_NormalMatrix'] = (modelViewMatrixInverse as M4).transposed())
 		this.uniforms(uni as any)
         this.projectionMatrixVersion = gl.projectionMatrixVersion
         this.modelViewMatrixVersion = gl.modelViewMatrixVersion
@@ -328,13 +334,13 @@ class Shader<UniformTypes extends { [uniformName: string]: keyof UniformTypesMap
 
 			if (indexBuffer) {
 			    assert(indexBuffer.hasBeenCompiled)
-			    assert(minVertexBufferLength > indexBuffer.maxValue)
+			    assert(minVertexBufferLength > indexBuffer.maxValue!)
 				assert(count % indexBuffer.spacing == 0)
 				assert(start % indexBuffer.spacing == 0)
 				if (start + count > indexBuffer.count) {
 					throw new Error('Buffer not long enough for passed parameters start/length/buffer length' + ' ' + start + ' ' + count + ' ' + indexBuffer.count)
 				}
-				gl.bindBuffer(WGL.ELEMENT_ARRAY_BUFFER, indexBuffer.buffer)
+				gl.bindBuffer(WGL.ELEMENT_ARRAY_BUFFER, indexBuffer.buffer!)
                 gl.handleError()
 				// start parameter has to be multiple of sizeof(WGL.UNSIGNED_SHORT)
 				gl.drawElements(mode, count, WGL.UNSIGNED_SHORT, 2 * start)

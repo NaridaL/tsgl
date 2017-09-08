@@ -1,7 +1,5 @@
 class Buffer {
 	buffer: WebGLBuffer | undefined
-	target: int
-	type: typeof Float32Array | typeof Uint16Array
 	data: any[]
 
 	/** Number of elements in buffer. 2 V3s is still 2, not 6. */
@@ -30,11 +28,10 @@ class Buffer {
 	 * Specifies the target to which the buffer object is bound.
 	 * The symbolic constant must be GL_ARRAY_BUFFER or GL_ELEMENT_ARRAY_BUFFER.
 	 */
-	constructor(target: int, type: typeof Float32Array | typeof Uint16Array) {
+	constructor(readonly target: int, readonly type: typeof Float32Array | typeof Uint16Array) {
 		assert(target == WGL.ARRAY_BUFFER || target == WGL.ELEMENT_ARRAY_BUFFER, 'target == WGL.ARRAY_BUFFER || target == WGL.ELEMENT_ARRAY_BUFFER')
 		assert(type == Float32Array || type == Uint16Array, 'type == Float32Array || type == Uint16Array')
 		this.buffer = undefined
-		this.target = target
 		this.type = type
 		this.data = []
 		this.count = 0
@@ -75,7 +72,8 @@ class Buffer {
                 buffer = new this.type(bufferLength)
                 let i = this.data.length, destPtr = bufferLength
                 while (i--) {
-                    let subArray = this.data[i], j = subArray.length
+                    const subArray = this.data[i]
+                    let j = subArray.length
                     while (j--) {
                         buffer[--destPtr] = subArray[j]
                     }
