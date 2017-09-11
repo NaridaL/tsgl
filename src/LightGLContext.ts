@@ -1,4 +1,6 @@
 import chroma from 'chroma-js'
+import {addOwnProperties, assert, DEG, int, M4, P3ZX, V, V3} from 'ts3dutils'
+
 import {Mesh} from './Mesh'
 import {Shader} from './Shader'
 
@@ -145,7 +147,7 @@ void main() {
 	    this.multMatrix(M4.mirror(plane))
     }
 
-	perspective(fovDegrees: number, aspect: number, near: number, far: number, result?: M4) {
+	perspective(fovDegrees: number, aspect: number, near: number, far: number) {
 		this.multMatrix(M4.perspectiveRad(fovDegrees * DEG, aspect, near, far, this.tempMatrix))
 	}
 
@@ -471,6 +473,5 @@ export enum DRAW_MODES {
     TRIANGLE_FAN = WGL.TRIANGLE_FAN
 }
 export type GL_COLOR = [number, number, number, number]
-export const GL_COLOR_BLACK = [0, 0, 0, 1 // there's only one constant, use it for default values. Use chroma-js
-                                                // or similar for actual colors.
+export const GL_COLOR_BLACK = [0, 0, 0, 1] // there's only one constant, use it for default values. Use chroma-js                                                // or similar for actual colors.
 export const SHADER_VAR_TYPES = ['FLOAT', 'FLOAT_MAT2', 'FLOAT_MAT3', 'FLOAT_MAT4', 'FLOAT_VEC2', 'FLOAT_VEC3', 'FLOAT_VEC4', 'INT', 'INT_VEC2', 'INT_VEC3', 'INT_VEC4', 'UNSIGNED_INT']

@@ -1,5 +1,9 @@
+import {AABB, arrayFromFunction, assert, assertVectors, int, lerp, M4, NLA_PRECISION, raddd, Transformable, V3} from 'ts3dutils'
+
 import {Buffer} from './Buffer'
-import {WGL, pushQuad} from './LightGLContext'
+import {pushQuad, WGL} from './LightGLContext'
+
+const {min, max, PI, sin, cos} = Math
 
 export class Mesh extends Transformable {
 	hasBeenCompiled: boolean = false
@@ -25,7 +29,7 @@ export class Mesh extends Transformable {
 
     calcVolume(): { volume: number, centroid: V3, area: number } {
 		let totalVolume = 0, totalCentroid = V3.O, totalAreaX2 = 0
-		const triangles = this.TRIANGLES!
+		const triangles = this.TRIANGLES
 		const vertices = this.vertices
 		for (let i = 0; i < triangles.length; i += 3) {
 			const i0 = triangles[i + 0], i1 = triangles[i + 1], i2 = triangles[i + 2]
@@ -187,9 +191,9 @@ export class Mesh extends Transformable {
     computeNormalsFromFlatTriangles(): this {
         if (!this.normals) this.addVertexBuffer('normals', 'LGL_Normal')
         // tslint:disable:no-string-literal
-        this.vertexBuffers['LGL_Normal'].data = arrayFromFunction(this.vertices.length, i => V3.O)
+        this.vertexBuffers['LGL_Normal'].data = arrayFromFunction(this.vertices.length, () => V3.O)
 
-        const TRIANGLES = this.TRIANGLES!, vertices = this.vertices, normals = this.normals!
+        const TRIANGLES = this.TRIANGLES, vertices = this.vertices, normals = this.normals!
         for (let i = 0; i < TRIANGLES.length; i += 3) {
             const ai = TRIANGLES[i], bi = TRIANGLES[i + 1], ci = TRIANGLES[i + 2]
             const a = vertices[ai]
@@ -240,7 +244,7 @@ export class Mesh extends Transformable {
         if(!this.TRIANGLES) throw new Error('TRIANGLES must be defined.')
 		if (!this.LINES) this.addIndexBuffer('LINES')
 		const tris = this.TRIANGLES
-		const lines = this.LINES!
+		const lines = this.LINES
 		for (let i = 0; i < tris.length; i += 3) {
 			if (tris[i + 0] < tris[i + 1]) lines.push(tris[i + 0], tris[i + 1])
 			if (tris[i + 1] < tris[i + 2]) lines.push(tris[i + 1], tris[i + 2])
@@ -273,7 +277,7 @@ export class Mesh extends Transformable {
 	getBoundingSphere(): {center: V3, radius: number} {
 		const sphere = {center: this.getAABB().getCenter(), radius: 0}
 		for (let i = 0; i < this.vertices.length; i++) {
-			sphere.radius = Math.max(sphere.radius, this.vertices[i].minus(sphere.center).length())
+			sphere.radius = max(sphere.radius, this.vertices[i].minus(sphere.center).length())
 		}
 		return sphere
 	}

@@ -1,6 +1,5 @@
-///<reference path="../node_modules/ts3dutils/out/complete.d.ts"/>
-
-import {currentGL, LightGLContext} from './LightGLContext'
+import {assert, int, NLA_DEBUG, V3} from 'ts3dutils'
+import {currentGL} from './LightGLContext'
 
 const WGL = WebGLRenderingContext
 

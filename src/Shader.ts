@@ -1,6 +1,8 @@
 /* tslint:disable:no-string-literal */
-import {GL_COLOR, LightGLContext, currentGL, WGL, DRAW_MODES} from './LightGLContext'
+import {assert, assertf, assertInst, assertNumbers, assertVectors, int, M4, NLA_DEBUG, V3} from 'ts3dutils'
+
 import {Buffer} from './Buffer'
+import {currentGL, DRAW_MODES, GL_COLOR, LightGLContext, WGL} from './LightGLContext'
 import {Mesh} from './Mesh'
 
 const DRAW_MODE_CHECKS: {[type: string]: (x: int) => boolean} = {
