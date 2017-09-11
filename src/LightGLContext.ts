@@ -1,18 +1,17 @@
+import chroma from 'chroma-js'
+import {Mesh} from './Mesh'
+import {Shader} from './Shader'
 
-
-
-
-function currentGL(): LightGLContext {
+export function currentGL(): LightGLContext {
     return LightGLContext.gl
 }
-const WGL = WebGLRenderingContext
+export const WGL = WebGLRenderingContext
 function isNumber(obj: any) {
 	const str = Object.prototype.toString.call(obj)
 	return str == '[object Number]' || str == '[object Boolean]'
 }
-type UniformType = V3 | M4 | number[] | boolean | number
-class LightGLContext extends WebGLRenderingContext {
-	modelViewMatrix: M4 = new M4()
+export type UniformType = V3 | M4 | number[] | boolean | number
+export class LightGLContext extends WebGLRenderingContext {	modelViewMatrix: M4 = new M4()
 	projectionMatrix: M4 = new M4()
 	static readonly MODELVIEW = {}
 	static readonly PROJECTION = {}
@@ -115,7 +114,7 @@ void main() {
 			set: function (val) {
 				this.modelViewMatrix = val
 			},
-			writable: true
+			writable: true,
 		})
 		this.currentMatrixName = 'modelViewMatrix'
 		this.stack = this.modelViewStack
@@ -208,7 +207,7 @@ void main() {
             w / 2, 0, 0, x + w / 2,
             h / 2, 0, 0, y + h / 2,
             0, 0, 1, 0,
-            0, 0, 0, 1
+            0, 0, 0, 1,
         ])
         return M4.multiplyMultiple(viewportToScreenMatrix, this.projectionMatrix, this.modelViewMatrix)
     }
@@ -231,14 +230,15 @@ void main() {
 		coord: [number, number],
 		color: GL_COLOR,
 		pointSize: number,
-		shader: Shader}
+        shader: Shader,
+    }
 
-	pointSize(pointSize: number): void {
-		this.immediate.shader.uniforms({pointSize: pointSize})
-	}
+    pointSize(pointSize: number): void {
+        this.immediate.shader.uniforms({pointSize: pointSize})
+    }
 
 	begin(mode: DRAW_MODES | -1) {
-		if (this.immediate.mode != -1) throw new Error('mismatched viewerGL.begin() and viewerGL.end() calls')
+		if (this.immediate.mode != -1) throw new Error('mismatched begin() and end() calls')
 		this.immediate.mode = mode
 		this.immediate.mesh.colors = []
 		this.immediate.mesh.coords = []
@@ -276,7 +276,7 @@ void main() {
         if (this.immediate.mode == -1) throw new Error('mismatched viewerGL.begin() and viewerGL.end() calls')
         this.immediate.mesh.compile()
         this.immediate.shader.uniforms({
-            useTexture: !!LightGLContext.gl.getParameter(WGL.TEXTURE_BINDING_2D)
+            useTexture: !!LightGLContext.gl.getParameter(WGL.TEXTURE_BINDING_2D),
         }).draw(this.immediate.mesh, this.immediate.mode)
         this.immediate.mode = -1
     }
@@ -442,7 +442,7 @@ LightGLContext.prototype.HALF_FLOAT_OES = LightGLContext.HALF_FLOAT_OES
  * | \ |
  * a - b
  */
-function pushQuad(triangles: int[], flipped: boolean, a: int, b: int, c: int, d: int) {
+export function pushQuad(triangles: int[], flipped: boolean, a: int, b: int, c: int, d: int) {
 	if (flipped) {
 		triangles.push(
 			a, c, b,
@@ -454,14 +454,14 @@ function pushQuad(triangles: int[], flipped: boolean, a: int, b: int, c: int, d:
 	}
 }
 
-function hexIntToGLColor(color: int): GL_COLOR {
+export function hexIntToGLColor(color: int): GL_COLOR {
     return [(color >> 16) / 255.0, ((color >> 8) & 0xff) / 255.0, (color & 0xff) / 255.0, 1.0]
 }
 
 /**
  * These are all the draw modes usable in OpenGL ES
  */
-enum DRAW_MODES {
+export enum DRAW_MODES {
     POINTS = WGL.POINTS,
     LINES = WGL.LINES,
     LINE_STRIP = WGL.LINE_STRIP,
@@ -470,17 +470,7 @@ enum DRAW_MODES {
     TRIANGLE_STRIP = WGL.TRIANGLE_STRIP,
     TRIANGLE_FAN = WGL.TRIANGLE_FAN
 }
-type DRAW_MODES_ENUM = keyof typeof DRAW_MODES
-const x: DRAW_MODES_ENUM = 'TRIANGLES'
-type GL_COLOR = [number, number, number, number]
-const GL_COLOR_BLACK = [0, 0, 0, 1] // there's only one constant, use it for default values. Use chroma-js or similar for actual colors.
-const SHADER_VAR_TYPES = ['FLOAT', 'FLOAT_MAT2', 'FLOAT_MAT3', 'FLOAT_MAT4', 'FLOAT_VEC2', 'FLOAT_VEC3', 'FLOAT_VEC4', 'INT', 'INT_VEC2', 'INT_VEC3', 'INT_VEC4', 'UNSIGNED_INT']
-const DRAW_MODE_CHECKS: {[type: string]: (x: int) => boolean} = {
-    [DRAW_MODES.POINTS]: x => true,
-    [DRAW_MODES.LINES]: x => 0 == x % 2, // divisible by 2
-    [DRAW_MODES.LINE_STRIP]: x => x > 2, // need at least 2
-    [DRAW_MODES.LINE_LOOP]: x => x > 2, // more like > 3, but oh well
-    [DRAW_MODES.TRIANGLES]: x => 0 == x % 3, // divisible by 3
-    [DRAW_MODES.TRIANGLE_STRIP]: x => x > 3,
-    [DRAW_MODES.TRIANGLE_FAN]: x => x > 3
-}
+export type GL_COLOR = [number, number, number, number]
+export const GL_COLOR_BLACK = [0, 0, 0, 1 // there's only one constant, use it for default values. Use chroma-js
+                                                // or similar for actual colors.
+export const SHADER_VAR_TYPES = ['FLOAT', 'FLOAT_MAT2', 'FLOAT_MAT3', 'FLOAT_MAT4', 'FLOAT_VEC2', 'FLOAT_VEC3', 'FLOAT_VEC4', 'INT', 'INT_VEC2', 'INT_VEC3', 'INT_VEC4', 'UNSIGNED_INT']

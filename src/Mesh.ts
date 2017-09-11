@@ -1,4 +1,7 @@
-class Mesh extends Transformable {
+import {Buffer} from './Buffer'
+import {WGL, pushQuad} from './LightGLContext'
+
+export class Mesh extends Transformable {
 	hasBeenCompiled: boolean = false
 	vertexBuffers: {[name: string]: Buffer} = {}
 	indexBuffers: {[name: string]: Buffer} = {}
@@ -363,7 +366,7 @@ class Mesh extends Transformable {
 		new V3(1, 0, 0),
 		new V3(1, 0, 1),
 		new V3(1, 1, 0),
-		V3.XYZ
+		V3.XYZ,
 	]
 
 	/**

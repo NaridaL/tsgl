@@ -1,6 +1,6 @@
+import {WGL, currentGL, LightGLContext} from './LightGLContext'
 
-
-interface TextureOptions {
+export interface TextureOptions {
     wrap?: number // defaults to WGL.CLAMP_TO_EDGE, or set wrapS and wrapT individually.
     wrapS?: number
     wrapT?: number
@@ -10,7 +10,7 @@ interface TextureOptions {
     format?: number // defaults to WGL.RGBA.
     type?: number // defaults to WGL.UNSIGNED_BYTE.
 }
-class Texture {
+export class Texture {
 	height: int
 	width: int
 	texture: WebGLTexture

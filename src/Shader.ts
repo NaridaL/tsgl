@@ -1,5 +1,23 @@
 /* tslint:disable:no-string-literal */
-interface UniformTypesMap {
+import {GL_COLOR, LightGLContext, currentGL, WGL, DRAW_MODES} from './LightGLContext'
+import {Buffer} from './Buffer'
+import {Mesh} from './Mesh'
+
+const DRAW_MODE_CHECKS: {[type: string]: (x: int) => boolean} = {
+    [DRAW_MODES.POINTS]: x => true,
+    [DRAW_MODES.LINES]: x => 0 == x % 2, // divisible by 2
+    [DRAW_MODES.LINE_STRIP]: x => x > 2, // need at least 2
+    [DRAW_MODES.LINE_LOOP]: x => x > 2, // more like > 3, but oh well
+    [DRAW_MODES.TRIANGLES]: x => 0 == x % 3, // divisible by 3
+    [DRAW_MODES.TRIANGLE_STRIP]: x => x > 3,
+    [DRAW_MODES.TRIANGLE_FAN]: x => x > 3,
+}
+
+function isArray<T>(obj: any): obj is T[] {
+    return Array == obj.constructor || Float32Array == obj.constructor || Float64Array == obj.constructor
+}
+
+export interface UniformTypesMap {
     FLOAT_VEC4: GL_COLOR | V3
     FLOAT_VEC3: [number, number, number] | V3
     FLOAT_VEC2: [number, number] | V3
@@ -21,10 +39,10 @@ function isIntArray(x: any) {
     return (x instanceof Float32Array || x instanceof Float64Array || Array.isArray(x)) &&
         (x as number[]).every(x => Number.isInteger(x))
 }
-type ShaderType<UniformTypes> = string & { T?: UniformTypes }
+export type ShaderType<UniformTypes> = string & { T?: UniformTypes }
 
 //const x:keyof UniformTypesMap = undefined as 'FLOAT_VEC4' | 'FLOAT_VEC3'
-class Shader<UniformTypes extends { [uniformName: string]: keyof UniformTypesMap} = any> {
+export class Shader<UniformTypes extends { [uniformName: string]: keyof UniformTypesMap} = any> {
 	program: WebGLProgram
 	activeMatrices: { [matrixName: string ]: boolean }
 	attributes: { [attributeName: string ]: number }
@@ -193,7 +211,7 @@ class Shader<UniformTypes extends { [uniformName: string]: keyof UniformTypesMap
 						gl.uniformMatrix3fv(location, false, new Float32Array([
 							value[0], value[3], value[6],
 							value[1], value[4], value[7],
-							value[2], value[5], value[8]
+							value[2], value[5], value[8],
 						]))
 						break
 					case 16:
@@ -201,7 +219,7 @@ class Shader<UniformTypes extends { [uniformName: string]: keyof UniformTypesMap
 							value[0], value[4], value[8], value[12],
 							value[1], value[5], value[9], value[13],
 							value[2], value[6], value[10], value[14],
-							value[3], value[7], value[11], value[15]
+							value[3], value[7], value[11], value[15],
 						]))
 						break
 					default:

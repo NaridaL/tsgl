@@ -1,4 +1,10 @@
-class Buffer {
+///<reference path="../node_modules/ts3dutils/out/complete.d.ts"/>
+
+import {currentGL, LightGLContext} from './LightGLContext'
+
+const WGL = WebGLRenderingContext
+
+export class Buffer {
 	buffer: WebGLBuffer | undefined
 	data: any[]
 
@@ -17,11 +23,11 @@ class Buffer {
 	/**
 	 * Provides a simple method of uploading data to a GPU buffer. Example usage:
 	 *
-	 *     var vertices = new GL.Buffer(WGL.ARRAY_BUFFER, Float32Array)
+	 *     const vertices = new Buffer(WGL.ARRAY_BUFFER, Float32Array)
 	 *     vertices.data = [[0, 0, 0], [1, 0, 0], [0, 1, 0], [1, 1, 0]]
 	 *     vertices.compile()
 	 *
-	 *     var indices = new GL.Buffer(WGL.ELEMENT_ARRAY_BUFFER, Uint16Array)
+	 *     const indices = new Buffer(WGL.ELEMENT_ARRAY_BUFFER, Uint16Array)
 	 *     indices.data = [[0, 1, 2], [2, 1, 3]]
 	 *     indices.compile()
 	 *
@@ -61,7 +67,8 @@ class Buffer {
 		}
 		if (this.data.length == 0 || this.data[0] instanceof V3) {
 		    assert(!(this.data[0] instanceof V3) || this.type == Float32Array)
-			V3.pack(this.data, buffer = new this.type(this.data.length * 3) as Float32Array) // asserts that all elements are V3s
+			V3.pack(this.data, buffer = new this.type(this.data.length * 3) as Float32Array) // asserts that all
+                                                                                             // elements are V3s
 			this.spacing = 3
 			this.count = this.data.length
 			this.maxValue = 0
