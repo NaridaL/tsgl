@@ -47,7 +47,7 @@ class Mesh extends Transformable {
      * @example new Mesh().addVertexBuffer('coords', 'LGL_TexCoord')
 	 */
 	addVertexBuffer<K extends string>(name: K, attribute: string): this & { [k in K]: any[] } {
-		assert(!this.vertexBuffers[attribute])
+		assert(!this.vertexBuffers[attribute], 'Buffer ' + attribute + ' already exists.')
 		//assert(!this[name])
 		this.hasBeenCompiled = false
 		assert('string' == typeof name)

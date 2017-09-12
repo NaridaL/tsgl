@@ -9,7 +9,18 @@ interface UniformTypesMap {
     FLOAT_MAT3: M4 | number[]
     SAMPLER_2D: int
 }
-
+function isFloatArray(obj: any): obj is number[] | Float64Array | Float32Array {
+    return Float32Array == obj.constructor || Float64Array == obj.constructor ||
+        Array.isArray(obj) && obj.every(x => 'number' == typeof x)
+}
+function isIntArray(x: any) {
+    if ([Int8Array, Uint8Array, Uint8ClampedArray, Int16Array, Uint16Array, Int32Array, Uint32Array]
+            .some(y => x instanceof y)) {
+        return true
+    }
+    return (x instanceof Float32Array || x instanceof Float64Array || Array.isArray(x)) &&
+        (x as number[]).every(x => Number.isInteger(x))
+}
 type ShaderType<UniformTypes> = string & { T?: UniformTypes }
 
 //const x:keyof UniformTypesMap = undefined as 'FLOAT_VEC4' | 'FLOAT_VEC3'
@@ -142,22 +153,27 @@ class Shader<UniformTypes extends { [uniformName: string]: keyof UniformTypesMap
 			let value: any = uniforms[name] as any
 			const info = this.uniformInfos[name]
 			if (NLA_DEBUG) {
-				assert(info.type != WGL.FLOAT ||
-					(1 == info.size && 'number' === typeof value || isArray(value) && info.size == value.length && assertNumbers.apply(undefined, value)))
-				assert(info.type != WGL.INT ||
-					(1 == info.size && 'number' === typeof value && value % 1 == 0 ||
-					isArray<number>(value) && info.size == value.length && assertNumbers.apply(undefined, value) && value.every(x => x % 1 == 0)))
-				assert(info.type != WGL.FLOAT_VEC3 ||
-					(1 == info.size && value instanceof V3 ||
-					isArray(value) && info.size == value.length && assertVectors.apply(undefined, value)))
-				assert(info.type != WGL.FLOAT_VEC4 || isArray(value) && value.length == 4)
-				assert(info.type != WGL.FLOAT_MAT4 || value instanceof M4, () => value.toSource())
-				assert(info.type != WGL.FLOAT_MAT3 || value.length == 9 || value instanceof M4)
+			    // TODO: better errors
+			    if (WGL.SAMPLER_2D == info.type || WGL.SAMPLER_CUBE == info.type || WGL.INT == info.type) {
+			        if (1 == info.size) {
+			            assert(Number.isInteger(value))
+                    } else {
+			            assert(isIntArray(value) && value.length == info.size, 'value must be int array if info.size != 1')
+                    }
+                }
+                assert(WGL.FLOAT != info.type ||
+                    (1 == info.size && 'number' === typeof value || isFloatArray(value) && info.size == value.length))
+                assert(WGL.FLOAT_VEC3 != info.type ||
+                    (1 == info.size && value instanceof V3 ||
+                        Array.isArray(value) && info.size == value.length && assertVectors(...value)))
+                assert(WGL.FLOAT_VEC4 != info.type || isFloatArray(value) && value.length == 4)
+                assert(WGL.FLOAT_MAT4 != info.type || value instanceof M4, () => value.toSource())
+                assert(WGL.FLOAT_MAT3 != info.type || value.length == 9 || value instanceof M4)
 			}
 			if (value instanceof V3) {
 				value = value.toArray()
 			}
-			if (isArray<any>(value)) {
+			if (value.length) {
 				switch (value.length) {
 					case 1:
 						gl.uniform1fv(location, value)
@@ -191,7 +207,7 @@ class Shader<UniformTypes extends { [uniformName: string]: keyof UniformTypesMap
 					default:
 						throw new Error('don\'t know how to load uniform "' + name + '" of length ' + value.length)
 				}
-			} else if (Number.isInteger(value)) {
+			} else if ('number' == typeof value) {
 				if (WGL.SAMPLER_2D == info.type || WGL.SAMPLER_CUBE == info.type || WGL.INT == info.type) {
 					gl.uniform1i(location, value)
 				} else {

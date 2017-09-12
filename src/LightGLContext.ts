@@ -6,9 +6,6 @@ function currentGL(): LightGLContext {
     return LightGLContext.gl
 }
 const WGL = WebGLRenderingContext
-function isArray<T>(obj: any): obj is T[] {
-	return Array == obj.constructor || Float32Array == obj.constructor || Float64Array == obj.constructor
-}
 function isNumber(obj: any) {
 	const str = Object.prototype.toString.call(obj)
 	return str == '[object Number]' || str == '[object Boolean]'
@@ -66,7 +63,6 @@ class LightGLContext extends WebGLRenderingContext {
 		this.immediate = {
 			mesh: new Mesh()
                 .addVertexBuffer('coords', 'LGL_TexCoord')
-                .addVertexBuffer('vertices', 'LGL_Vertex')
                 .addVertexBuffer('colors', 'LGL_Color'),
 			mode: -1,
 			coord: [0, 0, 0, 0],
@@ -255,7 +251,7 @@ void main() {
 	color(glColor: GL_COLOR): void
     color(...args: any[]) {
         this.immediate.color =
-            (1 == args.length && isArray(args[0])) ? args[0] :
+            (1 == args.length && Array.isArray(args[0])) ? args[0] :
             (1 == args.length && 'number' == typeof args[0]) ? hexIntToGLColor(args[0]) :
             (1 == args.length && 'string' == typeof args[0]) ? chroma(args[0]).gl() :
                 [args[0], args[1], args[2], args[3] || 0]
@@ -477,7 +473,7 @@ enum DRAW_MODES {
 type DRAW_MODES_ENUM = keyof typeof DRAW_MODES
 const x: DRAW_MODES_ENUM = 'TRIANGLES'
 type GL_COLOR = [number, number, number, number]
-const GL_COLOR_BLACK = [0, 0, 0, 1] as GL_COLOR // there's only one constant, use it for default values. Use chroma-js or similar for actual colors.
+const GL_COLOR_BLACK = [0, 0, 0, 1] // there's only one constant, use it for default values. Use chroma-js or similar for actual colors.
 const SHADER_VAR_TYPES = ['FLOAT', 'FLOAT_MAT2', 'FLOAT_MAT3', 'FLOAT_MAT4', 'FLOAT_VEC2', 'FLOAT_VEC3', 'FLOAT_VEC4', 'INT', 'INT_VEC2', 'INT_VEC3', 'INT_VEC4', 'UNSIGNED_INT']
 const DRAW_MODE_CHECKS: {[type: string]: (x: int) => boolean} = {
     [DRAW_MODES.POINTS]: x => true,
