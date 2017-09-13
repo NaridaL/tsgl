@@ -42,8 +42,7 @@ class Texture {
 		 *     })
 	 *
 	 */
-	constructor(width: int, height: int, options: TextureOptions, readonly gl = currentGL()) {
-		options = options || {}
+	constructor(width: int, height: int, options: TextureOptions = {}, readonly gl = currentGL()) {
 		this.texture = gl.createTexture()!
         gl.handleError() // in case createTexture returns null & fails
 		this.width = width
@@ -116,13 +115,13 @@ class Texture {
 		if (gl.checkFramebufferStatus(WGL.FRAMEBUFFER) != WGL.FRAMEBUFFER_COMPLETE) {
 			throw new Error('Rendering to this texture is not supported (incomplete this.framebuffer)')
 		}
+        const viewport = gl.getParameter(WGL.VIEWPORT)
 		gl.viewport(0, 0, this.width, this.height)
 
 		callback(gl)
 
 		gl.bindFramebuffer(WGL.FRAMEBUFFER, null)
 		gl.bindRenderbuffer(WGL.RENDERBUFFER, null)
-        const viewport = gl.getParameter(WGL.VIEWPORT)
 		gl.viewport(viewport[0], viewport[1], viewport[2], viewport[3])
 	}
 
@@ -141,7 +140,6 @@ class Texture {
 		other.height = this.height
 		this.height = temp
 	}
-
 
 	/**
 	 * Return a new texture created from `imgElement`, an `<img>` tag.
@@ -168,7 +166,7 @@ class Texture {
 	/**
 	 * Returns a checkerboard texture that will switch to the correct texture when it loads.
 	 */
-	static fromURL(url: string, options: TextureOptions, gl = currentGL()): Texture {
+	static fromURL(url: string, options: TextureOptions = {}, gl = currentGL()): Texture {
 		Texture.checkerBoardCanvas = Texture.checkerBoardCanvas || (function () {
 				const c = document.createElement('canvas').getContext('2d')
                 if (!c) throw new Error('Could not create 2d canvas.')

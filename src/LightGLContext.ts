@@ -71,7 +71,7 @@ class LightGLContext extends WebGLRenderingContext {
 			shader: new Shader(`
 uniform float pointSize;
 varying vec4 color;
-varying vec4 coord;
+varying vec2 coord;
 void main() {
 	color = LGL_Color;
 	coord = LGL_TexCoord;
@@ -82,7 +82,7 @@ uniform sampler2D texture;
 uniform float pointSize;
 uniform bool useTexture;
 varying vec4 color;
-varying vec4 coord;
+varying vec2 coord;
 void main() {
 	gl_FragColor = color;
 	if (useTexture) gl_FragColor *= texture2D(texture, coord.xy);
@@ -128,10 +128,12 @@ void main() {
 
 	loadIdentity(): void {
 		M4.identity(this[this.currentMatrixName])
+        this.currentMatrixName == 'projectionMatrix' ? this.projectionMatrixVersion++ : this.modelViewMatrixVersion++
 	}
 
 	loadMatrix(m4: M4) {
 		M4.copy(m4, this[this.currentMatrixName])
+        this.currentMatrixName == 'projectionMatrix' ? this.projectionMatrixVersion++ : this.modelViewMatrixVersion++
 	}
 
 	multMatrix(m4: M4) {
@@ -180,7 +182,7 @@ void main() {
 	}
 
 	rotate(angleDegrees: number, x: number, y: number, z: number) {
-		this.multMatrix(M4.rotate(angleDegrees, {x, y, z}, this.tempMatrix))
+		this.multMatrix(M4.rotate(angleDegrees * DEG, {x, y, z}, this.tempMatrix))
 	}
 
 	lookAt(eye: V3, center: V3, up: V3) {
@@ -225,13 +227,14 @@ void main() {
 // debugging. This intentionally doesn't implement fixed-function lighting
 // because it's only meant for quick debugging tasks.
 
-	private immediate: {
-		mesh: Mesh & { coords: [number, number][], vertices: V3[], colors: GL_COLOR[] },
-		mode: DRAW_MODES | -1,
-		coord: [number, number],
-		color: GL_COLOR,
-		pointSize: number,
-		shader: Shader}
+    private immediate: {
+        mesh: Mesh & { coords: [number, number][], vertices: V3[], colors: GL_COLOR[] },
+        mode: DRAW_MODES | -1,
+        coord: [number, number],
+        color: GL_COLOR,
+        pointSize: number,
+        shader: Shader
+    }
 
 	pointSize(pointSize: number): void {
 		this.immediate.shader.uniforms({pointSize: pointSize})
@@ -277,7 +280,7 @@ void main() {
         this.immediate.mesh.compile()
         this.immediate.shader.uniforms({
             useTexture: !!LightGLContext.gl.getParameter(WGL.TEXTURE_BINDING_2D)
-        }).draw(this.immediate.mesh, this.immediate.mode)
+        }).drawBuffers(this.immediate.mesh.vertexBuffers, undefined, this.immediate.mode)
         this.immediate.mode = -1
     }
 
@@ -288,15 +291,10 @@ void main() {
 		LightGLContext.gl = this
 	}
 
-
-	// ### Animation
-	onupdate?: (milliseconds: number) => void
-	ondraw?: () => void
-
 	/**
 	 * Starts an animation loop which calls {@link onupdate} and {@link ondraw}
 	 */
-	animate() {
+	animate(callback: (this: LightGLContext, domHighResTimeStamp: number, timeSinceLast: number) => void): () => void {
 		const requestAnimationFrame: typeof window.requestAnimationFrame =
 			window.requestAnimationFrame ||
 			(window as any).mozRequestAnimationFrame ||
@@ -304,15 +302,15 @@ void main() {
 			function (callback: FrameRequestCallback) {
 				setTimeout(() => callback(performance.now()), 1000 / 60)
 			}
-		let time = new Date().getTime()
-		const update = () => {
-			const now = new Date().getTime()
-			if (this.onupdate) this.onupdate(now - time)
-			if (this.ondraw) this.ondraw()
-			requestAnimationFrame(update)
-			time = now
+		let time = performance.now(), keepUpdating = true
+		const update = (domHighResTimeStamp: number) => {
+		    const now = performance.now()
+            callback.call(this, now, now - time)
+            time = now
+            keepUpdating && requestAnimationFrame(update)
 		}
-		update()
+		requestAnimationFrame(update)
+        return () => { keepUpdating = false }
 	}
 
 
@@ -341,7 +339,7 @@ void main() {
 		camera?: boolean,
 		fov?: number,
 		near?: number,
-		far?: number} = {}): void {
+		far?: number} = {}) {
 
 		const top = options.paddingTop || 0
 		const left = options.paddingLeft || 0
@@ -369,11 +367,11 @@ void main() {
 					options.near || 0.1, options.far || 1000)
 				gl.matrixMode(LightGLContext.MODELVIEW)
 			}
-			if (gl.ondraw) gl.ondraw()
 		}
 
 		window.addEventListener('resize', windowOnResize)
 		windowOnResize()
+        return this
 	}
 
 	viewportFill() {
@@ -473,7 +471,7 @@ enum DRAW_MODES {
 type DRAW_MODES_ENUM = keyof typeof DRAW_MODES
 const x: DRAW_MODES_ENUM = 'TRIANGLES'
 type GL_COLOR = [number, number, number, number]
-const GL_COLOR_BLACK = [0, 0, 0, 1] // there's only one constant, use it for default values. Use chroma-js or similar for actual colors.
+const GL_COLOR_BLACK: GL_COLOR = [0, 0, 0, 1]// there's only one constant, use it for default values. Use chroma-js or similar for actual colors.
 const SHADER_VAR_TYPES = ['FLOAT', 'FLOAT_MAT2', 'FLOAT_MAT3', 'FLOAT_MAT4', 'FLOAT_VEC2', 'FLOAT_VEC3', 'FLOAT_VEC4', 'INT', 'INT_VEC2', 'INT_VEC3', 'INT_VEC4', 'UNSIGNED_INT']
 const DRAW_MODE_CHECKS: {[type: string]: (x: int) => boolean} = {
     [DRAW_MODES.POINTS]: x => true,

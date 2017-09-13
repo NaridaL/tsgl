@@ -8,6 +8,7 @@ interface UniformTypesMap {
     FLOAT_MAT4: M4 | number[]
     FLOAT_MAT3: M4 | number[]
     SAMPLER_2D: int
+    BOOL: boolean
 }
 function isFloatArray(obj: any): obj is number[] | Float64Array | Float32Array {
     return Float32Array == obj.constructor || Float64Array == obj.constructor ||
@@ -81,7 +82,7 @@ class Shader<UniformTypes extends { [uniformName: string]: keyof UniformTypesMap
 	`
 		const vertexHeader = header + `
 		attribute vec4 LGL_Vertex;
-		attribute vec4 LGL_TexCoord;
+		attribute vec2 LGL_TexCoord;
 		attribute vec3 LGL_Normal;
 		attribute vec4 LGL_Color;
 	`
@@ -208,12 +209,14 @@ class Shader<UniformTypes extends { [uniformName: string]: keyof UniformTypesMap
 						throw new Error('don\'t know how to load uniform "' + name + '" of length ' + value.length)
 				}
 			} else if ('number' == typeof value) {
-				if (WGL.SAMPLER_2D == info.type || WGL.SAMPLER_CUBE == info.type || WGL.INT == info.type) {
-					gl.uniform1i(location, value)
-				} else {
-					gl.uniform1f(location, value)
-				}
-			} else if (value instanceof M4) {
+                if (WGL.SAMPLER_2D == info.type || WGL.SAMPLER_CUBE == info.type || WGL.INT == info.type) {
+                    gl.uniform1i(location, value)
+                } else {
+                    gl.uniform1f(location, value)
+                }
+            } else if ('boolean' == typeof value) {
+			    gl.uniform1i(location, +value)
+            } else if (value instanceof M4) {
                 const m = value.m
                 if (WGL.FLOAT_MAT4 == info.type) {
                     gl.uniformMatrix4fv(location, false, [
@@ -257,7 +260,7 @@ class Shader<UniformTypes extends { [uniformName: string]: keyof UniformTypesMap
 		assert(mesh.hasBeenCompiled, 'mesh.hasBeenCompiled')
 		assert(undefined != DRAW_MODES[mode])
         const modeStr: string = DRAW_MODES[mode]
-        assert(mesh.indexBuffers[modeStr], `mesh.indexBuffers[${modeStr}] undefined`)
+        // assert(mesh.indexBuffers[modeStr], `mesh.indexBuffers[${modeStr}] undefined`)
 		return this.drawBuffers(mesh.vertexBuffers, mesh.indexBuffers[modeStr], mode, start, count)
 	}
 

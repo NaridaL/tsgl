@@ -52,7 +52,7 @@ class Buffer {
 	compile(type: int = WGL.STATIC_DRAW, gl = currentGL()): void {
 		assert(WGL.STATIC_DRAW == type || WGL.DYNAMIC_DRAW == type, 'WGL.STATIC_DRAW == type || WGL.DYNAMIC_DRAW == type')
         gl.handleError()
-		this.buffer = this.buffer || gl.createBuffer() as WebGLBuffer
+		this.buffer = this.buffer || gl.createBuffer()!
         gl.handleError()
 		let buffer:  Float32Array | Uint16Array
 		if (this.data.length == 0) {
