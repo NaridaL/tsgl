@@ -148,7 +148,7 @@ class Shader<UniformTypes extends { [uniformName: string]: keyof UniformTypesMap
 
 		for (const name in uniforms) {
 			const location = this.uniformLocations[name] || gl.getUniformLocation(this.program, name)
-			assert(!!location, name + ' uniform is not used in shader')
+			!location && console.warn(name + ' uniform is not used in shader')
 			if (!location) continue
 			this.uniformLocations[name] = location
 			let value: any = uniforms[name] as any
@@ -285,13 +285,13 @@ class Shader<UniformTypes extends { [uniformName: string]: keyof UniformTypesMap
 		// Only varruct up the built-in matrices that are active in the shader
         const on = this.activeMatrices
         const modelViewMatrixInverse = (on['LGL_ModelViewMatrixInverse'] || on['LGL_NormalMatrix'])
-            && this.modelViewMatrixVersion != gl.modelViewMatrixVersion
+            //&& this.modelViewMatrixVersion != gl.modelViewMatrixVersion
             && gl.modelViewMatrix.inversed()
         const projectionMatrixInverse = on['LGL_ProjectionMatrixInverse']
-            && this.projectionMatrixVersion != gl.projectionMatrixVersion
+            //&& this.projectionMatrixVersion != gl.projectionMatrixVersion
             && gl.projectionMatrix.inversed()
         const modelViewProjectionMatrix = (on['LGL_ModelViewProjectionMatrix'] || on['LGL_ModelViewProjectionMatrixInverse'])
-            && (this.projectionMatrixVersion != gl.projectionMatrixVersion || this.modelViewMatrixVersion != gl.modelViewMatrixVersion)
+            //&& (this.projectionMatrixVersion != gl.projectionMatrixVersion || this.modelViewMatrixVersion != gl.modelViewMatrixVersion)
             && gl.projectionMatrix.times(gl.modelViewMatrix)
 
         const uni: { [matrixName: string ]: M4 } = {} // Uniform Matrices

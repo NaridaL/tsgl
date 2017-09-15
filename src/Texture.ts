@@ -76,12 +76,12 @@ class Texture {
 		gl.texImage2D(WGL.TEXTURE_2D, 0, this.format, width, height, 0, this.format, this.type, null)
 	}
 
-	bind(unit: int = 0) {
+	bind(unit: int) {
 		this.gl.activeTexture(WGL.TEXTURE0 + unit)
         this.gl.bindTexture(WGL.TEXTURE_2D, this.texture)
 	}
 
-	unbind(unit: int = 0) {
+	unbind(unit: int) {
         this.gl.activeTexture(WGL.TEXTURE0 + unit)
         this.gl.bindTexture(WGL.TEXTURE_2D, null)
 	}

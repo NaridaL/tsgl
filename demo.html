@@ -14,7 +14,7 @@
 
 <script type="text/javascript">
 	const hash = window.location.hash
-	window.onload = () => eval(hash && hash.substr(1) || 'setupDemo')(LightGLContext.create().fullscreen())
+	window.onload = () => eval(hash && hash.substr(1) || 'setupDemo')(LightGLContext.create({antialias: true}).fullscreen())
 </script>
 </body>
 </html>

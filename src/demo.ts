@@ -486,7 +486,7 @@ async function shadowMap(gl: LightGLContext) {
         // Render the object viewed from the light using a shader that returns the
         // fragment depth.
         const shadowMapMatrix = gl.projectionMatrix.times(gl.modelViewMatrix)
-        depthMap.unbind()
+        depthMap.unbind(0)
         depthMap.drawTo(function() {
             gl.clearColor(1, 1, 1, 1)
             gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
@@ -540,10 +540,11 @@ async function shadowMap(gl: LightGLContext) {
         gl.popMatrix()
 
         // Draw mesh
-        depthMap.bind()
+        depthMap.bind(0)
         displayShader.uniforms({
             shadowMapMatrix: shadowMapMatrix.times(gl.projectionMatrix.times(gl.modelViewMatrix).inversed()),
-            light: gl.modelViewMatrix.transformPoint(light)
+            light: gl.modelViewMatrix.transformPoint(light),
+            depthMap: 0
         }).draw(mesh)
 
         // Draw plane
@@ -689,8 +690,10 @@ async function shadowMap(gl: LightGLContext) {
 //
 //}
 
-function gpuLightMap(gl: LightGLContext) {
+async function gpuLightMap2(gl: LightGLContext) {
+    // modified version of https://evanw.github.io/lightgl.js/tests/gpulightmap.html
 
+    const gazebo = Mesh.load(await fetch('gazebo.json').then(response => response.json()))
 
     let angleX = 0
     let angleY = 0
@@ -698,8 +701,23 @@ function gpuLightMap(gl: LightGLContext) {
         document.write('This demo requires the OES_texture_float and OES_texture_float_linear extensions to run')
         throw new Error('not supported')
     }
+    const texturePlane = Mesh.plane()
+    const textureShader = new Shader(`
+  varying vec2 coord;
+  void main() {
+    coord = LGL_TexCoord;
+    gl_Position = vec4(coord * 2.0 - 1.0, 0.0, 1.0);
+  }
+`, `
+  uniform sampler2D texture;
+  varying vec2 coord;
+  void main() {
+    gl_FragColor = texture2D(texture, coord);
+  }
+`)
 
-    const depthMap = new Texture(1024, 1024, {format: gl.RED})
+    const texture = Texture.fromURL('texture.png')
+    const depthMap = new Texture(1024, 1024, {format: gl.RGB})
     const depthShader = new Shader(`
   varying vec4 pos;
   void main() {
@@ -716,40 +734,28 @@ function gpuLightMap(gl: LightGLContext) {
     const shadowTestShader = new Shader(`
   uniform mat4 shadowMapMatrix;
   uniform vec3 light;
-  attribute vec2 offsetCoord;
   attribute vec4 offsetPosition;
-  varying vec4 coord;
+  varying vec4 shadowMapPos; // position inside the shadow map frustrum
   varying vec3 normal;
 
   void main() {
     normal = LGL_Normal;
-    vec4 pos = offsetPosition;
-
-    /*
-     * This is a hack that avoids leaking light immediately behind polygons by
-     * darkening creases in front of polygons instead. It biases the position
-     * forward toward the light to compensate for the bias away from the light
-     * applied by the fragment shader. This is only necessary because we have
-     * infinitely thin geometry and is not needed with the solid geometry
-     * present in most scenes. I made this hack up and have not seen it before.
-     */
-    pos.xyz += normalize(cross(normal, cross(normal, light))) * 0.02;
-
-    coord = shadowMapMatrix * pos;
-    gl_Position = vec4(offsetCoord * 2.0 - 1.0, 0.0, 1.0);
+    shadowMapPos = shadowMapMatrix * offsetPosition;
+    gl_Position = vec4(LGL_TexCoord * 2.0 - 1.0, 0.0, 1.0);
   }
 `, `
   uniform float sampleCount;
   uniform sampler2D depthMap;
   uniform vec3 light;
-  varying vec4 coord;
+  varying vec4 shadowMapPos;
   varying vec3 normal;
+  uniform vec4 res;
 
   void main() {
     /* Run shadow test */
     const float bias = -0.0025;
-    float depth = texture2D(depthMap, coord.xy / coord.w * 0.5 + 0.5).r;
-    float shadow = (bias + coord.z / coord.w * 0.5 + 0.5 - depth > 0.0) ? 1.0 : 0.0;
+    float depth = texture2D(depthMap, shadowMapPos.xy / shadowMapPos.w * 0.5 + 0.5).r;
+    float shadow = (bias + shadowMapPos.z / shadowMapPos.w * 0.5 + 0.5 - depth > 0.0) ? 1.0 : 0.0;
 
     /* Points on polygons facing away from the light are always in shadow */
     float color = dot(normal, light) > 0.0 ? 1.0 - shadow : 0.0;
@@ -757,81 +763,38 @@ function gpuLightMap(gl: LightGLContext) {
   }
 `)
 
+    /**
+     * Wrapper for a Mesh made only of quads (two triangles in a "square") and
+     * an associated automatically UV-unwrapped texture.
+     */
     class QuadMesh {
-        size: int
-        texelsPerSide: int
         mesh = new Mesh()
             .addVertexBuffer('normals', 'LGL_Normal')
             .addIndexBuffer('TRIANGLES')
             .addVertexBuffer('coords', 'LGL_TexCoord')
             .addVertexBuffer('offsetCoords', 'offsetCoord')
             .addVertexBuffer('offsetPositions', 'offsetPosition')
-        index: int
+        index: int = 0
         lightmapTexture: Texture | undefined
         bounds: { center: V3, radius: number } | undefined
-        sampleCount: int
-
-        constructor(numQuads: int, texelsPerSide: int) {
-            this.size = Math.ceil(Math.sqrt(numQuads))
-            this.texelsPerSide = texelsPerSide
-            this.index = 0
-            this.lightmapTexture = undefined
-            this.bounds = undefined
-            this.sampleCount = 0
-
-            // Also need values offset by 0.5 texels to avoid seams between lightmap cells
-        }
+        sampleCount: int = 0
+        countedQuads = 0
 
 // Add a quad given its four vertices and allocate space for it in the lightmap
         addQuad(a: V3, b: V3, c: V3, d: V3) {
-            const half = 0.5 / this.texelsPerSide
 
             // Add vertices
+            const vl = this.mesh.vertices.length
             this.mesh.vertices.push(a, b, c, d)
 
             // Add normal
-            const normal = b.minus(a).cross(c.minus(a)).unit()
+            const normal = V3.normalOnPoints(a, b, c).unit()
             this.mesh.normals.push(normal, normal, normal, normal)
 
-            // Add fake positions
-            function lerp(x: number, y: number) {
-                return a.times((1 - x) * (1 - y)).plus(b.times(x * (1 - y)))
-                    .plus(c.times((1 - x) * y)).plus(d.times(x * y))
-            }
-
-            this.mesh.offsetPositions.push(lerp(-half, -half))
-            this.mesh.offsetPositions.push(lerp(1 + half, -half))
-            this.mesh.offsetPositions.push(lerp(-half, 1 + half))
-            this.mesh.offsetPositions.push(lerp(1 + half, 1 + half))
-
-            // Compute location of texture cell
-            const i = this.index++
-            const s = i % this.size
-            const t = (i - s) / this.size
-
-            // Coordinates that are in the center of border texels (to avoid leaking)
-            const s0 = (s + half) / this.size
-            const t0 = (t + half) / this.size
-            const s1 = (s + 1 - half) / this.size
-            const t1 = (t + 1 - half) / this.size
-            this.mesh.coords.push([s0, t0])
-            this.mesh.coords.push([s1, t0])
-            this.mesh.coords.push([s0, t1])
-            this.mesh.coords.push([s1, t1])
-
-            // Coordinates that are on the edge of border texels (to avoid cracks when rendering)
-            const rs0 = s / this.size
-            const rt0 = t / this.size
-            const rs1 = (s + 1) / this.size
-            const rt1 = (t + 1) / this.size
-            this.mesh.offsetCoords.push([rs0, rt0])
-            this.mesh.offsetCoords.push([rs1, rt0])
-            this.mesh.offsetCoords.push([rs0, rt1])
-            this.mesh.offsetCoords.push([rs1, rt1])
-
             // A quad is two triangles
-            this.mesh.TRIANGLES.push(4 * i, 4 * i + 1, 4 * i + 3)
-            this.mesh.TRIANGLES.push(4 * i, 4 * i + 3, 4 * i + 2)
+            pushQuad(this.mesh.TRIANGLES, false, vl, vl + 1, vl + 2, vl + 3)
+
+            this.countedQuads++
         }
 
         addDoubleQuad(a: V3, b: V3, c: V3, d: V3) {
@@ -840,14 +803,73 @@ function gpuLightMap(gl: LightGLContext) {
             this.addQuad(a, c, b, d)
         }
 
-        compile() {
+        addCube(m4?: M4) {
+            [
+                [V3.O, V3.Y, V3.X, V3.XY],
+                [V3.Z, new V3(1, 0, 1), new V3(0, 1, 1), V3.XYZ],
+                [V3.O, V3.X, V3.Z, new V3(1, 0, 1)],
+                [V3.X, new V3(1, 1, 0), new V3(1, 0, 1), new V3(1, 1, 1)],
+                [new V3(1, 1, 0), V3.Y, V3.XYZ, new V3(0, 1, 1)],
+                [V3.Y, V3.O, new V3(0, 1, 1), V3.Z],
+            ].forEach(vs => (this.addQuad as any)(...(m4 ? m4.transformedPoints(vs) : vs)))
+        }
+
+        compile(texelsPerSide: int) {
+            const numQuads = this.mesh.vertices.length / 4
+            if (numQuads % 1 != 0) throw new Error('not quads')
+            const quadsPerSide = Math.ceil(Math.sqrt(numQuads))
+
+            for (let i = 0; i < numQuads; i++) {
+                // Compute location of texture cell
+                const s = i % quadsPerSide
+                const t = (i - s) / quadsPerSide
+
+                // Coordinates that are on the edge of border texels (to avoid cracks when rendering)
+                const rs0 = s / quadsPerSide
+                const rt0 = t / quadsPerSide
+                const rs1 = (s + 1) / quadsPerSide
+                const rt1 = (t + 1) / quadsPerSide
+                this.mesh.coords.push(
+                    [rs0, rt0],
+                    [rs1, rt0],
+                    [rs0, rt1],
+                    [rs1, rt1])
+
+                const half = 1 / texelsPerSide
+
+                const [a,b,c,d] = this.mesh.vertices.slice(i * 4, (i + 1) * 4)
+                // Add fake positions
+                function bilerp(x: number, y: number) {
+                    return a.times((1-x)*(1-y)).plus(b.times(x*(1-y)))
+                        .plus(c.times((1-x)*y)).plus(d.times(x*y))
+                }
+
+                this.mesh.offsetPositions.push(
+                    bilerp(-half, -half),
+                    bilerp(1 + half, -half),
+                    bilerp(-half, 1 + half),
+                    bilerp(1 + half, 1 + half))
+
+                const s0 = (s + half) / quadsPerSide
+                const t0 = (t + half) / quadsPerSide
+                const s1 = (s + 1 - half) / quadsPerSide
+                const t1 = (t + 1 - half) / quadsPerSide
+                this.mesh.offsetCoords.push(
+                    [s0, t0],
+                    [s1, t0],
+                    [s0, t1],
+                    [s1, t1])
+
+            }
             // Finalize mesh
             this.mesh.compile()
             this.bounds = this.mesh.getBoundingSphere()
 
             // Create textures
-            const size = this.size * this.texelsPerSide
-            this.lightmapTexture = new Texture(size, size, {format: gl.RED, type: gl.FLOAT})
+            const textureSize = quadsPerSide * texelsPerSide
+            console.log('texture size: ' + textureSize)
+            this.lightmapTexture = new Texture(textureSize, textureSize,
+                {format: gl.RGB, type: gl.FLOAT, filter: gl.LINEAR})
         }
 
         drawShadow(dir: V3) {
@@ -868,24 +890,21 @@ function gpuLightMap(gl: LightGLContext) {
             // Render the object viewed from the light using a shader that returns the fragment depth
             const mesh = this.mesh
             const shadowMapMatrix = gl.projectionMatrix.times(gl.modelViewMatrix)
-            depthMap.drawTo(function () {
+            depthMap.drawTo(function (gl) {
+                gl.enable(gl.DEPTH_TEST)
                 gl.clearColor(1, 1, 1, 1)
                 gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
                 depthShader.draw(mesh)
             })
 
-            // Reset the transform
-            gl.matrixMode(gl.PROJECTION)
-            gl.popMatrix()
-            gl.matrixMode(gl.MODELVIEW)
-            gl.popMatrix()
-
-            // Run the shadow test for each texel in the lightmap and
-            // accumulate that onto the existing lightmap contents
+            //Run the shadow test for each texel in the lightmap and
+            //accumulate that onto the existing lightmap contents
             const sampleCount = this.sampleCount++
-            depthMap.bind()
-            this.lightmapTexture!.drawTo(function () {
+            depthMap.bind(0)
+            this.lightmapTexture!.drawTo(function (gl) {
                 gl.enable(gl.BLEND)
+                gl.disable(gl.CULL_FACE)
+                gl.disable(gl.DEPTH_TEST)
                 gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
                 shadowTestShader.uniforms({
                     shadowMapMatrix: shadowMapMatrix,
@@ -894,56 +913,74 @@ function gpuLightMap(gl: LightGLContext) {
                 }).draw(mesh)
                 gl.disable(gl.BLEND)
             })
-            depthMap.unbind()
+            depthMap.unbind(0)
+
+            // Reset the transform
+            gl.matrixMode(gl.PROJECTION)
+            gl.popMatrix()
+            gl.matrixMode(gl.MODELVIEW)
+            gl.popMatrix()
         }
     }
 
 // Make a mesh of quads
     const numArcQuads = 32
     const groundTilesPerSide = 5
-    const quadMesh = new QuadMesh((numArcQuads + groundTilesPerSide * groundTilesPerSide) * 2, 64)
+    const quadMesh = new QuadMesh()
 // Arc of randomly oriented quads
+    quadMesh.addCube(M4.multiplyMultiple(
+        M4.translate(0, 0, -0.2),
+        M4.rotateAB(V3.XYZ, V3.Z)))
     for (let i = 0; i < numArcQuads; i++) {
-        const r = 0.3
-        const center = V3.sphere(0, (i + Math.random()) / numArcQuads * Math.PI)
-        const a = V3.randomUnit().times(r)
-        const b = V3.randomUnit().cross(a).toLength(r)
-        quadMesh.addDoubleQuad(
-            center.minus(a).minus(b),
-            center.minus(a).plus(b),
-            center.plus(a).minus(b),
-            center.plus(a).plus(b)
-        )
+        const r = 0.4
+        const t = i / numArcQuads * TAU
+        const center = V(0, 0, Math.sqrt(3) / 2 - 0.2).plus(V(0, 1.5,0).times(Math.cos(t))).plus(V(1, 0,-1).toLength(1.5).times(Math.sin(t)))
+        // const center = V3.sphere(0, (i + Math.random()) / numArcQuads * Math.PI)
+        const a = V3.randomUnit()
+        const b = V3.randomUnit().cross(a).unit()
+        quadMesh.addCube(M4.multiplyMultiple(
+            M4.translate(center),
+            M4.forSys(a, b),
+            M4.scale(r,r,r),
+            M4.translate(-0.5,-0.5,-0.5)))
+        // quadMesh.addDoubleQuad(
+        //     center.minus(a).minus(b),
+        //     center.minus(a).plus(b),
+        //     center.plus(a).minus(b),
+        //     center.plus(a).plus(b)
+        // )
     }
-// Plane of quads
+
+    // Plane of quads
     for (let x = 0; x < groundTilesPerSide; x++) {
         for (let z = 0; z < groundTilesPerSide; z++) {
             const dx = x - groundTilesPerSide / 2
             const dz = z - groundTilesPerSide / 2
-            quadMesh.addDoubleQuad(
+            quadMesh.addQuad(
                 new V3(dx, dz, 0),
-                new V3(dx, dz + 1, 0),
                 new V3(dx + 1, dz, 0),
+                new V3(dx, dz + 1, 0),
                 new V3(dx + 1, dz + 1, 0)
             )
         }
     }
-    quadMesh.compile()
+    quadMesh.compile(128)
 
 // The mesh will be drawn with texture mapping
     const mesh = quadMesh.mesh
     const textureMapShader = new Shader(`
-  varying vec2 coord;
-  void main() {
-    coord = LGL_TexCoord;
-    gl_Position = LGL_ModelViewProjectionMatrix * LGL_Vertex;
-  }
+        attribute vec2 offsetCoord;
+        varying vec2 coord;
+        void main() {
+            coord = offsetCoord;
+            gl_Position = LGL_ModelViewProjectionMatrix * LGL_Vertex;
+        }
 `, `
-  uniform sampler2D texture;
-  varying vec2 coord;
-  void main() {
-    gl_FragColor = texture2D(texture, coord);
-  }
+        uniform sampler2D texture;
+        varying vec2 coord;
+        void main() {
+            gl_FragColor = texture2D(texture, coord);
+        }
 `)
 
 
@@ -964,33 +1001,51 @@ function gpuLightMap(gl: LightGLContext) {
     gl.enable(gl.CULL_FACE)
     gl.enable(gl.DEPTH_TEST)
 
-    // setup camera
-    gl.matrixMode(gl.PROJECTION)
-    gl.loadIdentity()
-    gl.perspective(70, gl.canvas.width / gl.canvas.height, 0.1, 1000)
-    gl.lookAt(V(0, -2, 1.5), V3.O, V3.Z)
-    gl.matrixMode(gl.MODELVIEW)
+    const lightDir = V3.XYZ
+    const ambientFraction = 0.4
 
+    let frame = 0
     return gl.animate(function (abs, diff) {
+        frame++
+         //if (frame % 60 != 0) return
         const gl = this
+
+        gl.enable(gl.CULL_FACE)
         gl.clearColor(0.9, 0.9, 0.9, 1)
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
+
+        // setup camera
+        gl.matrixMode(gl.PROJECTION)
         gl.loadIdentity()
-        gl.translate(0, 0, -4)
+        gl.perspective(70, gl.canvas.width / gl.canvas.height, 0.1, 1000)
+        gl.lookAt(V(0, -3, 3), V3.O, V3.Z)
+
+        gl.matrixMode(gl.MODELVIEW)
+        gl.loadIdentity()
         gl.rotate(angleX, 1, 0, 0)
-        gl.rotate(angleY, 0, 1, 0)
-        gl.translate(0, -0.25, 0)
+        gl.rotate(angleY, 0, 0, 1)
 
         // Alternate between a shadow from a random point on the sky hemisphere
         // and a random point near the light (creates a soft shadow)
-        let dir = V3.randomUnit()
         flip = !flip
-        if (flip) dir = new V3(1, 1, 1).plus(dir.times(0.3 * Math.sqrt(Math.random()))).unit()
+        const dir = Math.random() < ambientFraction
+            ? V3.randomUnit()
+            : lightDir.plus(V3.randomUnit().times(0.1 * Math.sqrt(Math.random()))).unit()
         quadMesh.drawShadow(dir.z < 0 ? dir.negated() : dir)
 
         // Draw the mesh with the ambient occlusion so far
-        quadMesh.lightmapTexture!.bind()
+        gl.enable(gl.DEPTH_TEST)
+        gl.enable(gl.CULL_FACE)
+        quadMesh.lightmapTexture!.bind(0)
         textureMapShader.draw(mesh)
+
+        // Draw depth map overlay
+        gl.disable(gl.CULL_FACE)
+        quadMesh.lightmapTexture!.bind(0)
+        gl.viewport(10, 10, 10 + 256, 10 + 256)
+        textureShader.draw(texturePlane)
+        gl.viewport(0, 0, gl.canvas.width, gl.canvas.height)
+
     })
 
 }
