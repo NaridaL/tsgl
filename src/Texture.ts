@@ -46,44 +46,43 @@ class Texture {
 		this.texture = gl.createTexture()!
         gl.handleError() // in case createTexture returns null & fails
 		this.width = width
-        this.gl = gl
 		this.height = height
-		this.format = options.format || WGL.RGBA
-		this.type = options.type || WGL.UNSIGNED_BYTE
-		const magFilter = options.filter || options.magFilter || WGL.LINEAR
-		const minFilter = options.filter || options.minFilter || WGL.LINEAR
-		if (this.type === WGL.FLOAT) {
+		this.format = options.format || gl.RGBA
+		this.type = options.type || gl.UNSIGNED_BYTE
+		const magFilter = options.filter || options.magFilter || gl.LINEAR
+		const minFilter = options.filter || options.minFilter || gl.LINEAR
+		if (this.type === gl.FLOAT) {
 			if (!gl.getExtension('OES_texture_float')) {
 				throw new Error('OES_texture_float is required but not supported')
 			}
-			if ((minFilter !== WGL.NEAREST || magFilter !== WGL.NEAREST) && !gl.getExtension('OES_texture_float_linear')) {
+			if ((minFilter !== gl.NEAREST || magFilter !== gl.NEAREST) && !gl.getExtension('OES_texture_float_linear')) {
 				throw new Error('OES_texture_float_linear is required but not supported')
 			}
 		} else if (this.type === LightGLContext.HALF_FLOAT_OES) {
 			if (!gl.getExtension('OES_texture_half_float')) {
 				throw new Error('OES_texture_half_float is required but not supported')
 			}
-			if ((minFilter !== WGL.NEAREST || magFilter !== WGL.NEAREST) && !gl.getExtension('OES_texture_half_float_linear')) {
+			if ((minFilter !== gl.NEAREST || magFilter !== gl.NEAREST) && !gl.getExtension('OES_texture_half_float_linear')) {
 				throw new Error('OES_texture_half_float_linear is required but not supported')
 			}
 		}
-		gl.bindTexture(WGL.TEXTURE_2D, this.texture)
-		gl.pixelStorei(WGL.UNPACK_FLIP_Y_WEBGL, 1)
-		gl.texParameteri(WGL.TEXTURE_2D, WGL.TEXTURE_MAG_FILTER, magFilter)
-		gl.texParameteri(WGL.TEXTURE_2D, WGL.TEXTURE_MIN_FILTER, minFilter)
-		gl.texParameteri(WGL.TEXTURE_2D, WGL.TEXTURE_WRAP_S, options.wrap || options.wrapS || WGL.CLAMP_TO_EDGE)
-		gl.texParameteri(WGL.TEXTURE_2D, WGL.TEXTURE_WRAP_T, options.wrap || options.wrapT || WGL.CLAMP_TO_EDGE)
-		gl.texImage2D(WGL.TEXTURE_2D, 0, this.format, width, height, 0, this.format, this.type, null)
+		gl.bindTexture(gl.TEXTURE_2D, this.texture)
+		gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1)
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, magFilter)
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, minFilter)
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, options.wrap || options.wrapS || gl.CLAMP_TO_EDGE)
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, options.wrap || options.wrapT || gl.CLAMP_TO_EDGE)
+		gl.texImage2D(gl.TEXTURE_2D, 0, this.format, width, height, 0, this.format, this.type, null)
 	}
 
 	bind(unit: int) {
-		this.gl.activeTexture(WGL.TEXTURE0 + unit)
-        this.gl.bindTexture(WGL.TEXTURE_2D, this.texture)
+		this.gl.activeTexture(this.gl.TEXTURE0 + unit)
+        this.gl.bindTexture(this.gl.TEXTURE_2D, this.texture)
 	}
 
 	unbind(unit: int) {
-        this.gl.activeTexture(WGL.TEXTURE0 + unit)
-        this.gl.bindTexture(WGL.TEXTURE_2D, null)
+        this.gl.activeTexture(this.gl.TEXTURE0 + unit)
+        this.gl.bindTexture(this.gl.TEXTURE_2D, null)
 	}
 
 	private framebuffer: WebGLFramebuffer
@@ -92,10 +91,10 @@ class Texture {
 	canDrawTo() {
 	    const gl = this.gl
 		this.framebuffer = this.framebuffer || gl.createFramebuffer()
-		gl.bindFramebuffer(WGL.FRAMEBUFFER, this.framebuffer)
-		gl.framebufferTexture2D(WGL.FRAMEBUFFER, WGL.COLOR_ATTACHMENT0, WGL.TEXTURE_2D, this.texture, 0)
-		const result = gl.checkFramebufferStatus(WGL.FRAMEBUFFER) == WGL.FRAMEBUFFER_COMPLETE
-		gl.bindFramebuffer(WGL.FRAMEBUFFER, null)
+		gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebuffer)
+		gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.texture, 0)
+		const result = gl.checkFramebufferStatus(gl.FRAMEBUFFER) == gl.FRAMEBUFFER_COMPLETE
+		gl.bindFramebuffer(gl.FRAMEBUFFER, null)
 		return result
 	}
 
@@ -103,25 +102,25 @@ class Texture {
 	    const gl = this.gl
 		this.framebuffer = this.framebuffer || gl.createFramebuffer()
 		this.renderbuffer = this.renderbuffer || gl.createRenderbuffer() as any
-		gl.bindFramebuffer(WGL.FRAMEBUFFER, this.framebuffer)
-		gl.bindRenderbuffer(WGL.RENDERBUFFER, this.renderbuffer)
+		gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebuffer)
+		gl.bindRenderbuffer(gl.RENDERBUFFER, this.renderbuffer)
 		if (this.width != this.renderbuffer.width || this.height != this.renderbuffer.height) {
 			this.renderbuffer.width = this.width
 			this.renderbuffer.height = this.height
-			gl.renderbufferStorage(WGL.RENDERBUFFER, WGL.DEPTH_COMPONENT16, this.width, this.height)
+			gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, this.width, this.height)
 		}
-		gl.framebufferTexture2D(WGL.FRAMEBUFFER, WGL.COLOR_ATTACHMENT0, WGL.TEXTURE_2D, this.texture, 0)
-		gl.framebufferRenderbuffer(WGL.FRAMEBUFFER, WGL.DEPTH_ATTACHMENT, WGL.RENDERBUFFER, this.renderbuffer)
-		if (gl.checkFramebufferStatus(WGL.FRAMEBUFFER) != WGL.FRAMEBUFFER_COMPLETE) {
+		gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.texture, 0)
+		gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, this.renderbuffer)
+		if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) != gl.FRAMEBUFFER_COMPLETE) {
 			throw new Error('Rendering to this texture is not supported (incomplete this.framebuffer)')
 		}
-        const viewport = gl.getParameter(WGL.VIEWPORT)
+        const viewport = gl.getParameter(gl.VIEWPORT)
 		gl.viewport(0, 0, this.width, this.height)
 
 		callback(gl)
 
-		gl.bindFramebuffer(WGL.FRAMEBUFFER, null)
-		gl.bindRenderbuffer(WGL.RENDERBUFFER, null)
+		gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+		gl.bindRenderbuffer(gl.RENDERBUFFER, null)
 		gl.viewport(viewport[0], viewport[1], viewport[2], viewport[3])
 	}
 
@@ -148,7 +147,7 @@ class Texture {
 		options = options || {}
 		const texture = new Texture(imgElement.width, imgElement.height, options)
 		try {
-			gl.texImage2D(WGL.TEXTURE_2D, 0, texture.format, texture.format, texture.type, imgElement)
+			gl.texImage2D(gl.TEXTURE_2D, 0, texture.format, texture.format, texture.type, imgElement)
 		} catch (e) {
 			if (location.protocol == 'file:') {
 				throw new Error('imgElement not loaded for security reasons (serve this page over "http://" instead)')
@@ -157,8 +156,8 @@ class Texture {
 					'domain as this page or use Cross-Origin Resource Sharing)')
 			}
 		}
-		if (options.minFilter && options.minFilter != WGL.NEAREST && options.minFilter != WGL.LINEAR) {
-			gl.generateMipmap(WGL.TEXTURE_2D)
+		if (options.minFilter && options.minFilter != gl.NEAREST && options.minFilter != gl.LINEAR) {
+			gl.generateMipmap(gl.TEXTURE_2D)
 		}
 		return texture
 	}

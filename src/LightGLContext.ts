@@ -11,13 +11,15 @@ function isNumber(obj: any) {
 	return str == '[object Number]' || str == '[object Boolean]'
 }
 type UniformType = V3 | M4 | number[] | boolean | number
-class LightGLContext extends WebGLRenderingContext {
+
+// awkward cast so the super() call doesn't fail
+class LightGLContext extends (Object as any as typeof WebGLRenderingContext) {
 	modelViewMatrix: M4 = new M4()
 	projectionMatrix: M4 = new M4()
-	static readonly MODELVIEW = {}
-	static readonly PROJECTION = {}
-	MODELVIEW = {}
-	PROJECTION = {}
+	static readonly MODELVIEW: { __MATRIX_MODE_CONSTANT: any } = 0 as any
+	static readonly PROJECTION: { __MATRIX_MODE_CONSTANT: any } = 1 as any
+	MODELVIEW = LightGLContext.MODELVIEW
+	PROJECTION = LightGLContext.PROJECTION
 
 
 	static HALF_FLOAT_OES: int = 0x8D61
@@ -27,103 +29,37 @@ class LightGLContext extends WebGLRenderingContext {
 	private resultMatrix = new M4()
 	private modelViewStack: M4[] = []
 	private projectionStack: M4[] = []
+	private currentMatrix: M4
 	private currentMatrixName: 'modelViewMatrix' | 'projectionMatrix'
 	private stack: M4[]
 
 	meshes: { [name: string]: Mesh }
 	shaders: { [name: string]: Shader }
-    public drawCallCount: int
-    public projectionMatrixVersion: int
-	public modelViewMatrixVersion: int
+    public drawCallCount: int = 0
+    public projectionMatrixVersion: int = 0
+	public modelViewMatrixVersion: int = 0
 
-	protected constructor() {
+	protected constructor(gl: LightGLContext) {
 		super()
-	}
-
-	init() {
-		this.modelViewMatrix = new M4()
-		this.projectionMatrix = new M4()
-        this.drawCallCount = 0
-        this.projectionMatrixVersion = 0
-        this.modelViewMatrixVersion = 0
-		this.tempMatrix = new M4()
-		this.resultMatrix = new M4()
-		this.modelViewStack = []
-		this.projectionStack = []
-		/////////// IMMEDIATE MODE
-		// ### Immediate mode
-		//
-		// Provide an implementation of OpenGL's deprecated immediate mode. This is
-		// depricated for a reason: constantly re-specifying the geometry is a bad
-		// idea for performance. You should use a `GL.Mesh` instead, which specifies
-		// the geometry once and caches it on the graphics card. Still, nothing
-		// beats a quick `viewerGL.begin(WGL.POINTS); viewerGL.vertex(1, 2, 3); viewerGL.end();` for
-		// debugging. This intentionally doesn't implement fixed-function lighting
-		// because it's only meant for quick debugging tasks.
-		this.immediate = {
-			mesh: new Mesh()
-                .addVertexBuffer('coords', 'LGL_TexCoord')
-                .addVertexBuffer('colors', 'LGL_Color'),
-			mode: -1,
-			coord: [0, 0, 0, 0],
-			color: [1, 1, 1, 1],
-			pointSize: 1,
-			shader: new Shader(`
-uniform float pointSize;
-varying vec4 color;
-varying vec2 coord;
-void main() {
-	color = LGL_Color;
-	coord = LGL_TexCoord;
-	gl_Position = LGL_ModelViewProjectionMatrix * LGL_Vertex;
-	gl_PointSize = pointSize;
-}`, `
-uniform sampler2D texture;
-uniform float pointSize;
-uniform bool useTexture;
-varying vec4 color;
-varying vec2 coord;
-void main() {
-	gl_FragColor = color;
-	if (useTexture) gl_FragColor *= texture2D(texture, coord.xy);
-}`) }
-		this.matrixMode(LightGLContext.MODELVIEW)
+        this.matrixMode(LightGLContext.MODELVIEW)
 	}
 
 	/// Implement the OpenGL modelview and projection matrix stacks, along with some other useful GLU matrix functions.
-
-	matrixMode(mode: any): void {
+	matrixMode(mode: { __MATRIX_MODE_CONSTANT: any }): void {
 		switch (mode) {
 			case this.MODELVIEW:
 				this.currentMatrixName = 'modelViewMatrix'
+                //this.currentMatrix = this.modelViewMatrix
 				this.stack = this.modelViewStack
 				break
 			case this.PROJECTION:
 				this.currentMatrixName = 'projectionMatrix'
+                //this.currentMatrix = this.projectionMatrix
 				this.stack = this.projectionStack
 				break
 			default:
 				throw new Error('invalid matrix mode ' + mode)
 		}
-	}
-
-	modelViewMode() {
-		Object.defineProperty(LightGLContext.gl, 'currentMatrix', {
-			get: function () {
-				return this.modelViewMatrix
-			},
-			set: function (val) {
-				this.modelViewMatrix = val
-			},
-			writable: true
-		})
-		this.currentMatrixName = 'modelViewMatrix'
-		this.stack = this.modelViewStack
-	}
-
-	projectionMode(): void {
-		this.currentMatrixName = 'projectionMatrix'
-		this.stack = this.projectionStack
 	}
 
 	loadIdentity(): void {
@@ -215,38 +151,58 @@ void main() {
         return M4.multiplyMultiple(viewportToScreenMatrix, this.projectionMatrix, this.modelViewMatrix)
     }
 
-
 	/////////// IMMEDIATE MODE
 	// ### Immediate mode
-//
-// Provide an implementation of OpenGL's deprecated immediate mode. This is
-// depricated for a reason: constantly re-specifying the geometry is a bad
-// idea for performance. You should use a `GL.Mesh` instead, which specifies
-// the geometry once and caches it on the graphics card. Still, nothing
-// beats a quick `viewerGL.begin(WGL.POINTS); viewerGL.vertex(1, 2, 3); viewerGL.end();` for
-// debugging. This intentionally doesn't implement fixed-function lighting
-// because it's only meant for quick debugging tasks.
+    //
+    // Provide an implementation of OpenGL's deprecated immediate mode. This is
+    // deprecated for a reason: constantly re-specifying the geometry is a bad
+    // idea for performance. You should use a `GL.Mesh` instead, which specifies
+    // the geometry once and caches it on the graphics card. Still, nothing
+    // beats a quick `viewerGL.begin(WGL.POINTS); viewerGL.vertex(1, 2, 3); viewerGL.end();` for
+    // debugging. This intentionally doesn't implement fixed-function lighting
+    // because it's only meant for quick debugging tasks.
+    private immediate = {
+        mesh: new Mesh()
+            .addVertexBuffer('coords', 'LGL_TexCoord')
+            .addVertexBuffer('colors', 'LGL_Color'),
+        mode: -1 as DRAW_MODES | -1,
+        coord: [0, 0] as [number, number],
+        color: [1, 1, 1, 1] as GL_COLOR,
+        pointSize: 1,
+        shader: new Shader(`
+            uniform float pointSize;
+            varying vec4 color;
+            varying vec2 coord;
+            void main() {
+                color = LGL_Color;
+                coord = LGL_TexCoord;
+                gl_Position = LGL_ModelViewProjectionMatrix * LGL_Vertex;
+                gl_PointSize = pointSize;
+            }
+        `, `
+            uniform sampler2D texture;
+            uniform float pointSize;
+            uniform bool useTexture;
+            varying vec4 color;
+            varying vec2 coord;
+            void main() {
+                gl_FragColor = color;
+                if (useTexture) gl_FragColor *= texture2D(texture, coord.xy);
+            }
+        `),
+	}
 
-    private immediate: {
-        mesh: Mesh & { coords: [number, number][], vertices: V3[], colors: GL_COLOR[] },
-        mode: DRAW_MODES | -1,
-        coord: [number, number],
-        color: GL_COLOR,
-        pointSize: number,
-        shader: Shader
+    pointSize(pointSize: number): void {
+        this.immediate.shader.uniforms({pointSize: pointSize})
     }
 
-	pointSize(pointSize: number): void {
-		this.immediate.shader.uniforms({pointSize: pointSize})
-	}
-
-	begin(mode: DRAW_MODES | -1) {
-		if (this.immediate.mode != -1) throw new Error('mismatched viewerGL.begin() and viewerGL.end() calls')
-		this.immediate.mode = mode
-		this.immediate.mesh.colors = []
-		this.immediate.mesh.coords = []
-		this.immediate.mesh.vertices = []
-	}
+    begin(mode: DRAW_MODES | -1) {
+        if (this.immediate.mode != -1) throw new Error('mismatched viewerGL.begin() and viewerGL.end() calls')
+        this.immediate.mode = mode
+        this.immediate.mesh.colors = []
+        this.immediate.mesh.coords = []
+        this.immediate.mesh.vertices = []
+    }
 
 	color(cssColor: string): void
 	color(r: number, g: number, b: number, a?: number): void
@@ -292,7 +248,7 @@ void main() {
 	}
 
 	/**
-	 * Starts an animation loop which calls {@link onupdate} and {@link ondraw}
+	 * Starts an animation loop.
 	 */
 	animate(callback: (this: LightGLContext, domHighResTimeStamp: number, timeSinceLast: number) => void): () => void {
 		const requestAnimationFrame: typeof window.requestAnimationFrame =
@@ -411,9 +367,9 @@ void main() {
         }
         if (!newGL) throw new Error('WebGL not supported')
 
-        addOwnProperties(newGL, LightGLContext.prototype)
         LightGLContext.gl = newGL
-        newGL.init()
+        addOwnProperties(newGL, LightGLContext.prototype)
+        addOwnProperties(newGL, new LightGLContext(newGL))
         //addEventListeners(newGL)
         return newGL
     }
@@ -473,12 +429,12 @@ const x: DRAW_MODES_ENUM = 'TRIANGLES'
 type GL_COLOR = [number, number, number, number]
 const GL_COLOR_BLACK: GL_COLOR = [0, 0, 0, 1]// there's only one constant, use it for default values. Use chroma-js or similar for actual colors.
 const SHADER_VAR_TYPES = ['FLOAT', 'FLOAT_MAT2', 'FLOAT_MAT3', 'FLOAT_MAT4', 'FLOAT_VEC2', 'FLOAT_VEC3', 'FLOAT_VEC4', 'INT', 'INT_VEC2', 'INT_VEC3', 'INT_VEC4', 'UNSIGNED_INT']
-const DRAW_MODE_CHECKS: {[type: string]: (x: int) => boolean} = {
+const DRAW_MODE_CHECKS: { [type: string]: (x: int) => boolean } = {
     [DRAW_MODES.POINTS]: x => true,
     [DRAW_MODES.LINES]: x => 0 == x % 2, // divisible by 2
     [DRAW_MODES.LINE_STRIP]: x => x > 2, // need at least 2
     [DRAW_MODES.LINE_LOOP]: x => x > 2, // more like > 3, but oh well
     [DRAW_MODES.TRIANGLES]: x => 0 == x % 3, // divisible by 3
     [DRAW_MODES.TRIANGLE_STRIP]: x => x > 3,
-    [DRAW_MODES.TRIANGLE_FAN]: x => x > 3
+    [DRAW_MODES.TRIANGLE_FAN]: x => x > 3,
 }

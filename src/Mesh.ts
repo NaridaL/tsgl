@@ -98,7 +98,7 @@ class Mesh extends Transformable {
 	 *
 	 * Sets `this.hasBeenCompiled` to true.
 	 */
-	compile() {
+	compile(gl = currentGL()) {
 		// figure out shortest vertex buffer to make sure indexBuffers are in bounds
 		let minVertexBufferLength = Infinity, minBufferName
 		Object.getOwnPropertyNames(this.vertexBuffers).forEach(attribute => {
@@ -114,7 +114,7 @@ class Mesh extends Transformable {
 		for (const name in this.indexBuffers) {
 			const buffer = this.indexBuffers[name]
 			buffer.data = (this as any)[buffer.name!]
-			buffer.compile()
+			buffer.compile(undefined, gl)
 			// if (NLA_DEBUG && buffer.maxValue >= minVertexBufferLength) {
 			// 	throw new Error(`max index value for buffer ${name}
 			// 	is too large ${buffer.maxValue} min Vbuffer size: ${minVertexBufferLength} ${minBufferName}`)

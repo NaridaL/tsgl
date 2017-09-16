@@ -155,21 +155,21 @@ class Shader<UniformTypes extends { [uniformName: string]: keyof UniformTypesMap
 			const info = this.uniformInfos[name]
 			if (NLA_DEBUG) {
 			    // TODO: better errors
-			    if (WGL.SAMPLER_2D == info.type || WGL.SAMPLER_CUBE == info.type || WGL.INT == info.type) {
+			    if (gl.SAMPLER_2D == info.type || gl.SAMPLER_CUBE == info.type || gl.INT == info.type) {
 			        if (1 == info.size) {
 			            assert(Number.isInteger(value))
                     } else {
 			            assert(isIntArray(value) && value.length == info.size, 'value must be int array if info.size != 1')
                     }
                 }
-                assert(WGL.FLOAT != info.type ||
+                assert(gl.FLOAT != info.type ||
                     (1 == info.size && 'number' === typeof value || isFloatArray(value) && info.size == value.length))
-                assert(WGL.FLOAT_VEC3 != info.type ||
+                assert(gl.FLOAT_VEC3 != info.type ||
                     (1 == info.size && value instanceof V3 ||
                         Array.isArray(value) && info.size == value.length && assertVectors(...value)))
-                assert(WGL.FLOAT_VEC4 != info.type || isFloatArray(value) && value.length == 4)
-                assert(WGL.FLOAT_MAT4 != info.type || value instanceof M4, () => value.toSource())
-                assert(WGL.FLOAT_MAT3 != info.type || value.length == 9 || value instanceof M4)
+                assert(gl.FLOAT_VEC4 != info.type || isFloatArray(value) && value.length == 4)
+                assert(gl.FLOAT_MAT4 != info.type || value instanceof M4, () => value.toSource())
+                assert(gl.FLOAT_MAT3 != info.type || value.length == 9 || value instanceof M4)
 			}
 			if (value instanceof V3) {
 				value = value.toArray()
@@ -209,7 +209,7 @@ class Shader<UniformTypes extends { [uniformName: string]: keyof UniformTypesMap
 						throw new Error('don\'t know how to load uniform "' + name + '" of length ' + value.length)
 				}
 			} else if ('number' == typeof value) {
-                if (WGL.SAMPLER_2D == info.type || WGL.SAMPLER_CUBE == info.type || WGL.INT == info.type) {
+                if (gl.SAMPLER_2D == info.type || gl.SAMPLER_CUBE == info.type || gl.INT == info.type) {
                     gl.uniform1i(location, value)
                 } else {
                     gl.uniform1f(location, value)
@@ -218,18 +218,18 @@ class Shader<UniformTypes extends { [uniformName: string]: keyof UniformTypesMap
 			    gl.uniform1i(location, +value)
             } else if (value instanceof M4) {
                 const m = value.m
-                if (WGL.FLOAT_MAT4 == info.type) {
+                if (gl.FLOAT_MAT4 == info.type) {
                     gl.uniformMatrix4fv(location, false, [
                         m[0], m[4], m[8], m[12],
                         m[1], m[5], m[9], m[13],
                         m[2], m[6], m[10], m[14],
                         m[3], m[7], m[11], m[15]])
-                } else if (WGL.FLOAT_MAT3 == info.type) {
+                } else if (gl.FLOAT_MAT3 == info.type) {
                     gl.uniformMatrix3fv(location, false, [
                         m[0], m[4], m[8],
                         m[1], m[5], m[9],
                         m[2], m[6], m[10]])
-                } else if (WGL.FLOAT_MAT2 == info.type) {
+                } else if (gl.FLOAT_MAT2 == info.type) {
                     gl.uniformMatrix2fv(location, false, new Float32Array([
                         m[0], m[4],
                         m[1], m[5]]))
