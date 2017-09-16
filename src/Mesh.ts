@@ -1,23 +1,15 @@
-import {AABB, arrayFromFunction, assert, assertVectors, int, lerp, M4, NLA_PRECISION, raddd, Transformable, V3} from 'ts3dutils'
-
-import {Buffer} from './Buffer'
-import {pushQuad, WGL} from './LightGLContext'
-
-const {min, max, PI, sin, cos} = Math
-
-export class Mesh extends Transformable {
+class Mesh extends Transformable {
 	hasBeenCompiled: boolean = false
-	vertexBuffers: {[name: string]: Buffer} = {}
-	indexBuffers: {[name: string]: Buffer} = {}
+    vertexBuffers: { [name: string]: Buffer } = {}
+    indexBuffers: { [name: string]: Buffer } = {}
 
 
 	vertices: V3[]
 	normals?: V3[]
-	coords?: any[]
-	colors?: any[]
-	//TRIANGLES?: int[]
-	//LINES?: int[]
-	[name: string]: any
+	coords?: [number, number][]
+	colors?: GL_COLOR[]
+	TRIANGLES?: int[]
+	LINES?: int[]
 
     constructor() {
 		super()
@@ -27,10 +19,10 @@ export class Mesh extends Transformable {
 		//if (options.colors) this.addVertexBuffer('colors', 'LGL_Color')
 	}
 
-    calcVolume(): { volume: number, centroid: V3, area: number } {
-		let totalVolume = 0, totalCentroid = V3.O, totalAreaX2 = 0
-		const triangles = this.TRIANGLES
-		const vertices = this.vertices
+    calcVolume(this: Mesh & { TRIANGLES: int[] }): { volume: number, centroid: V3, area: number } {
+        let totalVolume = 0, totalCentroid = V3.O, totalAreaX2 = 0
+        const triangles = this.TRIANGLES
+        const vertices = this.vertices
 		for (let i = 0; i < triangles.length; i += 3) {
 			const i0 = triangles[i + 0], i1 = triangles[i + 1], i2 = triangles[i + 2]
 			const v0 = vertices[i0], v1 = vertices[i1], v2 = vertices[i2]
@@ -53,6 +45,7 @@ export class Mesh extends Transformable {
 	 * the attribute called `attribute` in all shaders that draw this mesh.
      * @example new Mesh().addVertexBuffer('coords', 'LGL_TexCoord')
 	 */
+
 	addVertexBuffer<K extends string>(name: K, attribute: string): this & { [k in K]: any[] } {
 		assert(!this.vertexBuffers[attribute], 'Buffer ' + attribute + ' already exists.')
 		//assert(!this[name])
@@ -61,7 +54,7 @@ export class Mesh extends Transformable {
 		assert('string' == typeof attribute)
 		const buffer = this.vertexBuffers[attribute] = new Buffer(WGL.ARRAY_BUFFER, Float32Array)
 		buffer.name = name
-		this[name] = []
+        ;(this as any)[name] = []
         return this as any
 	}
 
@@ -74,13 +67,13 @@ export class Mesh extends Transformable {
 		this.hasBeenCompiled = false
 		const buffer = this.indexBuffers[name] = new Buffer(WGL.ELEMENT_ARRAY_BUFFER, Uint16Array)
 		buffer.name = name
-		this[name] = []
+		;(this as any)[name] = []
         return this as any
 	}
 
 	concat<T extends Mesh>(...others: T[]): T {
-		const mesh = new Mesh()
-		;[this as Mesh].concat(others).forEach(oldMesh => {
+		const mesh = new Mesh() as any
+		;[this as Mesh].concat(others).forEach((oldMesh: any) => {
 			const startIndex = mesh.vertices ? mesh.vertices.length : 0
 			Object.getOwnPropertyNames(oldMesh.vertexBuffers).forEach(attribute => {
 				const bufferName = this.vertexBuffers[attribute].name!
@@ -105,36 +98,76 @@ export class Mesh extends Transformable {
 	 *
 	 * Sets `this.hasBeenCompiled` to true.
 	 */
-	compile() {
+	compile(gl = currentGL()) {
 		// figure out shortest vertex buffer to make sure indexBuffers are in bounds
 		let minVertexBufferLength = Infinity, minBufferName
 		Object.getOwnPropertyNames(this.vertexBuffers).forEach(attribute => {
 			const buffer = this.vertexBuffers[attribute]
-            buffer.data = this[buffer.name!]
+            buffer.data = (this as any)[buffer.name!]
 			buffer.compile()
-			if (this[buffer.name!].length < minVertexBufferLength) {
+			if ((this as any)[buffer.name!].length < minVertexBufferLength) {
 				minBufferName = attribute
-				minVertexBufferLength = this[buffer.name!].length
+				minVertexBufferLength = (this as any)[buffer.name!].length
 			}
 		})
 
 		for (const name in this.indexBuffers) {
 			const buffer = this.indexBuffers[name]
-			buffer.data = this[buffer.name!]
-			buffer.compile()
+			buffer.data = (this as any)[buffer.name!]
+			buffer.compile(undefined, gl)
 			// if (NLA_DEBUG && buffer.maxValue >= minVertexBufferLength) {
 			// 	throw new Error(`max index value for buffer ${name}
 			// 	is too large ${buffer.maxValue} min Vbuffer size: ${minVertexBufferLength} ${minBufferName}`)
 			// }
 		}
 		this.hasBeenCompiled = true
+        return this
 	}
 
+	static async fromBinarySTL(stl: Blob) {
+        return new Promise<Mesh & { normals: V3[] }>((resolve, reject) => {
+            const mesh = new Mesh()
+                .addVertexBuffer('normals', 'LGL_Normal')
+            const fileReader = new FileReader()
+            fileReader.onerror = reject
+            fileReader.onload = function (progressEvent) {
+                const dataView = new DataView(this.result)
+                const HEADER_BYTE_SIZE = 80
+                const triangleCount = dataView.getUint32(HEADER_BYTE_SIZE, true)
+                mesh.normals.length = triangleCount * 3
+                mesh.vertices.length = triangleCount * 3
+                let i = triangleCount * 3, bufferPtr = HEADER_BYTE_SIZE + 4
+                function readV3() {
+                    const x = dataView.getFloat32(bufferPtr, true)
+                    bufferPtr += 4
+                    const y = dataView.getFloat32(bufferPtr, true)
+                    bufferPtr += 4
+                    const z = dataView.getFloat32(bufferPtr, true)
+                    bufferPtr += 4
+                    return new V3(x, y, z)
+                }
+                while (i) {
+                    i -= 3
+                    const normal = readV3()
+                    mesh.normals[i + 0] = normal
+                    mesh.normals[i + 1] = normal
+                    mesh.normals[i + 2] = normal
+                    mesh.vertices[i + 0] = readV3()
+                    mesh.vertices[i + 1] = readV3()
+                    mesh.vertices[i + 2] = readV3()
 
-	toBinarySTL(): Blob {
-		if (!this.TRIANGLES) throw new Error('TRIANGLES must be defined.')
-		const HEADER_BYTE_SIZE = 80, FLOAT_BYTE_SIZE = 4
-		const triangles = this.TRIANGLES
+                    bufferPtr += 2
+                }
+                resolve(mesh)
+            }
+            fileReader.readAsArrayBuffer(stl)
+        })
+    }
+
+    toBinarySTL(this: Mesh & { TRIANGLES: number[] }): Blob {
+        if (!this.TRIANGLES) throw new Error('TRIANGLES must be defined.')
+        const HEADER_BYTE_SIZE = 80, FLOAT_BYTE_SIZE = 4
+        const triangles = this.TRIANGLES
 		const triangleCount = triangles.length / 3
 		const buffer = new ArrayBuffer(HEADER_BYTE_SIZE + 4 + triangleCount * (4 * 3 * FLOAT_BYTE_SIZE + 2))
 		const dataView = new DataView(buffer)
@@ -173,12 +206,12 @@ export class Mesh extends Transformable {
 		if (this.normals) {
 		    mesh.addVertexBuffer('normals', 'LGL_Normal')
 			const invTrans = m4.as3x3().inversed().transposed().normalized()
-			mesh.normals = this.normals.map(n => invTrans.transformVector(n))
-            mesh.normals.forEach(n => assert(n.hasLength(1)))
+			mesh.normals = this.normals.map(n => invTrans.transformVector(n).unit())
+            // mesh.normals.forEach(n => assert(n.hasLength(1)))
 		}
 		for (const name in this.indexBuffers) {
 			mesh.addIndexBuffer(name)
-			mesh[name] = this[name]
+			;(mesh as any)[name] = (this as any)[name]
 		}
 		mesh.compile()
 		return mesh as this
@@ -188,12 +221,13 @@ export class Mesh extends Transformable {
      * Computes a new normal1 for each vertex from the average normal1 of the neighboring triangles. This means
      * adjacent triangles must share vertices for the resulting normals to be smooth.
      */
-    computeNormalsFromFlatTriangles(): this {
+    computeNormalsFromFlatTriangles(this: Mesh & { TRIANGLES: int[] }): this & { normals: V3[] } {
         if (!this.normals) this.addVertexBuffer('normals', 'LGL_Normal')
         // tslint:disable:no-string-literal
-        this.vertexBuffers['LGL_Normal'].data = arrayFromFunction(this.vertices.length, () => V3.O)
+        //this.vertexBuffers['LGL_Normal'].data = arrayFromFunction(this.vertices.length, i => V3.O)
 
         const TRIANGLES = this.TRIANGLES, vertices = this.vertices, normals = this.normals!
+        normals.length = vertices.length
         for (let i = 0; i < TRIANGLES.length; i += 3) {
             const ai = TRIANGLES[i], bi = TRIANGLES[i + 1], ci = TRIANGLES[i + 2]
             const a = vertices[ai]
@@ -207,14 +241,19 @@ export class Mesh extends Transformable {
         for (let i = 0; i < vertices.length; i++) {
             normals[i] = normals[i].unit()
         }
-        return this
+        this.hasBeenCompiled = false
+        return this as any
     }
 
 
     /**
      * Populate the `LINES` index buffer from the `triangles` index buffer.
      */
-	computeWireframeFromFlatTriangles(indexBufferName: string = 'LINES'): this {
+    computeWireframeFromFlatTriangles(this: Mesh & { TRIANGLES: int[] }): this & { LINES: int[] }
+    computeWireframeFromFlatTriangles<T extends string>(
+        this: Mesh & { TRIANGLES: int[] } & { [k in T]?: int[] },
+        indexBufferName: T): this & { [k in T]: int[] }
+    computeWireframeFromFlatTriangles(this: any, indexBufferName: string = 'LINES'): this {
 		if (!this.TRIANGLES) throw new Error('TRIANGLES must be defined.')
 		const canonEdges = new Set()
 
@@ -240,12 +279,17 @@ export class Mesh extends Transformable {
 		return this
 	}
 
-	computeWireframeFromFlatTrianglesClosedMesh(): this {
+    computeWireframeFromFlatTrianglesClosedMesh(this: Mesh & { TRIANGLES: int[] }): this & { LINES: int[] }
+    computeWireframeFromFlatTrianglesClosedMesh<T extends string>(
+        this: Mesh & { TRIANGLES: int[] } & { [k in T]?: int[] },
+        indexBufferName: T): this & { [k in T]: int[] }
+	computeWireframeFromFlatTrianglesClosedMesh(this: any, indexBufferName: string = 'LINES'): this {
         if(!this.TRIANGLES) throw new Error('TRIANGLES must be defined.')
 		if (!this.LINES) this.addIndexBuffer('LINES')
 		const tris = this.TRIANGLES
-		const lines = this.LINES
-		for (let i = 0; i < tris.length; i += 3) {
+        if (!this[indexBufferName]) this.addIndexBuffer(indexBufferName)
+        const lines = this[indexBufferName]
+        for (let i = 0; i < tris.length; i += 3) {
 			if (tris[i + 0] < tris[i + 1]) lines.push(tris[i + 0], tris[i + 1])
 			if (tris[i + 1] < tris[i + 2]) lines.push(tris[i + 1], tris[i + 2])
 			if (tris[i + 2] < tris[i + 0]) lines.push(tris[i + 2], tris[i + 0])
@@ -254,17 +298,20 @@ export class Mesh extends Transformable {
 		return this
 	}
 
-	computeNormalLines(length: number = 1, indexBufferName: string = 'LINES'): this {
-	    if (!this.vertices || !this.normals) {
-	        throw new Error('Both vertices and normals must be defined.')
+    computeNormalLines(this: Mesh & { normals: V3[] }, length: number): this & { LINES: int[] }
+    computeNormalLines<T extends string>(
+        this: Mesh & { normals: V3[] } & { [k in T]?: int[] },
+        length: number, indexBufferName: T): this & { [k in T]: int[] }
+    computeNormalLines(this: any, length: number = 1, indexBufferName: string = 'LINES') {
+        if (!this.normals) {
+            throw new Error('normals must be defined.')
         }
-		const vs = this.vertices, si = this.vertices.length
-        const data = indexBufferName
-        if (!this[data]) this.addIndexBuffer(indexBufferName)
+        const vs = this.vertices, si = this.vertices.length
+        if (!this[indexBufferName]) this.addIndexBuffer(indexBufferName)
 
 		for (let i = 0; i < this.normals.length; i++) {
 			vs[si + i] = vs[i].plus(this.normals[i].toLength(length))
-			this[data].push(si + i, i)
+			this[indexBufferName].push(si + i, i)
 		}
 		this.hasBeenCompiled = false
 		return this
@@ -277,7 +324,7 @@ export class Mesh extends Transformable {
 	getBoundingSphere(): {center: V3, radius: number} {
 		const sphere = {center: this.getAABB().getCenter(), radius: 0}
 		for (let i = 0; i < this.vertices.length; i++) {
-			sphere.radius = max(sphere.radius, this.vertices[i].minus(sphere.center).length())
+			sphere.radius = Math.max(sphere.radius, this.vertices[i].minus(sphere.center).length())
 		}
 		return sphere
 	}
@@ -336,7 +383,7 @@ export class Mesh extends Transformable {
 			for (let i = 0; i <= detailX; i++) {
                 const s = i / detailX
 				mesh.vertices.push(new V3(startX + s * width, startY + t * height, 0))
-				mesh.coords.push(s, t)
+				mesh.coords.push([s, t])
 				mesh.normals.push(V3.Z)
 				if (i < detailX && j < detailY) {
 					const offset = i + j * (detailX + 1)
@@ -370,7 +417,7 @@ export class Mesh extends Transformable {
 		new V3(1, 0, 0),
 		new V3(1, 0, 1),
 		new V3(1, 1, 0),
-		V3.XYZ,
+		V3.XYZ
 	]
 
 	/**
@@ -399,7 +446,7 @@ export class Mesh extends Transformable {
 		mesh.vertices = VERTEX_CORNERS.map(i => Mesh.UNIT_CUBE_CORNERS[i])
 		mesh.normals = [V3.X.negated(), V3.X, V3.Y.negated(), V3.Y, V3.Z.negated(), V3.Z].map(v => [v, v, v, v]).concatenated()
 		for (let i = 0; i < 6 * 4; i += 4) {
-			pushQuad(/** @type {number[]} */ mesh.TRIANGLES, 0 != i % 8,
+			pushQuad(mesh.TRIANGLES, 0 != i % 8,
 				VERTEX_CORNERS[i], VERTEX_CORNERS[i + 1], VERTEX_CORNERS[i + 2], VERTEX_CORNERS[i + 3])
 		}
 		// indexes of LINES relative to UNIT_CUBE_CORNERS. Mapped to VERTEX_CORNERS.indexOf
@@ -551,13 +598,21 @@ export class Mesh extends Transformable {
     }
 
 
-	static offsetVertices(vertices: V3[], offset: V3, close: boolean, normals?: V3[], steps?: int) {
+    static offsetVertices(vertices: V3[], offset: V3, close: boolean):
+        Mesh & { TRIANGLES: int[], coords: [number, number][] }
+    static offsetVertices(vertices: V3[], offset: V3, close: boolean, normals: V3[]):
+        Mesh & { TRIANGLES: int[], coords: [number, number][], normals: V3[] }
+    static offsetVertices(vertices: V3[], offset: V3, close: boolean, normals?: V3[]) {
 		assertVectors.apply(undefined, vertices)
 		assertVectors(offset)
 
-        const mesh = new Mesh().addIndexBuffer('TRIANGLES')
+        const mesh = new Mesh()
+            .addIndexBuffer('TRIANGLES')
+            .addVertexBuffer('coords', 'LGL_TexCoord')
         normals && mesh.addVertexBuffer('normals', 'LGL_Normal')
 		mesh.vertices = vertices.concat(vertices.map(v => v.plus(offset)))
+        const vl = vertices.length
+        mesh.coords = arrayFromFunction(vl * 2, (i): [number, number] => [(i % vl) / vl, (i / vl) | 0])
 
         const triangles = mesh.TRIANGLES
 		for (let i = 0; i < vertices.length - 1; i++) {
@@ -628,4 +683,23 @@ export class Mesh extends Transformable {
 		mesh.compile()
 		return mesh
 	}
+
+    static load(json: { vertices: Tuple3<number>[], triangles?: Tuple3<number>[], normals?: Tuple3<number>[] }) {
+        const mesh = new Mesh()
+        if (Array.isArray(json.vertices[0])) {
+            mesh.vertices = json.vertices.map(x => V(x))
+        } else {
+            throw new Error()
+        }
+        if (json.triangles) {
+            mesh.addIndexBuffer('TRIANGLES')
+            ;(mesh as any).TRIANGLES = json.triangles
+        }
+        if (json.normals) {
+            mesh.addVertexBuffer('normals', 'LGL_Normal')
+            ;(mesh as any).normals = json.normals
+        }
+        mesh.compile()
+        return mesh
+    }
 }

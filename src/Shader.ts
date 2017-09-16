@@ -28,6 +28,7 @@ export interface UniformTypesMap {
     FLOAT_MAT4: M4 | number[]
     FLOAT_MAT3: M4 | number[]
     SAMPLER_2D: int
+    BOOL: boolean
 }
 function isFloatArray(obj: any): obj is number[] | Float64Array | Float32Array {
     return Float32Array == obj.constructor || Float64Array == obj.constructor ||
@@ -101,7 +102,7 @@ export class Shader<UniformTypes extends { [uniformName: string]: keyof UniformT
 	`
 		const vertexHeader = header + `
 		attribute vec4 LGL_Vertex;
-		attribute vec4 LGL_TexCoord;
+		attribute vec2 LGL_TexCoord;
 		attribute vec3 LGL_Normal;
 		attribute vec4 LGL_Color;
 	`
@@ -167,28 +168,28 @@ export class Shader<UniformTypes extends { [uniformName: string]: keyof UniformT
 
 		for (const name in uniforms) {
 			const location = this.uniformLocations[name] || gl.getUniformLocation(this.program, name)
-			assert(!!location, name + ' uniform is not used in shader')
+			!location && console.warn(name + ' uniform is not used in shader')
 			if (!location) continue
 			this.uniformLocations[name] = location
 			let value: any = uniforms[name] as any
 			const info = this.uniformInfos[name]
 			if (NLA_DEBUG) {
 			    // TODO: better errors
-			    if (WGL.SAMPLER_2D == info.type || WGL.SAMPLER_CUBE == info.type || WGL.INT == info.type) {
+			    if (gl.SAMPLER_2D == info.type || gl.SAMPLER_CUBE == info.type || gl.INT == info.type) {
 			        if (1 == info.size) {
 			            assert(Number.isInteger(value))
                     } else {
 			            assert(isIntArray(value) && value.length == info.size, 'value must be int array if info.size != 1')
                     }
                 }
-                assert(WGL.FLOAT != info.type ||
+                assert(gl.FLOAT != info.type ||
                     (1 == info.size && 'number' === typeof value || isFloatArray(value) && info.size == value.length))
-                assert(WGL.FLOAT_VEC3 != info.type ||
+                assert(gl.FLOAT_VEC3 != info.type ||
                     (1 == info.size && value instanceof V3 ||
                         Array.isArray(value) && info.size == value.length && assertVectors(...value)))
-                assert(WGL.FLOAT_VEC4 != info.type || isFloatArray(value) && value.length == 4)
-                assert(WGL.FLOAT_MAT4 != info.type || value instanceof M4, () => value.toSource())
-                assert(WGL.FLOAT_MAT3 != info.type || value.length == 9 || value instanceof M4)
+                assert(gl.FLOAT_VEC4 != info.type || isFloatArray(value) && value.length == 4)
+                assert(gl.FLOAT_MAT4 != info.type || value instanceof M4, () => value.toSource())
+                assert(gl.FLOAT_MAT3 != info.type || value.length == 9 || value instanceof M4)
 			}
 			if (value instanceof V3) {
 				value = value.toArray()
@@ -228,25 +229,27 @@ export class Shader<UniformTypes extends { [uniformName: string]: keyof UniformT
 						throw new Error('don\'t know how to load uniform "' + name + '" of length ' + value.length)
 				}
 			} else if ('number' == typeof value) {
-				if (WGL.SAMPLER_2D == info.type || WGL.SAMPLER_CUBE == info.type || WGL.INT == info.type) {
-					gl.uniform1i(location, value)
-				} else {
-					gl.uniform1f(location, value)
-				}
-			} else if (value instanceof M4) {
+                if (gl.SAMPLER_2D == info.type || gl.SAMPLER_CUBE == info.type || gl.INT == info.type) {
+                    gl.uniform1i(location, value)
+                } else {
+                    gl.uniform1f(location, value)
+                }
+            } else if ('boolean' == typeof value) {
+			    gl.uniform1i(location, +value)
+            } else if (value instanceof M4) {
                 const m = value.m
-                if (WGL.FLOAT_MAT4 == info.type) {
+                if (gl.FLOAT_MAT4 == info.type) {
                     gl.uniformMatrix4fv(location, false, [
                         m[0], m[4], m[8], m[12],
                         m[1], m[5], m[9], m[13],
                         m[2], m[6], m[10], m[14],
                         m[3], m[7], m[11], m[15]])
-                } else if (WGL.FLOAT_MAT3 == info.type) {
+                } else if (gl.FLOAT_MAT3 == info.type) {
                     gl.uniformMatrix3fv(location, false, [
                         m[0], m[4], m[8],
                         m[1], m[5], m[9],
                         m[2], m[6], m[10]])
-                } else if (WGL.FLOAT_MAT2 == info.type) {
+                } else if (gl.FLOAT_MAT2 == info.type) {
                     gl.uniformMatrix2fv(location, false, new Float32Array([
                         m[0], m[4],
                         m[1], m[5]]))
@@ -277,7 +280,7 @@ export class Shader<UniformTypes extends { [uniformName: string]: keyof UniformT
 		assert(mesh.hasBeenCompiled, 'mesh.hasBeenCompiled')
 		assert(undefined != DRAW_MODES[mode])
         const modeStr: string = DRAW_MODES[mode]
-        assert(mesh.indexBuffers[modeStr], `mesh.indexBuffers[${modeStr}] undefined`)
+        // assert(mesh.indexBuffers[modeStr], `mesh.indexBuffers[${modeStr}] undefined`)
 		return this.drawBuffers(mesh.vertexBuffers, mesh.indexBuffers[modeStr], mode, start, count)
 	}
 
@@ -302,13 +305,13 @@ export class Shader<UniformTypes extends { [uniformName: string]: keyof UniformT
 		// Only varruct up the built-in matrices that are active in the shader
         const on = this.activeMatrices
         const modelViewMatrixInverse = (on['LGL_ModelViewMatrixInverse'] || on['LGL_NormalMatrix'])
-            && this.modelViewMatrixVersion != gl.modelViewMatrixVersion
+            //&& this.modelViewMatrixVersion != gl.modelViewMatrixVersion
             && gl.modelViewMatrix.inversed()
         const projectionMatrixInverse = on['LGL_ProjectionMatrixInverse']
-            && this.projectionMatrixVersion != gl.projectionMatrixVersion
+            //&& this.projectionMatrixVersion != gl.projectionMatrixVersion
             && gl.projectionMatrix.inversed()
         const modelViewProjectionMatrix = (on['LGL_ModelViewProjectionMatrix'] || on['LGL_ModelViewProjectionMatrixInverse'])
-            && (this.projectionMatrixVersion != gl.projectionMatrixVersion || this.modelViewMatrixVersion != gl.modelViewMatrixVersion)
+            //&& (this.projectionMatrixVersion != gl.projectionMatrixVersion || this.modelViewMatrixVersion != gl.modelViewMatrixVersion)
             && gl.projectionMatrix.times(gl.modelViewMatrix)
 
         const uni: { [matrixName: string ]: M4 } = {} // Uniform Matrices

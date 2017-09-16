@@ -1,0 +1,1518 @@
+import chroma from 'chroma-js';
+
+class Mesh extends Transformable {
+    constructor() {
+        super();
+        this.hasBeenCompiled = false;
+        this.vertexBuffers = {};
+        this.indexBuffers = {};
+        this.addVertexBuffer('vertices', 'LGL_Vertex');
+        //if (options.coords) this.addVertexBuffer('coords', 'LGL_TexCoord')
+        //if (options.normals) this.addVertexBuffer('normals', 'LGL_Normal')
+        //if (options.colors) this.addVertexBuffer('colors', 'LGL_Color')
+    }
+    calcVolume() {
+        let totalVolume = 0, totalCentroid = V3.O, totalAreaX2 = 0;
+        const triangles = this.TRIANGLES;
+        const vertices = this.vertices;
+        for (let i = 0; i < triangles.length; i += 3) {
+            const i0 = triangles[i + 0], i1 = triangles[i + 1], i2 = triangles[i + 2];
+            const v0 = vertices[i0], v1 = vertices[i1], v2 = vertices[i2];
+            const v01 = v1.minus(v0), v02 = v2.minus(v0);
+            const normal = v01.cross(v02);
+            //const centroidZ = (v0.z + v1.z + v2.z) / 3
+            //totalVolume += centroidZ * (area === v01.cross(v02).length() / 2) * v01.cross(v02).unit().z
+            const faceCentroid = v0.plus(v1.plus(v2)).div(3);
+            totalVolume += faceCentroid.z * normal.z / 2;
+            const faceAreaX2 = normal.length();
+            totalAreaX2 += faceAreaX2;
+            totalCentroid = totalCentroid.plus(new V3(faceCentroid.x, faceCentroid.y, faceCentroid.z / 2).times(faceCentroid.z * normal.z / 2));
+        }
+        // sumInPlaceTree adds negligible additional accuracy for XY sphere
+        return { volume: totalVolume, centroid: totalCentroid.div(triangles.length / 3), area: totalAreaX2 / 2 };
+    }
+    /**
+     * Add a new vertex buffer with a list as a property called `name` on this object and map it to
+     * the attribute called `attribute` in all shaders that draw this mesh.
+     * @example new Mesh().addVertexBuffer('coords', 'LGL_TexCoord')
+     */
+    addVertexBuffer(name, attribute) {
+        assert(!this.vertexBuffers[attribute]);
+        //assert(!this[name])
+        this.hasBeenCompiled = false;
+        assert('string' == typeof name);
+        assert('string' == typeof attribute);
+        const buffer = this.vertexBuffers[attribute] = new Buffer(WGL$1.ARRAY_BUFFER, Float32Array);
+        buffer.name = name;
+        this[name] = [];
+        return this;
+    }
+    /**
+     * Add a new index buffer.
+     * @example new Mesh().addIndexBuffer('TRIANGLES')
+     * @example new Mesh().addIndexBuffer('LINES')
+     */
+    addIndexBuffer(name) {
+        this.hasBeenCompiled = false;
+        const buffer = this.indexBuffers[name] = new Buffer(WGL$1.ELEMENT_ARRAY_BUFFER, Uint16Array);
+        buffer.name = name;
+        this[name] = [];
+        return this;
+    }
+    concat(...others) {
+        const mesh = new Mesh();
+        [this].concat(others).forEach(oldMesh => {
+            const startIndex = mesh.vertices ? mesh.vertices.length : 0;
+            Object.getOwnPropertyNames(oldMesh.vertexBuffers).forEach(attribute => {
+                const bufferName = this.vertexBuffers[attribute].name;
+                if (!mesh.vertexBuffers[attribute]) {
+                    mesh.addVertexBuffer(bufferName, attribute);
+                }
+                mesh[bufferName].push(oldMesh[bufferName]);
+            });
+            Object.getOwnPropertyNames(oldMesh.indexBuffers).forEach(name => {
+                if (!mesh.indexBuffers[name]) {
+                    mesh.addIndexBuffer(name);
+                }
+                mesh[name].push(...oldMesh[name].map(index => index + startIndex));
+            });
+        });
+        return mesh;
+    }
+    /**
+     * Upload all attached buffers to the GPU in preparation for rendering. This doesn't need to be called every
+     * frame, only needs to be done when the data changes.
+     *
+     * Sets `this.hasBeenCompiled` to true.
+     */
+    compile() {
+        // figure out shortest vertex buffer to make sure indexBuffers are in bounds
+        Object.getOwnPropertyNames(this.vertexBuffers).forEach(attribute => {
+            const buffer = this.vertexBuffers[attribute];
+            buffer.data = this[buffer.name];
+            buffer.compile();
+            
+        });
+        for (const name in this.indexBuffers) {
+            const buffer = this.indexBuffers[name];
+            buffer.data = this[buffer.name];
+            buffer.compile();
+            // if (NLA_DEBUG && buffer.maxValue >= minVertexBufferLength) {
+            // 	throw new Error(`max index value for buffer ${name}
+            // 	is too large ${buffer.maxValue} min Vbuffer size: ${minVertexBufferLength} ${minBufferName}`)
+            // }
+        }
+        this.hasBeenCompiled = true;
+    }
+    toBinarySTL() {
+        if (!this.TRIANGLES)
+            throw new Error('TRIANGLES must be defined.');
+        const HEADER_BYTE_SIZE = 80, FLOAT_BYTE_SIZE = 4;
+        const triangles = this.TRIANGLES;
+        const triangleCount = triangles.length / 3;
+        const buffer = new ArrayBuffer(HEADER_BYTE_SIZE + 4 + triangleCount * (4 * 3 * FLOAT_BYTE_SIZE + 2));
+        const dataView = new DataView(buffer);
+        dataView.setUint32(HEADER_BYTE_SIZE, triangleCount, true);
+        let bufferPtr = HEADER_BYTE_SIZE + 4;
+        let i = triangles.length;
+        while (i) {
+            i -= 3;
+            const a = this.vertices[triangles[i]], b = this.vertices[triangles[i + 1]], c = this.vertices[triangles[i + 2]];
+            const normal = V3.normalOnPoints(a, b, c);
+            [normal, a, b, c].forEach(v => {
+                dataView.setFloat32(bufferPtr, v.x, true);
+                bufferPtr += 4;
+                dataView.setFloat32(bufferPtr, v.y, true);
+                bufferPtr += 4;
+                dataView.setFloat32(bufferPtr, v.z, true);
+                bufferPtr += 4;
+            });
+            // skip 2 bytes, already initalized to zero
+            bufferPtr += 2;
+        }
+        assert(bufferPtr == buffer.byteLength, bufferPtr + ' ' + buffer.byteLength);
+        return new Blob([buffer], { type: 'application/octet-stream' });
+    }
+    /**
+     * Transform all vertices by `matrix` and all normals by the inverse transpose of `matrix`.
+     *
+     * Index buffer data is referenced.
+     */
+    transform(m4) {
+        const mesh = new Mesh();
+        mesh.vertices = m4.transformedPoints(this.vertices);
+        if (this.normals) {
+            mesh.addVertexBuffer('normals', 'LGL_Normal');
+            const invTrans = m4.as3x3().inversed().transposed().normalized();
+            mesh.normals = this.normals.map(n => invTrans.transformVector(n));
+            mesh.normals.forEach(n => assert(n.hasLength(1)));
+        }
+        for (const name in this.indexBuffers) {
+            mesh.addIndexBuffer(name);
+            mesh[name] = this[name];
+        }
+        mesh.compile();
+        return mesh;
+    }
+    /**
+     * Computes a new normal1 for each vertex from the average normal1 of the neighboring triangles. This means
+     * adjacent triangles must share vertices for the resulting normals to be smooth.
+     */
+    computeNormalsFromFlatTriangles() {
+        if (!this.normals)
+            this.addVertexBuffer('normals', 'LGL_Normal');
+        // tslint:disable:no-string-literal
+        this.vertexBuffers['LGL_Normal'].data = arrayFromFunction(this.vertices.length, i => V3.O);
+        const TRIANGLES = this.TRIANGLES, vertices = this.vertices, normals = this.normals;
+        for (let i = 0; i < TRIANGLES.length; i += 3) {
+            const ai = TRIANGLES[i], bi = TRIANGLES[i + 1], ci = TRIANGLES[i + 2];
+            const a = vertices[ai];
+            const b = vertices[bi];
+            const c = vertices[ci];
+            const normal = b.minus(a).cross(c.minus(a)).unit();
+            normals[ai] = normals[ai].plus(normal);
+            normals[bi] = normals[bi].plus(normal);
+            normals[ci] = normals[ci].plus(normal);
+        }
+        for (let i = 0; i < vertices.length; i++) {
+            normals[i] = normals[i].unit();
+        }
+        return this;
+    }
+    /**
+     * Populate the `LINES` index buffer from the `triangles` index buffer.
+     */
+    computeWireframeFromFlatTriangles(indexBufferName = 'LINES') {
+        if (!this.TRIANGLES)
+            throw new Error('TRIANGLES must be defined.');
+        const canonEdges = new Set();
+        function canonEdge(i0, i1) {
+            const iMin = min(i0, i1), iMax = max(i0, i1);
+            return (iMin << 16) | iMax;
+        }
+        // function uncanonEdge(key) {
+        // 	return [key >> 16, key & 0xffff]
+        // }
+        const t = this.TRIANGLES;
+        for (let i = 0; i < t.length; i += 3) {
+            canonEdges.add(canonEdge(t[i + 0], t[i + 1]));
+            canonEdges.add(canonEdge(t[i + 1], t[i + 2]));
+            canonEdges.add(canonEdge(t[i + 2], t[i + 0]));
+        }
+        const data = indexBufferName;
+        if (!this[data])
+            this.addIndexBuffer(indexBufferName);
+        //this.LINES = new Array(canonEdges.size)
+        canonEdges.forEach(val => this[data].push(val >> 16, val & 0xffff));
+        this.hasBeenCompiled = false;
+        return this;
+    }
+    computeWireframeFromFlatTrianglesClosedMesh() {
+        if (!this.TRIANGLES)
+            throw new Error('TRIANGLES must be defined.');
+        if (!this.LINES)
+            this.addIndexBuffer('LINES');
+        const tris = this.TRIANGLES;
+        const lines = this.LINES;
+        for (let i = 0; i < tris.length; i += 3) {
+            if (tris[i + 0] < tris[i + 1])
+                lines.push(tris[i + 0], tris[i + 1]);
+            if (tris[i + 1] < tris[i + 2])
+                lines.push(tris[i + 1], tris[i + 2]);
+            if (tris[i + 2] < tris[i + 0])
+                lines.push(tris[i + 2], tris[i + 0]);
+        }
+        this.hasBeenCompiled = false;
+        return this;
+    }
+    computeNormalLines(length = 1, indexBufferName = 'LINES') {
+        if (!this.vertices || !this.normals) {
+            throw new Error('Both vertices and normals must be defined.');
+        }
+        const vs = this.vertices, si = this.vertices.length;
+        const data = indexBufferName;
+        if (!this[data])
+            this.addIndexBuffer(indexBufferName);
+        for (let i = 0; i < this.normals.length; i++) {
+            vs[si + i] = vs[i].plus(this.normals[i].toLength(length));
+            this[data].push(si + i, i);
+        }
+        this.hasBeenCompiled = false;
+        return this;
+    }
+    getAABB() {
+        return new AABB().addPoints(this.vertices);
+    }
+    getBoundingSphere() {
+        const sphere = { center: this.getAABB().getCenter(), radius: 0 };
+        for (let i = 0; i < this.vertices.length; i++) {
+            sphere.radius = Math.max(sphere.radius, this.vertices[i].minus(sphere.center).length());
+        }
+        return sphere;
+    }
+    // ### Mesh.plane([options])
+    //
+    // Generates a square 2x2 mesh the xy plane centered at the origin. The
+    // `options` argument specifies options to pass to the mesh constructor.
+    // Additional options include `detailX` and `detailY`, which set the tesselation
+    // in x and y, and `detail`, which sets both `detailX` and `detailY` at once.
+    // Two triangles are generated by default.
+    // Example usage:
+    //
+    //     var mesh1 = Mesh.plane();
+    //     var mesh2 = Mesh.plane({ detail: 5 });
+    //     var mesh3 = Mesh.plane({ detailX: 20, detailY: 40 });
+    //
+    /**
+     * Generates a square mesh in the XY plane.
+     * Texture coordinates (buffer "coords") are set to go from 0 to 1 in either direction.
+     *
+     *
+     * @param {Object=} options
+     * @param {number=} options.detail Defaults to 1
+     * @param {number=} options.detailX Defaults to options.detail. Number of subdivisions in X direction.
+     * @param {number=} options.detailY Defaults to options.detail. Number of subdivisions in Y direction.j
+     * @param {number=} options.width defaults to 1
+     * @param {number=} options.height defaults to 1
+     * @param {number=} options.startX defaults to 0
+     * @param {number=} options.startY defaults to 0
+     */
+    static plane(options = {}) {
+        const detailX = options.detailX || options.detail || 1;
+        const detailY = options.detailY || options.detail || 1;
+        const startX = options.startX || 0;
+        const startY = options.startY || 0;
+        const width = options.width || 1;
+        const height = options.height || 1;
+        const mesh = new Mesh()
+            .addIndexBuffer('LINES')
+            .addIndexBuffer('TRIANGLES')
+            .addVertexBuffer('normals', 'LGL_Normal')
+            .addVertexBuffer('coords', 'LGL_TexCoord');
+        for (let j = 0; j <= detailY; j++) {
+            const t = j / detailY;
+            for (let i = 0; i <= detailX; i++) {
+                const s = i / detailX;
+                mesh.vertices.push(new V3(startX + s * width, startY + t * height, 0));
+                mesh.coords.push(s, t);
+                mesh.normals.push(V3.Z);
+                if (i < detailX && j < detailY) {
+                    const offset = i + j * (detailX + 1);
+                    mesh.TRIANGLES.push(offset, offset + detailX + 1, offset + 1, offset + detailX + 1, offset + detailX + 2, offset + 1);
+                }
+            }
+        }
+        for (let i = 0; i < detailX; i++) {
+            mesh.LINES.push(i, i + 1);
+            mesh.LINES.push((detailX + 1) * detailY + i, (detailX + 1) * detailY + i + 1);
+        }
+        for (let j = 0; j < detailY; j++) {
+            mesh.LINES.push(detailX * j, detailX * (j + 1) + 1);
+            mesh.LINES.push(detailX * (j + 1), detailX * (j + 2) + 1);
+        }
+        mesh.compile();
+        return mesh;
+    }
+    /**
+     * Generates a unit cube (1x1x1) starting at the origin and extending into the (+ + +) octant.
+     * I.e. box from V3.O to V3(1,1,1)
+     * Creates line, triangle, vertex and normal1 buffers.
+     */
+    static cube() {
+        const mesh = new Mesh()
+            .addVertexBuffer('normals', 'LGL_Normal')
+            .addIndexBuffer('TRIANGLES')
+            .addIndexBuffer('LINES');
+        // basically indexes for faces of the cube. vertices each need to be added 3 times,
+        // as they have different normals depending on the face being rendered
+        const VERTEX_CORNERS = [
+            0, 1, 2, 3,
+            4, 5, 6, 7,
+            0, 4, 1, 5,
+            2, 6, 3, 7,
+            2, 6, 0, 4,
+            3, 7, 1, 5,
+        ];
+        mesh.vertices = VERTEX_CORNERS.map(i => Mesh.UNIT_CUBE_CORNERS[i]);
+        mesh.normals = [V3.X.negated(), V3.X, V3.Y.negated(), V3.Y, V3.Z.negated(), V3.Z].map(v => [v, v, v, v]).concatenated();
+        for (let i = 0; i < 6 * 4; i += 4) {
+            pushQuad(/** @type {number[]} */ mesh.TRIANGLES, 0 != i % 8, VERTEX_CORNERS[i], VERTEX_CORNERS[i + 1], VERTEX_CORNERS[i + 2], VERTEX_CORNERS[i + 3]);
+        }
+        // indexes of LINES relative to UNIT_CUBE_CORNERS. Mapped to VERTEX_CORNERS.indexOf
+        // so they make sense in the context of the mesh
+        mesh.LINES = [
+            0, 1,
+            0, 2,
+            1, 3,
+            2, 3,
+            0, 4,
+            1, 5,
+            2, 6,
+            3, 7,
+            4, 5,
+            4, 6,
+            5, 7,
+            6, 7,
+        ].map(i => VERTEX_CORNERS.indexOf(i));
+        mesh.compile();
+        return mesh;
+    }
+    static isocahedron() {
+        return Mesh.sphere(0);
+    }
+    static sphere2(las, longs) {
+        const baseVertices = arrayFromFunction(las, i => {
+            const angle = i / (las - 1) * PI - PI / 2;
+            return new V3(0, cos(angle), sin(angle));
+        });
+        return Mesh.rotation(baseVertices, { anchor: V3.O, dir1: V3.Z }, 2 * PI, longs, true, baseVertices);
+    }
+    /**
+     * Returns a sphere mesh with radius 1 created by subdividing the faces of a isocahedron (20-sided) recursively
+     * The sphere is positioned at the origin
+     * @param subdivisions
+     *      How many recursive divisions to do. A subdivision divides a triangle into 4,
+     *      so the total number of triangles is 20 * 4^subdivisions
+     * @returns
+     *      Contains vertex and normal1 buffers and index buffers for triangles and LINES
+     */
+    static sphere(subdivisions = 3) {
+        const golden = (1 + Math.sqrt(5)) / 2, u = new V3(1, golden, 0).unit(), s = u.x, t = u.y;
+        // base vertices of isocahedron
+        const vertices = [
+            new V3(-s, t, 0),
+            new V3(s, t, 0),
+            new V3(-s, -t, 0),
+            new V3(s, -t, 0),
+            new V3(0, -s, t),
+            new V3(0, s, t),
+            new V3(0, -s, -t),
+            new V3(0, s, -t),
+            new V3(t, 0, -s),
+            new V3(t, 0, s),
+            new V3(-t, 0, -s),
+            new V3(-t, 0, s)
+        ];
+        // base triangles of isocahedron
+        const triangles = [
+            // 5 faces around point 0
+            0, 11, 5,
+            0, 5, 1,
+            0, 1, 7,
+            0, 7, 10,
+            0, 10, 11,
+            // 5 adjacent faces
+            1, 5, 9,
+            5, 11, 4,
+            11, 10, 2,
+            10, 7, 6,
+            7, 1, 8,
+            // 5 faces around point 3
+            3, 9, 4,
+            3, 4, 2,
+            3, 2, 6,
+            3, 6, 8,
+            3, 8, 9,
+            // 5 adjacent faces
+            4, 9, 5,
+            2, 4, 11,
+            6, 2, 10,
+            8, 6, 7,
+            9, 8, 1,
+        ];
+        /**
+         * Tesselates triangle a b c
+         * a b c must already be in vertices with the indexes ia ib ic
+         * res is the number of subdivisions to do. 0 just results in triangle and line indexes being added to the
+         * respective buffers.
+         */
+        function tesselateRecursively(a, b, c, res, vertices, triangles, ia, ib, ic, lines) {
+            if (0 == res) {
+                triangles.push(ia, ib, ic);
+                if (ia < ib)
+                    lines.push(ia, ib);
+                if (ib < ic)
+                    lines.push(ib, ic);
+                if (ic < ia)
+                    lines.push(ic, ia);
+            }
+            else {
+                // subdivide the triangle abc into 4 by adding a vertex (with the correct distance from the origin)
+                // between each segment ab, bc and cd, then calling the function recursively
+                const abMid1 = a.plus(b).toLength(1), bcMid1 = b.plus(c).toLength(1), caMid1 = c.plus(a).toLength(1);
+                // indexes of new vertices:
+                const iabm = vertices.length, ibcm = iabm + 1, icam = iabm + 2;
+                vertices.push(abMid1, bcMid1, caMid1);
+                tesselateRecursively(abMid1, bcMid1, caMid1, res - 1, vertices, triangles, iabm, ibcm, icam, lines);
+                tesselateRecursively(a, abMid1, caMid1, res - 1, vertices, triangles, ia, iabm, icam, lines);
+                tesselateRecursively(b, bcMid1, abMid1, res - 1, vertices, triangles, ib, ibcm, iabm, lines);
+                tesselateRecursively(c, caMid1, bcMid1, res - 1, vertices, triangles, ic, icam, ibcm, lines);
+            }
+        }
+        const mesh = new Mesh()
+            .addVertexBuffer('normals', 'LGL_Normal')
+            .addIndexBuffer('TRIANGLES')
+            .addIndexBuffer('LINES');
+        mesh.vertices.push(...vertices);
+        subdivisions = undefined == subdivisions ? 4 : subdivisions;
+        for (let i = 0; i < 20; i++) {
+            const [ia, ic, ib] = triangles.slice(i * 3, i * 3 + 3);
+            tesselateRecursively(vertices[ia], vertices[ic], vertices[ib], subdivisions, mesh.vertices, mesh.TRIANGLES, ia, ic, ib, mesh.LINES);
+        }
+        mesh.normals = mesh.vertices;
+        mesh.compile();
+        return mesh;
+    }
+    static aabb(aabb) {
+        const matrix = M4.multiplyMultiple(M4.translate(aabb.min), M4.scale(aabb.size().max(new V3(NLA_PRECISION, NLA_PRECISION, NLA_PRECISION))));
+        const mesh = Mesh.cube().transform(matrix);
+        // mesh.vertices = aabb.corners()
+        mesh.computeNormalLines(20);
+        mesh.compile();
+        return mesh;
+    }
+    static offsetVertices(vertices, offset, close, normals, steps) {
+        assertVectors.apply(undefined, vertices);
+        assertVectors(offset);
+        const mesh = new Mesh().addIndexBuffer('TRIANGLES');
+        normals && mesh.addVertexBuffer('normals', 'LGL_Normal');
+        mesh.vertices = vertices.concat(vertices.map(v => v.plus(offset)));
+        const triangles = mesh.TRIANGLES;
+        for (let i = 0; i < vertices.length - 1; i++) {
+            pushQuad(triangles, false, i, i + 1, vertices.length + i, vertices.length + i + 1);
+        }
+        if (close) {
+            pushQuad(triangles, false, 0, vertices.length - 1, vertices.length, vertices.length * 2 - 1);
+        }
+        if (normals) {
+            mesh.normals = normals.concat(normals);
+        }
+        mesh.compile();
+        return mesh;
+    }
+    // Creates a new $Mesh by rotating $vertices by $totalRads around $lineAxis (according to the right-hand
+    // rule). $steps is the number of steps to take. $close is whether the vertices of the first and last step
+    // should be connected by triangles. If $normals is set (pass an array of V3s of the same length as $vertices),
+    // these will also be rotated and correctly added to the mesh.
+    // @example const precious = Mesh.rotation([V(10, 0, -2), V(10, 0, 2), V(11, 0, 2), V(11, 0, -2)], , L3.Z, 512)
+    static rotation(vertices, lineAxis, totalRads, steps, close = true, normals) {
+        const mesh = new Mesh().addIndexBuffer('TRIANGLES');
+        normals && mesh.addVertexBuffer('normals', 'LGL_Normal');
+        const vc = vertices.length, vTotal = vc * steps;
+        const rotMat = new M4();
+        const triangles = mesh.TRIANGLES;
+        for (let i = 0; i < steps; i++) {
+            // add triangles
+            const rads = totalRads / steps * i;
+            M4.rotateLine(lineAxis.anchor, lineAxis.dir1, rads, rotMat);
+            mesh.vertices.push(...rotMat.transformedPoints(vertices));
+            normals && mesh.normals.push(...rotMat.transformedVectors(normals));
+            if (close || i !== steps - 1) {
+                for (let j = 0; j < vc - 1; j++) {
+                    pushQuad(triangles, false, i * vc + j + 1, i * vc + j, ((i + 1) * vc + j + 1) % vTotal, ((i + 1) * vc + j) % vTotal);
+                }
+            }
+        }
+        mesh.compile();
+        return mesh;
+    }
+    static parametric(pF, pN, sMin, sMax, tMin, tMax, sRes, tRes) {
+        const mesh = new Mesh()
+            .addVertexBuffer('normals', 'LGL_Normal')
+            .addIndexBuffer('TRIANGLES');
+        for (let si = 0; si <= sRes; si++) {
+            const s = lerp(sMin, sMax, si / sRes);
+            for (let ti = 0; ti <= tRes; ti++) {
+                const t = lerp(tMin, tMax, ti / tRes);
+                mesh.vertices.push(pF(s, t));
+                mesh.normals.push(pN(s, t));
+                if (ti < tRes && si < sRes) {
+                    const offset = ti + si * (tRes + 1);
+                    pushQuad(mesh.TRIANGLES, false, offset, offset + tRes + 1, offset + 1, offset + tRes + 2);
+                }
+            }
+        }
+        mesh.compile();
+        return mesh;
+    }
+}
+// unique corners of a unit cube. Used by Mesh.cube to generate a cube mesh.
+Mesh.UNIT_CUBE_CORNERS = [
+    V3.O,
+    new V3(0, 0, 1),
+    new V3(0, 1, 0),
+    new V3(0, 1, 1),
+    new V3(1, 0, 0),
+    new V3(1, 0, 1),
+    new V3(1, 1, 0),
+    V3.XYZ,
+];
+
+/* tslint:disable:no-string-literal */
+const DRAW_MODE_CHECKS = {
+    [DRAW_MODES.POINTS]: x => true,
+    [DRAW_MODES.LINES]: x => 0 == x % 2,
+    [DRAW_MODES.LINE_STRIP]: x => x > 2,
+    [DRAW_MODES.LINE_LOOP]: x => x > 2,
+    [DRAW_MODES.TRIANGLES]: x => 0 == x % 3,
+    [DRAW_MODES.TRIANGLE_STRIP]: x => x > 3,
+    [DRAW_MODES.TRIANGLE_FAN]: x => x > 3,
+};
+function isArray(obj) {
+    return Array == obj.constructor || Float32Array == obj.constructor || Float64Array == obj.constructor;
+}
+//const x:keyof UniformTypesMap = undefined as 'FLOAT_VEC4' | 'FLOAT_VEC3'
+class Shader {
+    /**
+     * Provides a convenient wrapper for WebGL shaders. A few uniforms and attributes,
+     * prefixed with `gl_`, are automatically added to all shader sources to make
+     * simple shaders easier to write.
+     * Headers for the following variables are automatically prepended to the passed source. The correct variables
+     * are also automatically passed to the shader when drawing.
+     *
+     * For vertex and fragment shaders:
+     uniform mat3 LGL_NormalMatrix;
+     uniform mat4 LGL_ModelViewMatrix;
+     uniform mat4 LGL_ProjectionMatrix;
+     uniform mat4 LGL_ModelViewProjectionMatrix;
+     uniform mat4 LGL_ModelViewMatrixInverse;
+     uniform mat4 LGL_ProjectionMatrixInverse;
+     uniform mat4 LGL_ModelViewProjectionMatrixInverse;
+     *
+     *
+     * Example usage:
+     *
+     *  const shader = new GL.Shader(
+     *      `void main() { gl_Position = LGL_ModelViewProjectionMatrix * LGL_Vertex; }`,
+     *      `uniform vec4 color; void main() { gl_FragColor = color; }`)
+     *
+     *  shader.uniforms({ color: [1, 0, 0, 1] }).draw(mesh)
+     *
+     * Compiles a shader program using the provided vertex and fragment shaders.
+     */
+    constructor(vertexSource, fragmentSource, gl = currentGL()) {
+        this.projectionMatrixVersion = -1;
+        this.modelViewMatrixVersion = -1;
+        // Headers are prepended to the sources to provide some automatic functionality.
+        const header = `
+		uniform mat3 LGL_NormalMatrix;
+		uniform mat4 LGL_ModelViewMatrix;
+		uniform mat4 LGL_ProjectionMatrix;
+		uniform mat4 LGL_ModelViewProjectionMatrix;
+		uniform mat4 LGL_ModelViewMatrixInverse;
+		uniform mat4 LGL_ProjectionMatrixInverse;
+		uniform mat4 LGL_ModelViewProjectionMatrixInverse;
+	`;
+        const vertexHeader = header + `
+		attribute vec4 LGL_Vertex;
+		attribute vec4 LGL_TexCoord;
+		attribute vec3 LGL_Normal;
+		attribute vec4 LGL_Color;
+	`;
+        const fragmentHeader = `  precision highp float;` + header;
+        const matrixNames = header.match(/\bLGL_\w+/g);
+        // Compile and link errors are thrown as strings.
+        function compileSource(type, source) {
+            const shader = gl.createShader(type);
+            gl.shaderSource(shader, source);
+            gl.compileShader(shader);
+            if (!gl.getShaderParameter(shader, WGL$1.COMPILE_STATUS)) {
+                throw new Error('compile error: ' + gl.getShaderInfoLog(shader));
+            }
+            return shader;
+        }
+        this.gl = gl;
+        const program = gl.createProgram();
+        if (!program) {
+            gl.handleError();
+        }
+        this.program = program;
+        gl.attachShader(this.program, compileSource(WGL$1.VERTEX_SHADER, vertexHeader + vertexSource));
+        gl.attachShader(this.program, compileSource(WGL$1.FRAGMENT_SHADER, fragmentHeader + fragmentSource));
+        gl.linkProgram(this.program);
+        if (!gl.getProgramParameter(this.program, WGL$1.LINK_STATUS)) {
+            throw new Error('link error: ' + gl.getProgramInfoLog(this.program));
+        }
+        this.attributes = {};
+        this.uniformLocations = {};
+        // Check for the use of built-in matrices that require expensive matrix
+        // multiplications to compute, and record these in `activeMatrices`.
+        this.activeMatrices = {};
+        matrixNames && matrixNames.forEach(name => {
+            if (gl.getUniformLocation(this.program, name)) {
+                this.activeMatrices[name] = true;
+            }
+        });
+        this.uniformInfos = {};
+        for (let i = gl.getProgramParameter(this.program, WGL$1.ACTIVE_UNIFORMS); i-- > 0;) {
+            // see https://www.khronos.org/registry/OpenGL-Refpages/es2.0/xhtml/glGetActiveUniform.xml
+            // this.program has already been checked
+            // i is in bounds
+            const info = gl.getActiveUniform(this.program, i);
+            this.uniformInfos[info.name] = info;
+        }
+        gl.handleError();
+    }
+    static create(vertexSource, fragmentSource) {
+        return new Shader(vertexSource, fragmentSource);
+    }
+    /**
+     * Set a uniform for each property of `uniforms`. The correct `viewerGL.uniform*()` method is inferred from the
+     * value types and from the stored uniform sampler flags.
+     */
+    uniforms(uniforms) {
+        const gl = this.gl;
+        gl.useProgram(this.program);
+        gl.handleError();
+        for (const name in uniforms) {
+            const location = this.uniformLocations[name] || gl.getUniformLocation(this.program, name);
+            assert(!!location, name + ' uniform is not used in shader');
+            if (!location)
+                continue;
+            this.uniformLocations[name] = location;
+            let value = uniforms[name];
+            const info = this.uniformInfos[name];
+            if (NLA_DEBUG) {
+                assert(info.type != WGL$1.FLOAT ||
+                    (1 == info.size && 'number' === typeof value || isArray(value) && info.size == value.length && assertNumbers.apply(undefined, value)));
+                assert(info.type != WGL$1.INT ||
+                    (1 == info.size && 'number' === typeof value && value % 1 == 0 ||
+                        isArray(value) && info.size == value.length && assertNumbers.apply(undefined, value) && value.every(x => x % 1 == 0)));
+                assert(info.type != WGL$1.FLOAT_VEC3 ||
+                    (1 == info.size && value instanceof V3 ||
+                        isArray(value) && info.size == value.length && assertVectors.apply(undefined, value)));
+                assert(info.type != WGL$1.FLOAT_VEC4 || isArray(value) && value.length == 4);
+                assert(info.type != WGL$1.FLOAT_MAT4 || value instanceof M4, () => value.toSource());
+                assert(info.type != WGL$1.FLOAT_MAT3 || value.length == 9 || value instanceof M4);
+            }
+            if (value instanceof V3) {
+                value = value.toArray();
+            }
+            if (isArray(value)) {
+                switch (value.length) {
+                    case 1:
+                        gl.uniform1fv(location, value);
+                        break;
+                    case 2:
+                        gl.uniform2fv(location, value);
+                        break;
+                    case 3:
+                        gl.uniform3fv(location, value);
+                        break;
+                    case 4:
+                        gl.uniform4fv(location, value);
+                        break;
+                    // Matrices are automatically transposed, since WebGL uses column-major
+                    // indices instead of row-major indices.
+                    case 9:
+                        gl.uniformMatrix3fv(location, false, new Float32Array([
+                            value[0], value[3], value[6],
+                            value[1], value[4], value[7],
+                            value[2], value[5], value[8],
+                        ]));
+                        break;
+                    case 16:
+                        gl.uniformMatrix4fv(location, false, new Float32Array([
+                            value[0], value[4], value[8], value[12],
+                            value[1], value[5], value[9], value[13],
+                            value[2], value[6], value[10], value[14],
+                            value[3], value[7], value[11], value[15],
+                        ]));
+                        break;
+                    default:
+                        throw new Error('don\'t know how to load uniform "' + name + '" of length ' + value.length);
+                }
+            }
+            else if (Number.isInteger(value)) {
+                if (WGL$1.SAMPLER_2D == info.type || WGL$1.SAMPLER_CUBE == info.type || WGL$1.INT == info.type) {
+                    gl.uniform1i(location, value);
+                }
+                else {
+                    gl.uniform1f(location, value);
+                }
+            }
+            else if (value instanceof M4) {
+                const m = value.m;
+                if (WGL$1.FLOAT_MAT4 == info.type) {
+                    gl.uniformMatrix4fv(location, false, [
+                        m[0], m[4], m[8], m[12],
+                        m[1], m[5], m[9], m[13],
+                        m[2], m[6], m[10], m[14],
+                        m[3], m[7], m[11], m[15]
+                    ]);
+                }
+                else if (WGL$1.FLOAT_MAT3 == info.type) {
+                    gl.uniformMatrix3fv(location, false, [
+                        m[0], m[4], m[8],
+                        m[1], m[5], m[9],
+                        m[2], m[6], m[10]
+                    ]);
+                }
+                else if (WGL$1.FLOAT_MAT2 == info.type) {
+                    gl.uniformMatrix2fv(location, false, new Float32Array([
+                        m[0], m[4],
+                        m[1], m[5]
+                    ]));
+                }
+                else {
+                    throw new Error(`Can't assign M4 to ${info.type}`);
+                }
+            }
+            else {
+                throw new Error('attempted to set uniform "' + name + '" to invalid value ' + value);
+            }
+            gl.handleError();
+        }
+        return this;
+    }
+    /**
+     * Sets all uniform matrix attributes, binds all relevant buffers, and draws the mesh geometry as indexed
+     * triangles or indexed LINES. Set `mode` to `WGL.LINES` (and either add indices to `LINES` or call
+     * `computeWireframe()`) to draw the mesh in wireframe.
+     *
+     * @param mesh
+     * @param mode Defaults to 'TRIANGLES'. Must be passed as string so the correct index buffer can be
+     *     automatically drawn.
+     * @param start int
+     * @param count int
+     */
+    draw(mesh, mode = DRAW_MODES.TRIANGLES, start, count) {
+        assert(mesh.hasBeenCompiled, 'mesh.hasBeenCompiled');
+        assert(undefined != DRAW_MODES[mode]);
+        const modeStr = DRAW_MODES[mode];
+        assert(mesh.indexBuffers[modeStr], `mesh.indexBuffers[${modeStr}] undefined`);
+        return this.drawBuffers(mesh.vertexBuffers, mesh.indexBuffers[modeStr], mode, start, count);
+    }
+    /**
+     * Sets all uniform matrix attributes, binds all relevant buffers, and draws the
+     * indexed mesh geometry. The `vertexBuffers` argument is a map from attribute
+     * names to `Buffer` objects of type `WGL.ARRAY_BUFFER`, `indexBuffer` is a `Buffer`
+     * object of type `WGL.ELEMENT_ARRAY_BUFFER`, and `mode` is a WebGL primitive mode
+     * like `WGL.TRIANGLES` or `WGL.LINES`. This method automatically creates and caches
+     * vertex attribute pointers for attributes as needed.
+     */
+    drawBuffers(vertexBuffers, indexBuffer, mode = DRAW_MODES.TRIANGLES, start = 0, count) {
+        const gl = this.gl;
+        gl.handleError();
+        assert(undefined != DRAW_MODES[mode]);
+        assertf(() => 1 <= Object.keys(vertexBuffers).length);
+        Object.keys(vertexBuffers).forEach(key => assertInst(Buffer, vertexBuffers[key]));
+        // Only varruct up the built-in matrices that are active in the shader
+        const on = this.activeMatrices;
+        const modelViewMatrixInverse = (on['LGL_ModelViewMatrixInverse'] || on['LGL_NormalMatrix'])
+            && this.modelViewMatrixVersion != gl.modelViewMatrixVersion
+            && gl.modelViewMatrix.inversed();
+        const projectionMatrixInverse = on['LGL_ProjectionMatrixInverse']
+            && this.projectionMatrixVersion != gl.projectionMatrixVersion
+            && gl.projectionMatrix.inversed();
+        const modelViewProjectionMatrix = (on['LGL_ModelViewProjectionMatrix'] || on['LGL_ModelViewProjectionMatrixInverse'])
+            && (this.projectionMatrixVersion != gl.projectionMatrixVersion || this.modelViewMatrixVersion != gl.modelViewMatrixVersion)
+            && gl.projectionMatrix.times(gl.modelViewMatrix);
+        const uni = {}; // Uniform Matrices
+        on['LGL_ModelViewMatrix']
+            && this.modelViewMatrixVersion != gl.modelViewMatrixVersion
+            && (uni['LGL_ModelViewMatrix'] = gl.modelViewMatrix);
+        on['LGL_ModelViewMatrixInverse'] && (uni['LGL_ModelViewMatrixInverse'] = modelViewMatrixInverse);
+        on['LGL_ProjectionMatrix']
+            && this.projectionMatrixVersion != gl.projectionMatrixVersion
+            && (uni['LGL_ProjectionMatrix'] = gl.projectionMatrix);
+        projectionMatrixInverse && (uni['LGL_ProjectionMatrixInverse'] = projectionMatrixInverse);
+        modelViewProjectionMatrix && (uni['LGL_ModelViewProjectionMatrix'] = modelViewProjectionMatrix);
+        modelViewProjectionMatrix && on['LGL_ModelViewProjectionMatrixInverse']
+            && (uni['LGL_ModelViewProjectionMatrixInverse'] = modelViewProjectionMatrix.inversed());
+        on['LGL_NormalMatrix']
+            && this.modelViewMatrixVersion != gl.modelViewMatrixVersion
+            && (uni['LGL_NormalMatrix'] = modelViewMatrixInverse.transposed());
+        this.uniforms(uni);
+        this.projectionMatrixVersion = gl.projectionMatrixVersion;
+        this.modelViewMatrixVersion = gl.modelViewMatrixVersion;
+        // Create and enable attribute pointers as necessary.
+        let minVertexBufferLength = Infinity;
+        for (const attribute in vertexBuffers) {
+            const buffer = vertexBuffers[attribute];
+            assert(buffer.hasBeenCompiled);
+            const location = this.attributes[attribute] || gl.getAttribLocation(this.program, attribute);
+            gl.handleError();
+            if (location == -1 || !buffer.buffer) {
+                //console.warn(`Vertex buffer ${attribute} was not bound because the attribute is not active.`)
+                continue;
+            }
+            this.attributes[attribute] = location;
+            gl.bindBuffer(WGL$1.ARRAY_BUFFER, buffer.buffer);
+            gl.handleError();
+            gl.enableVertexAttribArray(location);
+            gl.handleError();
+            gl.vertexAttribPointer(location, buffer.spacing, WGL$1.FLOAT, false, 0, 0);
+            gl.handleError();
+            minVertexBufferLength = Math.min(minVertexBufferLength, buffer.count);
+        }
+        // Disable unused attribute pointers.
+        for (const attribute in this.attributes) {
+            if (!(attribute in vertexBuffers)) {
+                gl.disableVertexAttribArray(this.attributes[attribute]);
+                gl.handleError();
+            }
+        }
+        // Draw the geometry.
+        if (minVertexBufferLength) {
+            count = count || (indexBuffer ? indexBuffer.count : minVertexBufferLength);
+            assert(DRAW_MODE_CHECKS[mode](count), 'count ' + count + ' doesn\'t fulfill requirement '
+                + DRAW_MODE_CHECKS[mode].toString() + ' for mode ' + DRAW_MODES[mode]);
+            if (indexBuffer) {
+                assert(indexBuffer.hasBeenCompiled);
+                assert(minVertexBufferLength > indexBuffer.maxValue);
+                assert(count % indexBuffer.spacing == 0);
+                assert(start % indexBuffer.spacing == 0);
+                if (start + count > indexBuffer.count) {
+                    throw new Error('Buffer not long enough for passed parameters start/length/buffer length' + ' ' + start + ' ' + count + ' ' + indexBuffer.count);
+                }
+                gl.bindBuffer(WGL$1.ELEMENT_ARRAY_BUFFER, indexBuffer.buffer);
+                gl.handleError();
+                // start parameter has to be multiple of sizeof(WGL.UNSIGNED_SHORT)
+                gl.drawElements(mode, count, WGL$1.UNSIGNED_SHORT, 2 * start);
+                gl.handleError();
+            }
+            else {
+                if (start + count > minVertexBufferLength) {
+                    throw new Error('invalid');
+                }
+                gl.drawArrays(mode, start, count);
+                gl.handleError();
+            }
+            gl.drawCallCount++;
+        }
+        return this;
+    }
+}
+
+function currentGL() {
+    return LightGLContext.gl;
+}
+const WGL$1 = WebGLRenderingContext;
+class LightGLContext extends WebGLRenderingContext {
+    constructor() {
+        super();
+        this.modelViewMatrix = new M4();
+        this.projectionMatrix = new M4();
+        this.MODELVIEW = {};
+        this.PROJECTION = {};
+        this.tempMatrix = new M4();
+        this.resultMatrix = new M4();
+        this.modelViewStack = [];
+        this.projectionStack = [];
+    }
+    init() {
+        this.modelViewMatrix = new M4();
+        this.projectionMatrix = new M4();
+        this.drawCallCount = 0;
+        this.projectionMatrixVersion = 0;
+        this.modelViewMatrixVersion = 0;
+        this.tempMatrix = new M4();
+        this.resultMatrix = new M4();
+        this.modelViewStack = [];
+        this.projectionStack = [];
+        /////////// IMMEDIATE MODE
+        // ### Immediate mode
+        //
+        // Provide an implementation of OpenGL's deprecated immediate mode. This is
+        // depricated for a reason: constantly re-specifying the geometry is a bad
+        // idea for performance. You should use a `GL.Mesh` instead, which specifies
+        // the geometry once and caches it on the graphics card. Still, nothing
+        // beats a quick `viewerGL.begin(WGL.POINTS); viewerGL.vertex(1, 2, 3); viewerGL.end();` for
+        // debugging. This intentionally doesn't implement fixed-function lighting
+        // because it's only meant for quick debugging tasks.
+        this.immediate = {
+            mesh: new Mesh()
+                .addVertexBuffer('coords', 'LGL_TexCoord')
+                .addVertexBuffer('vertices', 'LGL_Vertex')
+                .addVertexBuffer('colors', 'LGL_Color'),
+            mode: -1,
+            coord: [0, 0, 0, 0],
+            color: [1, 1, 1, 1],
+            pointSize: 1,
+            shader: new Shader(`
+uniform float pointSize;
+varying vec4 color;
+varying vec4 coord;
+void main() {
+	color = LGL_Color;
+	coord = LGL_TexCoord;
+	gl_Position = LGL_ModelViewProjectionMatrix * LGL_Vertex;
+	gl_PointSize = pointSize;
+}`, `
+uniform sampler2D texture;
+uniform float pointSize;
+uniform bool useTexture;
+varying vec4 color;
+varying vec4 coord;
+void main() {
+	gl_FragColor = color;
+	if (useTexture) gl_FragColor *= texture2D(texture, coord.xy);
+}`)
+        };
+        this.matrixMode(LightGLContext.MODELVIEW);
+    }
+    /// Implement the OpenGL modelview and projection matrix stacks, along with some other useful GLU matrix functions.
+    matrixMode(mode) {
+        switch (mode) {
+            case this.MODELVIEW:
+                this.currentMatrixName = 'modelViewMatrix';
+                this.stack = this.modelViewStack;
+                break;
+            case this.PROJECTION:
+                this.currentMatrixName = 'projectionMatrix';
+                this.stack = this.projectionStack;
+                break;
+            default:
+                throw new Error('invalid matrix mode ' + mode);
+        }
+    }
+    modelViewMode() {
+        Object.defineProperty(LightGLContext.gl, 'currentMatrix', {
+            get: function () {
+                return this.modelViewMatrix;
+            },
+            set: function (val) {
+                this.modelViewMatrix = val;
+            },
+            writable: true,
+        });
+        this.currentMatrixName = 'modelViewMatrix';
+        this.stack = this.modelViewStack;
+    }
+    projectionMode() {
+        this.currentMatrixName = 'projectionMatrix';
+        this.stack = this.projectionStack;
+    }
+    loadIdentity() {
+        M4.identity(this[this.currentMatrixName]);
+    }
+    loadMatrix(m4) {
+        M4.copy(m4, this[this.currentMatrixName]);
+    }
+    multMatrix(m4) {
+        M4.multiply(this[this.currentMatrixName], m4, this.resultMatrix);
+        const temp = this.resultMatrix;
+        this.resultMatrix = this[this.currentMatrixName];
+        this[this.currentMatrixName] = temp;
+        this.currentMatrixName == 'projectionMatrix' ? this.projectionMatrixVersion++ : this.modelViewMatrixVersion++;
+    }
+    mirror(plane) {
+        this.multMatrix(M4.mirror(plane));
+    }
+    perspective(fovDegrees, aspect, near, far, result) {
+        this.multMatrix(M4.perspectiveRad(fovDegrees * DEG, aspect, near, far, this.tempMatrix));
+    }
+    frustum(left, right, bottom, top, near, far) {
+        this.multMatrix(M4.frustum(left, right, bottom, top, near, far, this.tempMatrix));
+    }
+    ortho(left, right, bottom, top, near, far) {
+        this.multMatrix(M4.ortho(left, right, bottom, top, near, far, this.tempMatrix));
+    }
+    scale(...args) {
+        this.multMatrix(M4.scale(...args, this.tempMatrix));
+    }
+    mirroredX() {
+        this.multMatrix(M4.mirror(P3ZX));
+    }
+    translate(x, y, z) {
+        if (undefined !== y) {
+            this.multMatrix(M4.translate(x, y, z, this.tempMatrix));
+        }
+        else {
+            this.multMatrix(M4.translate(x, this.tempMatrix));
+        }
+    }
+    rotate(angleDegrees, x, y, z) {
+        this.multMatrix(M4.rotate(angleDegrees, { x, y, z }, this.tempMatrix));
+    }
+    lookAt(eye, center, up) {
+        this.multMatrix(M4.lookAt(eye, center, up, this.tempMatrix));
+    }
+    pushMatrix() {
+        this.stack.push(M4.copy(this[this.currentMatrixName]));
+    }
+    popMatrix() {
+        const pop = this.stack.pop();
+        assert(undefined !== pop);
+        this[this.currentMatrixName] = pop;
+        this.currentMatrixName == 'projectionMatrix' ? this.projectionMatrixVersion++ : this.modelViewMatrixVersion++;
+    }
+    /**
+     * World coordinates (WC) to screen/window coordinates matrix
+     */
+    wcToWindowMatrix() {
+        const viewport = this.getParameter(this.VIEWPORT);
+        const [x, y, w, h] = viewport;
+        const viewportToScreenMatrix = new M4([
+            w / 2, 0, 0, x + w / 2,
+            h / 2, 0, 0, y + h / 2,
+            0, 0, 1, 0,
+            0, 0, 0, 1,
+        ]);
+        return M4.multiplyMultiple(viewportToScreenMatrix, this.projectionMatrix, this.modelViewMatrix);
+    }
+    pointSize(pointSize) {
+        this.immediate.shader.uniforms({ pointSize: pointSize });
+    }
+    begin(mode) {
+        if (this.immediate.mode != -1)
+            throw new Error('mismatched begin() and end() calls');
+        this.immediate.mode = mode;
+        this.immediate.mesh.colors = [];
+        this.immediate.mesh.coords = [];
+        this.immediate.mesh.vertices = [];
+    }
+    color(...args) {
+        this.immediate.color =
+            (1 == args.length && Array.isArray(args[0])) ? args[0] :
+                (1 == args.length && 'number' == typeof args[0]) ? hexIntToGLColor(args[0]) :
+                    (1 == args.length && 'string' == typeof args[0]) ? chroma(args[0]).gl() :
+                        [args[0], args[1], args[2], args[3] || 0];
+    }
+    texCoord(...args) {
+        this.immediate.coord = V.apply(undefined, args).toArray(2);
+    }
+    vertex(...args) {
+        this.immediate.mesh.colors.push(this.immediate.color);
+        this.immediate.mesh.coords.push(this.immediate.coord);
+        this.immediate.mesh.vertices.push(V.apply(undefined, args));
+    }
+    end() {
+        if (this.immediate.mode == -1)
+            throw new Error('mismatched viewerGL.begin() and viewerGL.end() calls');
+        this.immediate.mesh.compile();
+        this.immediate.shader.uniforms({
+            useTexture: !!LightGLContext.gl.getParameter(WGL$1.TEXTURE_BINDING_2D),
+        }).draw(this.immediate.mesh, this.immediate.mode);
+        this.immediate.mode = -1;
+    }
+    makeCurrent() {
+        LightGLContext.gl = this;
+    }
+    /**
+     * Starts an animation loop which calls {@link onupdate} and {@link ondraw}
+     */
+    animate() {
+        const requestAnimationFrame = window.requestAnimationFrame ||
+            window.mozRequestAnimationFrame ||
+            window.webkitRequestAnimationFrame ||
+            function (callback) {
+                setTimeout(() => callback(performance.now()), 1000 / 60);
+            };
+        let time = new Date().getTime();
+        const update = () => {
+            const now = new Date().getTime();
+            if (this.onupdate)
+                this.onupdate(now - time);
+            if (this.ondraw)
+                this.ondraw();
+            requestAnimationFrame(update);
+            time = now;
+        };
+        update();
+    }
+    /**
+     * Provide an easy way to get a fullscreen app running, including an
+     * automatic 3D perspective projection matrix by default. This should be
+     * called once.
+     *
+     * Just fullscreen, no automatic camera:
+     *
+     *     viewerGL.fullscreen({ camera: false })
+     *
+     * Adjusting field of view, near plane distance, and far plane distance:
+     *
+     *     viewerGL.fullscreen({ fov: 45, near: 0.1, far: 1000 })
+     *
+     * Adding padding from the edge of the window:
+     *
+     *     viewerGL.fullscreen({ paddingLeft: 250, paddingBottom: 60 })
+     */
+    fullscreen(options = {}) {
+        const top = options.paddingTop || 0;
+        const left = options.paddingLeft || 0;
+        const right = options.paddingRight || 0;
+        const bottom = options.paddingBottom || 0;
+        if (!document.body) {
+            throw new Error('document.body doesn\'t exist yet (call viewerGL.fullscreen() from ' +
+                'window.onload() or from inside the <body> tag)');
+        }
+        document.body.appendChild(this.canvas);
+        document.body.style.overflow = 'hidden';
+        this.canvas.style.position = 'absolute';
+        this.canvas.style.left = left + 'px';
+        this.canvas.style.top = top + 'px';
+        const gl = this;
+        function windowOnResize() {
+            gl.canvas.width = window.innerWidth - left - right;
+            gl.canvas.height = window.innerHeight - top - bottom;
+            gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+            if (options.camera) {
+                gl.matrixMode(LightGLContext.PROJECTION);
+                gl.loadIdentity();
+                gl.perspective(options.fov || 45, gl.canvas.width / gl.canvas.height, options.near || 0.1, options.far || 1000);
+                gl.matrixMode(LightGLContext.MODELVIEW);
+            }
+            if (gl.ondraw)
+                gl.ondraw();
+        }
+        window.addEventListener('resize', windowOnResize);
+        windowOnResize();
+    }
+    viewportFill() {
+        this.viewport(0, 0, this.canvas.width, this.canvas.height);
+    }
+    handleError() {
+        const errorCode = this.getError();
+        if (0 !== errorCode) {
+            throw new Error('' + errorCode + WGL_ERROR[errorCode]);
+        }
+    }
+    /**
+     * `create()` creates a new WebGL context and augments it with more methods. The alpha channel is disabled
+     * by default because it usually causes unintended transparencies in the canvas.
+     */
+    static create(options = {}) {
+        const canvas = options.canvas || document.createElement('canvas');
+        if (!options.canvas) {
+            canvas.width = 800;
+            canvas.height = 600;
+        }
+        if (!('alpha' in options))
+            options.alpha = false;
+        let newGL = undefined;
+        try {
+            newGL = canvas.getContext('webgl', options);
+            console.log('getting context');
+        }
+        catch (e) {
+            console.log(e, newGL);
+        }
+        try {
+            newGL = newGL || canvas.getContext('experimental-webgl', options);
+        }
+        catch (e) {
+            console.log(e, newGL);
+        }
+        if (!newGL)
+            throw new Error('WebGL not supported');
+        addOwnProperties(newGL, LightGLContext.prototype);
+        LightGLContext.gl = newGL;
+        newGL.init();
+        //addEventListeners(newGL)
+        return newGL;
+    }
+}
+LightGLContext.MODELVIEW = {};
+LightGLContext.PROJECTION = {};
+LightGLContext.HALF_FLOAT_OES = 0x8D61;
+var WGL_ERROR;
+(function (WGL_ERROR) {
+    WGL_ERROR[WGL_ERROR["NO_ERROR"] = WGL$1.NO_ERROR] = "NO_ERROR";
+    WGL_ERROR[WGL_ERROR["INVALID_ENUM"] = WGL$1.INVALID_ENUM] = "INVALID_ENUM";
+    WGL_ERROR[WGL_ERROR["INVALID_VALUE"] = WGL$1.INVALID_VALUE] = "INVALID_VALUE";
+    WGL_ERROR[WGL_ERROR["INVALID_OPERATION"] = WGL$1.INVALID_OPERATION] = "INVALID_OPERATION";
+    WGL_ERROR[WGL_ERROR["INVALID_FRAMEBUFFER_OPERATION"] = WGL$1.INVALID_FRAMEBUFFER_OPERATION] = "INVALID_FRAMEBUFFER_OPERATION";
+    WGL_ERROR[WGL_ERROR["OUT_OF_MEMORY"] = WGL$1.OUT_OF_MEMORY] = "OUT_OF_MEMORY";
+    WGL_ERROR[WGL_ERROR["CONTEXT_LOST_WEBGL"] = WGL$1.CONTEXT_LOST_WEBGL] = "CONTEXT_LOST_WEBGL";
+})(WGL_ERROR || (WGL_ERROR = {}));
+LightGLContext.prototype.MODELVIEW = LightGLContext.MODELVIEW;
+LightGLContext.prototype.PROJECTION = LightGLContext.PROJECTION;
+LightGLContext.prototype.HALF_FLOAT_OES = LightGLContext.HALF_FLOAT_OES;
+/**
+ *
+ * Push two triangles:
+ * c - d
+ * | \ |
+ * a - b
+ */
+function pushQuad(triangles, flipped, a, b, c, d) {
+    if (flipped) {
+        triangles.push(a, c, b, b, c, d);
+    }
+    else {
+        triangles.push(a, b, c, b, d, c);
+    }
+}
+function hexIntToGLColor(color) {
+    return [(color >> 16) / 255.0, ((color >> 8) & 0xff) / 255.0, (color & 0xff) / 255.0, 1.0];
+}
+/**
+ * These are all the draw modes usable in OpenGL ES
+ */
+var DRAW_MODES;
+(function (DRAW_MODES) {
+    DRAW_MODES[DRAW_MODES["POINTS"] = WGL$1.POINTS] = "POINTS";
+    DRAW_MODES[DRAW_MODES["LINES"] = WGL$1.LINES] = "LINES";
+    DRAW_MODES[DRAW_MODES["LINE_STRIP"] = WGL$1.LINE_STRIP] = "LINE_STRIP";
+    DRAW_MODES[DRAW_MODES["LINE_LOOP"] = WGL$1.LINE_LOOP] = "LINE_LOOP";
+    DRAW_MODES[DRAW_MODES["TRIANGLES"] = WGL$1.TRIANGLES] = "TRIANGLES";
+    DRAW_MODES[DRAW_MODES["TRIANGLE_STRIP"] = WGL$1.TRIANGLE_STRIP] = "TRIANGLE_STRIP";
+    DRAW_MODES[DRAW_MODES["TRIANGLE_FAN"] = WGL$1.TRIANGLE_FAN] = "TRIANGLE_FAN";
+})(DRAW_MODES || (DRAW_MODES = {}));
+const GL_COLOR_BLACK = [0, 0, 0, 1]; // there's only one constant, use it for default values. Use chroma-js
+// or similar for actual colors.
+const SHADER_VAR_TYPES = ['FLOAT', 'FLOAT_MAT2', 'FLOAT_MAT3', 'FLOAT_MAT4', 'FLOAT_VEC2', 'FLOAT_VEC3', 'FLOAT_VEC4', 'INT', 'INT_VEC2', 'INT_VEC3', 'INT_VEC4', 'UNSIGNED_INT'];
+
+///<reference path="../node_modules/ts3dutils/out/complete.d.ts"/>
+const WGL = WebGLRenderingContext;
+class Buffer {
+    /**
+     * Provides a simple method of uploading data to a GPU buffer. Example usage:
+     *
+     *     var vertices = new GL.Buffer(WGL.ARRAY_BUFFER, Float32Array)
+     *     vertices.data = [[0, 0, 0], [1, 0, 0], [0, 1, 0], [1, 1, 0]]
+     *     vertices.compile()
+     *
+     *     var indices = new GL.Buffer(WGL.ELEMENT_ARRAY_BUFFER, Uint16Array)
+     *     indices.data = [[0, 1, 2], [2, 1, 3]]
+     *     indices.compile()
+     *
+     * Specifies the target to which the buffer object is bound.
+     * The symbolic constant must be GL_ARRAY_BUFFER or GL_ELEMENT_ARRAY_BUFFER.
+     */
+    constructor(target, type) {
+        this.target = target;
+        this.type = type;
+        assert(target == WGL.ARRAY_BUFFER || target == WGL.ELEMENT_ARRAY_BUFFER, 'target == WGL.ARRAY_BUFFER || target == WGL.ELEMENT_ARRAY_BUFFER');
+        assert(type == Float32Array || type == Uint16Array, 'type == Float32Array || type == Uint16Array');
+        this.buffer = undefined;
+        this.type = type;
+        this.data = [];
+        this.count = 0;
+        this.spacing = 0;
+        this.hasBeenCompiled = false;
+    }
+    /**
+     * Upload the contents of `data` to the GPU in preparation for rendering. The data must be a list of lists
+     * where each inner list has the same length. For example, each element of data for vertex normals would be a
+     * list of length three. This will remember the data length and element length for later use by shaders.
+     *
+     * This could have used `[].concat.apply([], this.data)` to flatten the array but Google
+     * Chrome has a maximum number of arguments so the concatenations are chunked to avoid that limit.
+     *
+     * @param type Either `WGL.STATIC_DRAW` or `WGL.DYNAMIC_DRAW`. Defaults to `WGL.STATIC_DRAW`
+     */
+    compile(type = WGL.STATIC_DRAW, gl = currentGL()) {
+        assert(WGL.STATIC_DRAW == type || WGL.DYNAMIC_DRAW == type, 'WGL.STATIC_DRAW == type || WGL.DYNAMIC_DRAW == type');
+        gl.handleError();
+        this.buffer = this.buffer || gl.createBuffer();
+        gl.handleError();
+        let buffer;
+        if (this.data.length == 0) {
+            console.warn('empty buffer ' + this.name);
+            //console.trace()
+        }
+        if (this.data.length == 0 || this.data[0] instanceof V3) {
+            assert(!(this.data[0] instanceof V3) || this.type == Float32Array);
+            V3.pack(this.data, buffer = new this.type(this.data.length * 3)); // asserts that all
+            // elements are V3s
+            this.spacing = 3;
+            this.count = this.data.length;
+            this.maxValue = 0;
+        }
+        else {
+            //assert(Array != this.data[0].constructor, this.name + this.data[0])
+            if (Array.isArray(this.data[0])) {
+                const bufferLength = this.data.length * this.data[0].length;
+                buffer = new this.type(bufferLength);
+                let i = this.data.length, destPtr = bufferLength;
+                while (i--) {
+                    const subArray = this.data[i];
+                    let j = subArray.length;
+                    while (j--) {
+                        buffer[--destPtr] = subArray[j];
+                    }
+                }
+                assert(0 == destPtr);
+            }
+            else {
+                buffer = new this.type(this.data);
+            }
+            const spacing = this.data.length ? buffer.length / this.data.length : 0;
+            assert(spacing % 1 == 0, `buffer ${this.name} elements not of consistent size, average size is ` + spacing);
+            if (NLA_DEBUG) {
+                if (10000 <= buffer.length) {
+                    this.maxValue = 0;
+                }
+                else {
+                    this.maxValue = Math.max.apply(undefined, buffer);
+                }
+            }
+            assert(spacing !== 0);
+            this.spacing = spacing;
+            this.count = this.data.length;
+        }
+        gl.bindBuffer(this.target, this.buffer);
+        gl.handleError();
+        gl.bufferData(this.target, buffer, type);
+        gl.handleError();
+        this.hasBeenCompiled = true;
+    }
+}
+
+class Texture {
+    /**
+     * Provides a simple wrapper around WebGL textures that supports render-to-texture.
+     *
+     * The arguments `width` and `height` give the size of the texture in texels.
+     * WebGL texture dimensions must be powers of two unless `filter` is set to
+     * either `WGL.NEAREST` or `WGL.LINEAR` and `wrap` is set to `WGL.CLAMP_TO_EDGE`
+     * (which they are by default).
+     *
+     * Texture parameters can be passed in via the `options` argument.
+     * Example usage:
+     *
+     *      let tex = new GL.Texture(256, 256, {
+         *       magFilter: WGL.NEAREST,
+         *       minFilter: WGL.LINEAR,
+         *
+         *       wrapS: WGL.REPEAT,
+         *       wrapT: WGL.REPEAT,
+         *
+         *       format: WGL.RGB, // Defaults to WGL.RGBA
+         *       type: WGL.FLOAT // Defaults to WGL.UNSIGNED_BYTE
+         *     })
+     *
+     */
+    constructor(width, height, options, gl = currentGL()) {
+        this.gl = gl;
+        options = options || {};
+        this.texture = gl.createTexture();
+        gl.handleError(); // in case createTexture returns null & fails
+        this.width = width;
+        this.gl = gl;
+        this.height = height;
+        this.format = options.format || WGL$1.RGBA;
+        this.type = options.type || WGL$1.UNSIGNED_BYTE;
+        const magFilter = options.filter || options.magFilter || WGL$1.LINEAR;
+        const minFilter = options.filter || options.minFilter || WGL$1.LINEAR;
+        if (this.type === WGL$1.FLOAT) {
+            if (!gl.getExtension('OES_texture_float')) {
+                throw new Error('OES_texture_float is required but not supported');
+            }
+            if ((minFilter !== WGL$1.NEAREST || magFilter !== WGL$1.NEAREST) && !gl.getExtension('OES_texture_float_linear')) {
+                throw new Error('OES_texture_float_linear is required but not supported');
+            }
+        }
+        else if (this.type === LightGLContext.HALF_FLOAT_OES) {
+            if (!gl.getExtension('OES_texture_half_float')) {
+                throw new Error('OES_texture_half_float is required but not supported');
+            }
+            if ((minFilter !== WGL$1.NEAREST || magFilter !== WGL$1.NEAREST) && !gl.getExtension('OES_texture_half_float_linear')) {
+                throw new Error('OES_texture_half_float_linear is required but not supported');
+            }
+        }
+        gl.bindTexture(WGL$1.TEXTURE_2D, this.texture);
+        gl.pixelStorei(WGL$1.UNPACK_FLIP_Y_WEBGL, 1);
+        gl.texParameteri(WGL$1.TEXTURE_2D, WGL$1.TEXTURE_MAG_FILTER, magFilter);
+        gl.texParameteri(WGL$1.TEXTURE_2D, WGL$1.TEXTURE_MIN_FILTER, minFilter);
+        gl.texParameteri(WGL$1.TEXTURE_2D, WGL$1.TEXTURE_WRAP_S, options.wrap || options.wrapS || WGL$1.CLAMP_TO_EDGE);
+        gl.texParameteri(WGL$1.TEXTURE_2D, WGL$1.TEXTURE_WRAP_T, options.wrap || options.wrapT || WGL$1.CLAMP_TO_EDGE);
+        gl.texImage2D(WGL$1.TEXTURE_2D, 0, this.format, width, height, 0, this.format, this.type, null);
+    }
+    bind(unit = 0) {
+        this.gl.activeTexture(WGL$1.TEXTURE0 + unit);
+        this.gl.bindTexture(WGL$1.TEXTURE_2D, this.texture);
+    }
+    unbind(unit = 0) {
+        this.gl.activeTexture(WGL$1.TEXTURE0 + unit);
+        this.gl.bindTexture(WGL$1.TEXTURE_2D, null);
+    }
+    canDrawTo() {
+        const gl = this.gl;
+        this.framebuffer = this.framebuffer || gl.createFramebuffer();
+        gl.bindFramebuffer(WGL$1.FRAMEBUFFER, this.framebuffer);
+        gl.framebufferTexture2D(WGL$1.FRAMEBUFFER, WGL$1.COLOR_ATTACHMENT0, WGL$1.TEXTURE_2D, this.texture, 0);
+        const result = gl.checkFramebufferStatus(WGL$1.FRAMEBUFFER) == WGL$1.FRAMEBUFFER_COMPLETE;
+        gl.bindFramebuffer(WGL$1.FRAMEBUFFER, null);
+        return result;
+    }
+    drawTo(callback) {
+        const gl = this.gl;
+        this.framebuffer = this.framebuffer || gl.createFramebuffer();
+        this.renderbuffer = this.renderbuffer || gl.createRenderbuffer();
+        gl.bindFramebuffer(WGL$1.FRAMEBUFFER, this.framebuffer);
+        gl.bindRenderbuffer(WGL$1.RENDERBUFFER, this.renderbuffer);
+        if (this.width != this.renderbuffer.width || this.height != this.renderbuffer.height) {
+            this.renderbuffer.width = this.width;
+            this.renderbuffer.height = this.height;
+            gl.renderbufferStorage(WGL$1.RENDERBUFFER, WGL$1.DEPTH_COMPONENT16, this.width, this.height);
+        }
+        gl.framebufferTexture2D(WGL$1.FRAMEBUFFER, WGL$1.COLOR_ATTACHMENT0, WGL$1.TEXTURE_2D, this.texture, 0);
+        gl.framebufferRenderbuffer(WGL$1.FRAMEBUFFER, WGL$1.DEPTH_ATTACHMENT, WGL$1.RENDERBUFFER, this.renderbuffer);
+        if (gl.checkFramebufferStatus(WGL$1.FRAMEBUFFER) != WGL$1.FRAMEBUFFER_COMPLETE) {
+            throw new Error('Rendering to this texture is not supported (incomplete this.framebuffer)');
+        }
+        gl.viewport(0, 0, this.width, this.height);
+        callback(gl);
+        gl.bindFramebuffer(WGL$1.FRAMEBUFFER, null);
+        gl.bindRenderbuffer(WGL$1.RENDERBUFFER, null);
+        const viewport = gl.getParameter(WGL$1.VIEWPORT);
+        gl.viewport(viewport[0], viewport[1], viewport[2], viewport[3]);
+    }
+    swapWith(other) {
+        assert(this.gl == other.gl);
+        let temp;
+        temp = other.texture;
+        other.texture = this.texture;
+        this.texture = temp;
+        temp = other.width;
+        other.width = this.width;
+        this.width = temp;
+        temp = other.height;
+        other.height = this.height;
+        this.height = temp;
+    }
+    /**
+     * Return a new texture created from `imgElement`, an `<img>` tag.
+     */
+    static fromImage(imgElement, options, gl = currentGL()) {
+        options = options || {};
+        const texture = new Texture(imgElement.width, imgElement.height, options);
+        try {
+            gl.texImage2D(WGL$1.TEXTURE_2D, 0, texture.format, texture.format, texture.type, imgElement);
+        }
+        catch (e) {
+            if (location.protocol == 'file:') {
+                throw new Error('imgElement not loaded for security reasons (serve this page over "http://" instead)');
+            }
+            else {
+                throw new Error('imgElement not loaded for security reasons (imgElement must originate from the same ' +
+                    'domain as this page or use Cross-Origin Resource Sharing)');
+            }
+        }
+        if (options.minFilter && options.minFilter != WGL$1.NEAREST && options.minFilter != WGL$1.LINEAR) {
+            gl.generateMipmap(WGL$1.TEXTURE_2D);
+        }
+        return texture;
+    }
+    /**
+     * Returns a checkerboard texture that will switch to the correct texture when it loads.
+     */
+    static fromURL(url, options, gl = currentGL()) {
+        Texture.checkerBoardCanvas = Texture.checkerBoardCanvas || (function () {
+            const c = document.createElement('canvas').getContext('2d');
+            if (!c)
+                throw new Error('Could not create 2d canvas.');
+            c.canvas.width = c.canvas.height = 128;
+            for (let y = 0; y < c.canvas.height; y += 16) {
+                for (let x = 0; x < c.canvas.width; x += 16) {
+                    //noinspection JSBitwiseOperatorUsage
+                    c.fillStyle = (x ^ y) & 16 ? '#FFF' : '#DDD';
+                    c.fillRect(x, y, 16, 16);
+                }
+            }
+            return c.canvas;
+        })();
+        const texture = Texture.fromImage(Texture.checkerBoardCanvas, options);
+        const image = new Image();
+        image.onload = () => Texture.fromImage(image, options, gl).swapWith(texture);
+        image.src = url;
+        return texture;
+    }
+}
+
+export { Buffer, currentGL, WGL$1 as WGL, LightGLContext, pushQuad, hexIntToGLColor, DRAW_MODES, GL_COLOR_BLACK, SHADER_VAR_TYPES, Mesh, Shader, Texture };
+//# sourceMappingURL=bundle.module.js.map
