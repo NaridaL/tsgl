@@ -1,12 +1,28 @@
 (function (global, factory) {
-	typeof exports === 'object' && typeof module !== 'undefined' ? factory(exports, require('chroma-js')) :
-	typeof define === 'function' && define.amd ? define(['exports', 'chroma-js'], factory) :
-	(factory((global.nla = {}),global.chroma));
-}(this, (function (exports,chroma) { 'use strict';
+	typeof exports === 'object' && typeof module !== 'undefined' ? factory(exports, require('ts3dutils'), require('chroma-js')) :
+	typeof define === 'function' && define.amd ? define(['exports', 'ts3dutils', 'chroma-js'], factory) :
+	(factory((global.nla = {}),global.ts3dutils,global.chroma));
+}(this, (function (exports,ts3dutils,chroma) { 'use strict';
 
 chroma = chroma && chroma.hasOwnProperty('default') ? chroma['default'] : chroma;
 
-class Mesh extends Transformable {
+var __awaiter = (undefined && undefined.__awaiter) || function (thisArg, _arguments, P, generator) {
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : new P(function (resolve) { resolve(result.value); }).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
+const { cos, sin, PI, min, max } = Math;
+const WGL$2 = WebGLRenderingContext;
+/**
+ * @example new Mesh()
+ * 		.addIndexBuffer('TRIANGLES')
+ * 		.addIndexBuffer('LINES')
+ * 		.addVertexBuffer('normals', 'LGL_Normal')
+ */
+class Mesh extends ts3dutils.Transformable {
     constructor() {
         super();
         this.hasBeenCompiled = false;
@@ -18,7 +34,7 @@ class Mesh extends Transformable {
         //if (options.colors) this.addVertexBuffer('colors', 'LGL_Color')
     }
     calcVolume() {
-        let totalVolume = 0, totalCentroid = V3.O, totalAreaX2 = 0;
+        let totalVolume = 0, totalCentroid = ts3dutils.V3.O, totalAreaX2 = 0;
         const triangles = this.TRIANGLES;
         const vertices = this.vertices;
         for (let i = 0; i < triangles.length; i += 3) {
@@ -32,7 +48,7 @@ class Mesh extends Transformable {
             totalVolume += faceCentroid.z * normal.z / 2;
             const faceAreaX2 = normal.length();
             totalAreaX2 += faceAreaX2;
-            totalCentroid = totalCentroid.plus(new V3(faceCentroid.x, faceCentroid.y, faceCentroid.z / 2).times(faceCentroid.z * normal.z / 2));
+            totalCentroid = totalCentroid.plus(new ts3dutils.V3(faceCentroid.x, faceCentroid.y, faceCentroid.z / 2).times(faceCentroid.z * normal.z / 2));
         }
         // sumInPlaceTree adds negligible additional accuracy for XY sphere
         return { volume: totalVolume, centroid: totalCentroid.div(triangles.length / 3), area: totalAreaX2 / 2 };
@@ -43,12 +59,12 @@ class Mesh extends Transformable {
      * @example new Mesh().addVertexBuffer('coords', 'LGL_TexCoord')
      */
     addVertexBuffer(name, attribute) {
-        assert(!this.vertexBuffers[attribute]);
+        ts3dutils.assert(!this.vertexBuffers[attribute], 'Buffer ' + attribute + ' already exists.');
         //assert(!this[name])
         this.hasBeenCompiled = false;
-        assert('string' == typeof name);
-        assert('string' == typeof attribute);
-        const buffer = this.vertexBuffers[attribute] = new Buffer(WGL$1.ARRAY_BUFFER, Float32Array);
+        ts3dutils.assert('string' == typeof name);
+        ts3dutils.assert('string' == typeof attribute);
+        const buffer = this.vertexBuffers[attribute] = new Buffer(WGL$2.ARRAY_BUFFER, Float32Array);
         buffer.name = name;
         this[name] = [];
         return this;
@@ -60,14 +76,14 @@ class Mesh extends Transformable {
      */
     addIndexBuffer(name) {
         this.hasBeenCompiled = false;
-        const buffer = this.indexBuffers[name] = new Buffer(WGL$1.ELEMENT_ARRAY_BUFFER, Uint16Array);
+        const buffer = this.indexBuffers[name] = new Buffer(WGL$2.ELEMENT_ARRAY_BUFFER, Uint16Array);
         buffer.name = name;
         this[name] = [];
         return this;
     }
     concat(...others) {
         const mesh = new Mesh();
-        [this].concat(others).forEach(oldMesh => {
+        [this].concat(others).forEach((oldMesh) => {
             const startIndex = mesh.vertices ? mesh.vertices.length : 0;
             Object.getOwnPropertyNames(oldMesh.vertexBuffers).forEach(attribute => {
                 const bufferName = this.vertexBuffers[attribute].name;
@@ -91,7 +107,7 @@ class Mesh extends Transformable {
      *
      * Sets `this.hasBeenCompiled` to true.
      */
-    compile() {
+    compile(gl = currentGL()) {
         // figure out shortest vertex buffer to make sure indexBuffers are in bounds
         Object.getOwnPropertyNames(this.vertexBuffers).forEach(attribute => {
             const buffer = this.vertexBuffers[attribute];
@@ -102,13 +118,54 @@ class Mesh extends Transformable {
         for (const name in this.indexBuffers) {
             const buffer = this.indexBuffers[name];
             buffer.data = this[buffer.name];
-            buffer.compile();
+            buffer.compile(undefined, gl);
             // if (NLA_DEBUG && buffer.maxValue >= minVertexBufferLength) {
             // 	throw new Error(`max index value for buffer ${name}
             // 	is too large ${buffer.maxValue} min Vbuffer size: ${minVertexBufferLength} ${minBufferName}`)
             // }
         }
         this.hasBeenCompiled = true;
+        return this;
+    }
+    static fromBinarySTL(stl) {
+        return __awaiter(this, void 0, void 0, function* () {
+            return new Promise((resolve, reject) => {
+                const mesh = new Mesh()
+                    .addVertexBuffer('normals', 'LGL_Normal');
+                const fileReader = new FileReader();
+                fileReader.onerror = reject;
+                fileReader.onload = function (progressEvent) {
+                    const dataView = new DataView(this.result);
+                    const HEADER_BYTE_SIZE = 80;
+                    const triangleCount = dataView.getUint32(HEADER_BYTE_SIZE, true);
+                    mesh.normals.length = triangleCount * 3;
+                    mesh.vertices.length = triangleCount * 3;
+                    let i = triangleCount * 3, bufferPtr = HEADER_BYTE_SIZE + 4;
+                    function readV3() {
+                        const x = dataView.getFloat32(bufferPtr, true);
+                        bufferPtr += 4;
+                        const y = dataView.getFloat32(bufferPtr, true);
+                        bufferPtr += 4;
+                        const z = dataView.getFloat32(bufferPtr, true);
+                        bufferPtr += 4;
+                        return new ts3dutils.V3(x, y, z);
+                    }
+                    while (i) {
+                        i -= 3;
+                        const normal = readV3();
+                        mesh.normals[i + 0] = normal;
+                        mesh.normals[i + 1] = normal;
+                        mesh.normals[i + 2] = normal;
+                        mesh.vertices[i + 0] = readV3();
+                        mesh.vertices[i + 1] = readV3();
+                        mesh.vertices[i + 2] = readV3();
+                        bufferPtr += 2;
+                    }
+                    resolve(mesh);
+                };
+                fileReader.readAsArrayBuffer(stl);
+            });
+        });
     }
     toBinarySTL() {
         if (!this.TRIANGLES)
@@ -124,7 +181,7 @@ class Mesh extends Transformable {
         while (i) {
             i -= 3;
             const a = this.vertices[triangles[i]], b = this.vertices[triangles[i + 1]], c = this.vertices[triangles[i + 2]];
-            const normal = V3.normalOnPoints(a, b, c);
+            const normal = ts3dutils.V3.normalOnPoints(a, b, c);
             [normal, a, b, c].forEach(v => {
                 dataView.setFloat32(bufferPtr, v.x, true);
                 bufferPtr += 4;
@@ -136,7 +193,7 @@ class Mesh extends Transformable {
             // skip 2 bytes, already initalized to zero
             bufferPtr += 2;
         }
-        assert(bufferPtr == buffer.byteLength, bufferPtr + ' ' + buffer.byteLength);
+        ts3dutils.assert(bufferPtr == buffer.byteLength, bufferPtr + ' ' + buffer.byteLength);
         return new Blob([buffer], { type: 'application/octet-stream' });
     }
     /**
@@ -150,8 +207,8 @@ class Mesh extends Transformable {
         if (this.normals) {
             mesh.addVertexBuffer('normals', 'LGL_Normal');
             const invTrans = m4.as3x3().inversed().transposed().normalized();
-            mesh.normals = this.normals.map(n => invTrans.transformVector(n));
-            mesh.normals.forEach(n => assert(n.hasLength(1)));
+            mesh.normals = this.normals.map(n => invTrans.transformVector(n).unit());
+            // mesh.normals.forEach(n => assert(n.hasLength(1)))
         }
         for (const name in this.indexBuffers) {
             mesh.addIndexBuffer(name);
@@ -168,8 +225,9 @@ class Mesh extends Transformable {
         if (!this.normals)
             this.addVertexBuffer('normals', 'LGL_Normal');
         // tslint:disable:no-string-literal
-        this.vertexBuffers['LGL_Normal'].data = arrayFromFunction(this.vertices.length, i => V3.O);
+        //this.vertexBuffers['LGL_Normal'].data = arrayFromFunction(this.vertices.length, i => V3.O)
         const TRIANGLES = this.TRIANGLES, vertices = this.vertices, normals = this.normals;
+        normals.length = vertices.length;
         for (let i = 0; i < TRIANGLES.length; i += 3) {
             const ai = TRIANGLES[i], bi = TRIANGLES[i + 1], ci = TRIANGLES[i + 2];
             const a = vertices[ai];
@@ -183,11 +241,9 @@ class Mesh extends Transformable {
         for (let i = 0; i < vertices.length; i++) {
             normals[i] = normals[i].unit();
         }
+        this.hasBeenCompiled = false;
         return this;
     }
-    /**
-     * Populate the `LINES` index buffer from the `triangles` index buffer.
-     */
     computeWireframeFromFlatTriangles(indexBufferName = 'LINES') {
         if (!this.TRIANGLES)
             throw new Error('TRIANGLES must be defined.');
@@ -213,13 +269,15 @@ class Mesh extends Transformable {
         this.hasBeenCompiled = false;
         return this;
     }
-    computeWireframeFromFlatTrianglesClosedMesh() {
+    computeWireframeFromFlatTrianglesClosedMesh(indexBufferName = 'LINES') {
         if (!this.TRIANGLES)
             throw new Error('TRIANGLES must be defined.');
         if (!this.LINES)
             this.addIndexBuffer('LINES');
         const tris = this.TRIANGLES;
-        const lines = this.LINES;
+        if (!this[indexBufferName])
+            this.addIndexBuffer(indexBufferName);
+        const lines = this[indexBufferName];
         for (let i = 0; i < tris.length; i += 3) {
             if (tris[i + 0] < tris[i + 1])
                 lines.push(tris[i + 0], tris[i + 1]);
@@ -232,22 +290,21 @@ class Mesh extends Transformable {
         return this;
     }
     computeNormalLines(length = 1, indexBufferName = 'LINES') {
-        if (!this.vertices || !this.normals) {
-            throw new Error('Both vertices and normals must be defined.');
+        if (!this.normals) {
+            throw new Error('normals must be defined.');
         }
         const vs = this.vertices, si = this.vertices.length;
-        const data = indexBufferName;
-        if (!this[data])
+        if (!this[indexBufferName])
             this.addIndexBuffer(indexBufferName);
         for (let i = 0; i < this.normals.length; i++) {
             vs[si + i] = vs[i].plus(this.normals[i].toLength(length));
-            this[data].push(si + i, i);
+            this[indexBufferName].push(si + i, i);
         }
         this.hasBeenCompiled = false;
         return this;
     }
     getAABB() {
-        return new AABB().addPoints(this.vertices);
+        return new ts3dutils.AABB().addPoints(this.vertices);
     }
     getBoundingSphere() {
         const sphere = { center: this.getAABB().getCenter(), radius: 0 };
@@ -299,9 +356,9 @@ class Mesh extends Transformable {
             const t = j / detailY;
             for (let i = 0; i <= detailX; i++) {
                 const s = i / detailX;
-                mesh.vertices.push(new V3(startX + s * width, startY + t * height, 0));
-                mesh.coords.push(s, t);
-                mesh.normals.push(V3.Z);
+                mesh.vertices.push(new ts3dutils.V3(startX + s * width, startY + t * height, 0));
+                mesh.coords.push([s, t]);
+                mesh.normals.push(ts3dutils.V3.Z);
                 if (i < detailX && j < detailY) {
                     const offset = i + j * (detailX + 1);
                     mesh.TRIANGLES.push(offset, offset + detailX + 1, offset + 1, offset + detailX + 1, offset + detailX + 2, offset + 1);
@@ -340,9 +397,9 @@ class Mesh extends Transformable {
             3, 7, 1, 5,
         ];
         mesh.vertices = VERTEX_CORNERS.map(i => Mesh.UNIT_CUBE_CORNERS[i]);
-        mesh.normals = [V3.X.negated(), V3.X, V3.Y.negated(), V3.Y, V3.Z.negated(), V3.Z].map(v => [v, v, v, v]).concatenated();
+        mesh.normals = [ts3dutils.V3.X.negated(), ts3dutils.V3.X, ts3dutils.V3.Y.negated(), ts3dutils.V3.Y, ts3dutils.V3.Z.negated(), ts3dutils.V3.Z].map(v => [v, v, v, v]).concatenated();
         for (let i = 0; i < 6 * 4; i += 4) {
-            pushQuad(/** @type {number[]} */ mesh.TRIANGLES, 0 != i % 8, VERTEX_CORNERS[i], VERTEX_CORNERS[i + 1], VERTEX_CORNERS[i + 2], VERTEX_CORNERS[i + 3]);
+            pushQuad(mesh.TRIANGLES, 0 != i % 8, VERTEX_CORNERS[i], VERTEX_CORNERS[i + 1], VERTEX_CORNERS[i + 2], VERTEX_CORNERS[i + 3]);
         }
         // indexes of LINES relative to UNIT_CUBE_CORNERS. Mapped to VERTEX_CORNERS.indexOf
         // so they make sense in the context of the mesh
@@ -367,11 +424,11 @@ class Mesh extends Transformable {
         return Mesh.sphere(0);
     }
     static sphere2(las, longs) {
-        const baseVertices = arrayFromFunction(las, i => {
+        const baseVertices = ts3dutils.arrayFromFunction(las, i => {
             const angle = i / (las - 1) * PI - PI / 2;
-            return new V3(0, cos(angle), sin(angle));
+            return new ts3dutils.V3(0, cos(angle), sin(angle));
         });
-        return Mesh.rotation(baseVertices, { anchor: V3.O, dir1: V3.Z }, 2 * PI, longs, true, baseVertices);
+        return Mesh.rotation(baseVertices, { anchor: ts3dutils.V3.O, dir1: ts3dutils.V3.Z }, 2 * PI, longs, true, baseVertices);
     }
     /**
      * Returns a sphere mesh with radius 1 created by subdividing the faces of a isocahedron (20-sided) recursively
@@ -383,21 +440,21 @@ class Mesh extends Transformable {
      *      Contains vertex and normal1 buffers and index buffers for triangles and LINES
      */
     static sphere(subdivisions = 3) {
-        const golden = (1 + Math.sqrt(5)) / 2, u = new V3(1, golden, 0).unit(), s = u.x, t = u.y;
+        const golden = (1 + Math.sqrt(5)) / 2, u = new ts3dutils.V3(1, golden, 0).unit(), s = u.x, t = u.y;
         // base vertices of isocahedron
         const vertices = [
-            new V3(-s, t, 0),
-            new V3(s, t, 0),
-            new V3(-s, -t, 0),
-            new V3(s, -t, 0),
-            new V3(0, -s, t),
-            new V3(0, s, t),
-            new V3(0, -s, -t),
-            new V3(0, s, -t),
-            new V3(t, 0, -s),
-            new V3(t, 0, s),
-            new V3(-t, 0, -s),
-            new V3(-t, 0, s)
+            new ts3dutils.V3(-s, t, 0),
+            new ts3dutils.V3(s, t, 0),
+            new ts3dutils.V3(-s, -t, 0),
+            new ts3dutils.V3(s, -t, 0),
+            new ts3dutils.V3(0, -s, t),
+            new ts3dutils.V3(0, s, t),
+            new ts3dutils.V3(0, -s, -t),
+            new ts3dutils.V3(0, s, -t),
+            new ts3dutils.V3(t, 0, -s),
+            new ts3dutils.V3(t, 0, s),
+            new ts3dutils.V3(-t, 0, -s),
+            new ts3dutils.V3(-t, 0, s)
         ];
         // base triangles of isocahedron
         const triangles = [
@@ -470,19 +527,23 @@ class Mesh extends Transformable {
         return mesh;
     }
     static aabb(aabb) {
-        const matrix = M4.multiplyMultiple(M4.translate(aabb.min), M4.scale(aabb.size().max(new V3(NLA_PRECISION, NLA_PRECISION, NLA_PRECISION))));
+        const matrix = ts3dutils.M4.multiplyMultiple(ts3dutils.M4.translate(aabb.min), ts3dutils.M4.scale(aabb.size().max(new ts3dutils.V3(ts3dutils.NLA_PRECISION, ts3dutils.NLA_PRECISION, ts3dutils.NLA_PRECISION))));
         const mesh = Mesh.cube().transform(matrix);
         // mesh.vertices = aabb.corners()
         mesh.computeNormalLines(20);
         mesh.compile();
         return mesh;
     }
-    static offsetVertices(vertices, offset, close, normals, steps) {
-        assertVectors.apply(undefined, vertices);
-        assertVectors(offset);
-        const mesh = new Mesh().addIndexBuffer('TRIANGLES');
+    static offsetVertices(vertices, offset, close, normals) {
+        ts3dutils.assertVectors.apply(undefined, vertices);
+        ts3dutils.assertVectors(offset);
+        const mesh = new Mesh()
+            .addIndexBuffer('TRIANGLES')
+            .addVertexBuffer('coords', 'LGL_TexCoord');
         normals && mesh.addVertexBuffer('normals', 'LGL_Normal');
         mesh.vertices = vertices.concat(vertices.map(v => v.plus(offset)));
+        const vl = vertices.length;
+        mesh.coords = ts3dutils.arrayFromFunction(vl * 2, (i) => [(i % vl) / vl, (i / vl) | 0]);
         const triangles = mesh.TRIANGLES;
         for (let i = 0; i < vertices.length - 1; i++) {
             pushQuad(triangles, false, i, i + 1, vertices.length + i, vertices.length + i + 1);
@@ -505,12 +566,12 @@ class Mesh extends Transformable {
         const mesh = new Mesh().addIndexBuffer('TRIANGLES');
         normals && mesh.addVertexBuffer('normals', 'LGL_Normal');
         const vc = vertices.length, vTotal = vc * steps;
-        const rotMat = new M4();
+        const rotMat = new ts3dutils.M4();
         const triangles = mesh.TRIANGLES;
         for (let i = 0; i < steps; i++) {
             // add triangles
             const rads = totalRads / steps * i;
-            M4.rotateLine(lineAxis.anchor, lineAxis.dir1, rads, rotMat);
+            ts3dutils.M4.rotateLine(lineAxis.anchor, lineAxis.dir1, rads, rotMat);
             mesh.vertices.push(...rotMat.transformedPoints(vertices));
             normals && mesh.normals.push(...rotMat.transformedVectors(normals));
             if (close || i !== steps - 1) {
@@ -527,9 +588,9 @@ class Mesh extends Transformable {
             .addVertexBuffer('normals', 'LGL_Normal')
             .addIndexBuffer('TRIANGLES');
         for (let si = 0; si <= sRes; si++) {
-            const s = lerp(sMin, sMax, si / sRes);
+            const s = ts3dutils.lerp(sMin, sMax, si / sRes);
             for (let ti = 0; ti <= tRes; ti++) {
-                const t = lerp(tMin, tMax, ti / tRes);
+                const t = ts3dutils.lerp(tMin, tMax, ti / tRes);
                 mesh.vertices.push(pF(s, t));
                 mesh.normals.push(pN(s, t));
                 if (ti < tRes && si < sRes) {
@@ -541,20 +602,56 @@ class Mesh extends Transformable {
         mesh.compile();
         return mesh;
     }
+    static load(json) {
+        const mesh = new Mesh();
+        if (Array.isArray(json.vertices[0])) {
+            mesh.vertices = json.vertices.map(x => ts3dutils.V(x));
+        }
+        else {
+            throw new Error();
+        }
+        if (json.triangles) {
+            mesh.addIndexBuffer('TRIANGLES');
+            mesh.TRIANGLES = json.triangles;
+        }
+        if (json.normals) {
+            mesh.addVertexBuffer('normals', 'LGL_Normal');
+            mesh.normals = json.normals;
+        }
+        mesh.compile();
+        return mesh;
+    }
 }
 // unique corners of a unit cube. Used by Mesh.cube to generate a cube mesh.
 Mesh.UNIT_CUBE_CORNERS = [
-    V3.O,
-    new V3(0, 0, 1),
-    new V3(0, 1, 0),
-    new V3(0, 1, 1),
-    new V3(1, 0, 0),
-    new V3(1, 0, 1),
-    new V3(1, 1, 0),
-    V3.XYZ,
+    ts3dutils.V3.O,
+    new ts3dutils.V3(0, 0, 1),
+    new ts3dutils.V3(0, 1, 0),
+    new ts3dutils.V3(0, 1, 1),
+    new ts3dutils.V3(1, 0, 0),
+    new ts3dutils.V3(1, 0, 1),
+    new ts3dutils.V3(1, 1, 0),
+    ts3dutils.V3.XYZ,
 ];
 
 /* tslint:disable:no-string-literal */
+const WGL$3 = WebGLRenderingContext;
+/**
+ * These are all the draw modes usable in OpenGL ES
+ */
+
+(function (DRAW_MODES) {
+    DRAW_MODES[DRAW_MODES["POINTS"] = WGL$3.POINTS] = "POINTS";
+    DRAW_MODES[DRAW_MODES["LINES"] = WGL$3.LINES] = "LINES";
+    DRAW_MODES[DRAW_MODES["LINE_STRIP"] = WGL$3.LINE_STRIP] = "LINE_STRIP";
+    DRAW_MODES[DRAW_MODES["LINE_LOOP"] = WGL$3.LINE_LOOP] = "LINE_LOOP";
+    DRAW_MODES[DRAW_MODES["TRIANGLES"] = WGL$3.TRIANGLES] = "TRIANGLES";
+    DRAW_MODES[DRAW_MODES["TRIANGLE_STRIP"] = WGL$3.TRIANGLE_STRIP] = "TRIANGLE_STRIP";
+    DRAW_MODES[DRAW_MODES["TRIANGLE_FAN"] = WGL$3.TRIANGLE_FAN] = "TRIANGLE_FAN";
+})(exports.DRAW_MODES || (exports.DRAW_MODES = {}));
+const GL_COLOR_BLACK = [0, 0, 0, 1]; // there's only one constant, use it for default values. Use chroma-js or
+// similar for actual colors.
+const SHADER_VAR_TYPES = ['FLOAT', 'FLOAT_MAT2', 'FLOAT_MAT3', 'FLOAT_MAT4', 'FLOAT_VEC2', 'FLOAT_VEC3', 'FLOAT_VEC4', 'INT', 'INT_VEC2', 'INT_VEC3', 'INT_VEC4', 'UNSIGNED_INT'];
 const DRAW_MODE_CHECKS = {
     [exports.DRAW_MODES.POINTS]: x => true,
     [exports.DRAW_MODES.LINES]: x => 0 == x % 2,
@@ -566,6 +663,18 @@ const DRAW_MODE_CHECKS = {
 };
 function isArray(obj) {
     return Array == obj.constructor || Float32Array == obj.constructor || Float64Array == obj.constructor;
+}
+function isFloatArray(obj) {
+    return Float32Array == obj.constructor || Float64Array == obj.constructor ||
+        Array.isArray(obj) && obj.every(x => 'number' == typeof x);
+}
+function isIntArray(x) {
+    if ([Int8Array, Uint8Array, Uint8ClampedArray, Int16Array, Uint16Array, Int32Array, Uint32Array]
+        .some(y => x instanceof y)) {
+        return true;
+    }
+    return (x instanceof Float32Array || x instanceof Float64Array || Array.isArray(x)) &&
+        x.every(x => Number.isInteger(x));
 }
 //const x:keyof UniformTypesMap = undefined as 'FLOAT_VEC4' | 'FLOAT_VEC3'
 class Shader {
@@ -611,7 +720,7 @@ class Shader {
 	`;
         const vertexHeader = header + `
 		attribute vec4 LGL_Vertex;
-		attribute vec4 LGL_TexCoord;
+		attribute vec2 LGL_TexCoord;
 		attribute vec3 LGL_Normal;
 		attribute vec4 LGL_Color;
 	`;
@@ -622,7 +731,7 @@ class Shader {
             const shader = gl.createShader(type);
             gl.shaderSource(shader, source);
             gl.compileShader(shader);
-            if (!gl.getShaderParameter(shader, WGL$1.COMPILE_STATUS)) {
+            if (!gl.getShaderParameter(shader, WGL$3.COMPILE_STATUS)) {
                 throw new Error('compile error: ' + gl.getShaderInfoLog(shader));
             }
             return shader;
@@ -633,10 +742,10 @@ class Shader {
             gl.handleError();
         }
         this.program = program;
-        gl.attachShader(this.program, compileSource(WGL$1.VERTEX_SHADER, vertexHeader + vertexSource));
-        gl.attachShader(this.program, compileSource(WGL$1.FRAGMENT_SHADER, fragmentHeader + fragmentSource));
+        gl.attachShader(this.program, compileSource(WGL$3.VERTEX_SHADER, vertexHeader + vertexSource));
+        gl.attachShader(this.program, compileSource(WGL$3.FRAGMENT_SHADER, fragmentHeader + fragmentSource));
         gl.linkProgram(this.program);
-        if (!gl.getProgramParameter(this.program, WGL$1.LINK_STATUS)) {
+        if (!gl.getProgramParameter(this.program, WGL$3.LINK_STATUS)) {
             throw new Error('link error: ' + gl.getProgramInfoLog(this.program));
         }
         this.attributes = {};
@@ -650,7 +759,7 @@ class Shader {
             }
         });
         this.uniformInfos = {};
-        for (let i = gl.getProgramParameter(this.program, WGL$1.ACTIVE_UNIFORMS); i-- > 0;) {
+        for (let i = gl.getProgramParameter(this.program, WGL$3.ACTIVE_UNIFORMS); i-- > 0;) {
             // see https://www.khronos.org/registry/OpenGL-Refpages/es2.0/xhtml/glGetActiveUniform.xml
             // this.program has already been checked
             // i is in bounds
@@ -672,29 +781,35 @@ class Shader {
         gl.handleError();
         for (const name in uniforms) {
             const location = this.uniformLocations[name] || gl.getUniformLocation(this.program, name);
-            assert(!!location, name + ' uniform is not used in shader');
+            !location && console.warn(name + ' uniform is not used in shader');
             if (!location)
                 continue;
             this.uniformLocations[name] = location;
             let value = uniforms[name];
             const info = this.uniformInfos[name];
-            if (NLA_DEBUG) {
-                assert(info.type != WGL$1.FLOAT ||
-                    (1 == info.size && 'number' === typeof value || isArray(value) && info.size == value.length && assertNumbers.apply(undefined, value)));
-                assert(info.type != WGL$1.INT ||
-                    (1 == info.size && 'number' === typeof value && value % 1 == 0 ||
-                        isArray(value) && info.size == value.length && assertNumbers.apply(undefined, value) && value.every(x => x % 1 == 0)));
-                assert(info.type != WGL$1.FLOAT_VEC3 ||
-                    (1 == info.size && value instanceof V3 ||
-                        isArray(value) && info.size == value.length && assertVectors.apply(undefined, value)));
-                assert(info.type != WGL$1.FLOAT_VEC4 || isArray(value) && value.length == 4);
-                assert(info.type != WGL$1.FLOAT_MAT4 || value instanceof M4, () => value.toSource());
-                assert(info.type != WGL$1.FLOAT_MAT3 || value.length == 9 || value instanceof M4);
+            if (ts3dutils.NLA_DEBUG) {
+                // TODO: better errors
+                if (gl.SAMPLER_2D == info.type || gl.SAMPLER_CUBE == info.type || gl.INT == info.type) {
+                    if (1 == info.size) {
+                        ts3dutils.assert(Number.isInteger(value));
+                    }
+                    else {
+                        ts3dutils.assert(isIntArray(value) && value.length == info.size, 'value must be int array if info.size != 1');
+                    }
+                }
+                ts3dutils.assert(gl.FLOAT != info.type ||
+                    (1 == info.size && 'number' === typeof value || isFloatArray(value) && info.size == value.length));
+                ts3dutils.assert(gl.FLOAT_VEC3 != info.type ||
+                    (1 == info.size && value instanceof ts3dutils.V3 ||
+                        Array.isArray(value) && info.size == value.length && ts3dutils.assertVectors(...value)));
+                ts3dutils.assert(gl.FLOAT_VEC4 != info.type || isFloatArray(value) && value.length == 4);
+                ts3dutils.assert(gl.FLOAT_MAT4 != info.type || value instanceof ts3dutils.M4, () => value.toSource());
+                ts3dutils.assert(gl.FLOAT_MAT3 != info.type || value.length == 9 || value instanceof ts3dutils.M4);
             }
-            if (value instanceof V3) {
+            if (value instanceof ts3dutils.V3) {
                 value = value.toArray();
             }
-            if (isArray(value)) {
+            if (value.length) {
                 switch (value.length) {
                     case 1:
                         gl.uniform1fv(location, value);
@@ -729,17 +844,20 @@ class Shader {
                         throw new Error('don\'t know how to load uniform "' + name + '" of length ' + value.length);
                 }
             }
-            else if (Number.isInteger(value)) {
-                if (WGL$1.SAMPLER_2D == info.type || WGL$1.SAMPLER_CUBE == info.type || WGL$1.INT == info.type) {
+            else if ('number' == typeof value) {
+                if (gl.SAMPLER_2D == info.type || gl.SAMPLER_CUBE == info.type || gl.INT == info.type) {
                     gl.uniform1i(location, value);
                 }
                 else {
                     gl.uniform1f(location, value);
                 }
             }
-            else if (value instanceof M4) {
+            else if ('boolean' == typeof value) {
+                gl.uniform1i(location, +value);
+            }
+            else if (value instanceof ts3dutils.M4) {
                 const m = value.m;
-                if (WGL$1.FLOAT_MAT4 == info.type) {
+                if (gl.FLOAT_MAT4 == info.type) {
                     gl.uniformMatrix4fv(location, false, [
                         m[0], m[4], m[8], m[12],
                         m[1], m[5], m[9], m[13],
@@ -747,14 +865,14 @@ class Shader {
                         m[3], m[7], m[11], m[15]
                     ]);
                 }
-                else if (WGL$1.FLOAT_MAT3 == info.type) {
+                else if (gl.FLOAT_MAT3 == info.type) {
                     gl.uniformMatrix3fv(location, false, [
                         m[0], m[4], m[8],
                         m[1], m[5], m[9],
                         m[2], m[6], m[10]
                     ]);
                 }
-                else if (WGL$1.FLOAT_MAT2 == info.type) {
+                else if (gl.FLOAT_MAT2 == info.type) {
                     gl.uniformMatrix2fv(location, false, new Float32Array([
                         m[0], m[4],
                         m[1], m[5]
@@ -783,10 +901,10 @@ class Shader {
      * @param count int
      */
     draw(mesh, mode = exports.DRAW_MODES.TRIANGLES, start, count) {
-        assert(mesh.hasBeenCompiled, 'mesh.hasBeenCompiled');
-        assert(undefined != exports.DRAW_MODES[mode]);
+        ts3dutils.assert(mesh.hasBeenCompiled, 'mesh.hasBeenCompiled');
+        ts3dutils.assert(undefined != exports.DRAW_MODES[mode]);
         const modeStr = exports.DRAW_MODES[mode];
-        assert(mesh.indexBuffers[modeStr], `mesh.indexBuffers[${modeStr}] undefined`);
+        // assert(mesh.indexBuffers[modeStr], `mesh.indexBuffers[${modeStr}] undefined`)
         return this.drawBuffers(mesh.vertexBuffers, mesh.indexBuffers[modeStr], mode, start, count);
     }
     /**
@@ -800,19 +918,19 @@ class Shader {
     drawBuffers(vertexBuffers, indexBuffer, mode = exports.DRAW_MODES.TRIANGLES, start = 0, count) {
         const gl = this.gl;
         gl.handleError();
-        assert(undefined != exports.DRAW_MODES[mode]);
-        assertf(() => 1 <= Object.keys(vertexBuffers).length);
-        Object.keys(vertexBuffers).forEach(key => assertInst(Buffer, vertexBuffers[key]));
+        ts3dutils.assert(undefined != exports.DRAW_MODES[mode]);
+        ts3dutils.assertf(() => 1 <= Object.keys(vertexBuffers).length);
+        Object.keys(vertexBuffers).forEach(key => ts3dutils.assertInst(Buffer, vertexBuffers[key]));
         // Only varruct up the built-in matrices that are active in the shader
         const on = this.activeMatrices;
         const modelViewMatrixInverse = (on['LGL_ModelViewMatrixInverse'] || on['LGL_NormalMatrix'])
-            && this.modelViewMatrixVersion != gl.modelViewMatrixVersion
+            //&& this.modelViewMatrixVersion != gl.modelViewMatrixVersion
             && gl.modelViewMatrix.inversed();
         const projectionMatrixInverse = on['LGL_ProjectionMatrixInverse']
-            && this.projectionMatrixVersion != gl.projectionMatrixVersion
+            //&& this.projectionMatrixVersion != gl.projectionMatrixVersion
             && gl.projectionMatrix.inversed();
         const modelViewProjectionMatrix = (on['LGL_ModelViewProjectionMatrix'] || on['LGL_ModelViewProjectionMatrixInverse'])
-            && (this.projectionMatrixVersion != gl.projectionMatrixVersion || this.modelViewMatrixVersion != gl.modelViewMatrixVersion)
+            //&& (this.projectionMatrixVersion != gl.projectionMatrixVersion || this.modelViewMatrixVersion != gl.modelViewMatrixVersion)
             && gl.projectionMatrix.times(gl.modelViewMatrix);
         const uni = {}; // Uniform Matrices
         on['LGL_ModelViewMatrix']
@@ -836,7 +954,7 @@ class Shader {
         let minVertexBufferLength = Infinity;
         for (const attribute in vertexBuffers) {
             const buffer = vertexBuffers[attribute];
-            assert(buffer.hasBeenCompiled);
+            ts3dutils.assert(buffer.hasBeenCompiled);
             const location = this.attributes[attribute] || gl.getAttribLocation(this.program, attribute);
             gl.handleError();
             if (location == -1 || !buffer.buffer) {
@@ -844,11 +962,11 @@ class Shader {
                 continue;
             }
             this.attributes[attribute] = location;
-            gl.bindBuffer(WGL$1.ARRAY_BUFFER, buffer.buffer);
+            gl.bindBuffer(WGL$3.ARRAY_BUFFER, buffer.buffer);
             gl.handleError();
             gl.enableVertexAttribArray(location);
             gl.handleError();
-            gl.vertexAttribPointer(location, buffer.spacing, WGL$1.FLOAT, false, 0, 0);
+            gl.vertexAttribPointer(location, buffer.spacing, WGL$3.FLOAT, false, 0, 0);
             gl.handleError();
             minVertexBufferLength = Math.min(minVertexBufferLength, buffer.count);
         }
@@ -862,20 +980,20 @@ class Shader {
         // Draw the geometry.
         if (minVertexBufferLength) {
             count = count || (indexBuffer ? indexBuffer.count : minVertexBufferLength);
-            assert(DRAW_MODE_CHECKS[mode](count), 'count ' + count + ' doesn\'t fulfill requirement '
+            ts3dutils.assert(DRAW_MODE_CHECKS[mode](count), 'count ' + count + ' doesn\'t fulfill requirement '
                 + DRAW_MODE_CHECKS[mode].toString() + ' for mode ' + exports.DRAW_MODES[mode]);
             if (indexBuffer) {
-                assert(indexBuffer.hasBeenCompiled);
-                assert(minVertexBufferLength > indexBuffer.maxValue);
-                assert(count % indexBuffer.spacing == 0);
-                assert(start % indexBuffer.spacing == 0);
+                ts3dutils.assert(indexBuffer.hasBeenCompiled);
+                ts3dutils.assert(minVertexBufferLength > indexBuffer.maxValue);
+                ts3dutils.assert(count % indexBuffer.spacing == 0);
+                ts3dutils.assert(start % indexBuffer.spacing == 0);
                 if (start + count > indexBuffer.count) {
                     throw new Error('Buffer not long enough for passed parameters start/length/buffer length' + ' ' + start + ' ' + count + ' ' + indexBuffer.count);
                 }
-                gl.bindBuffer(WGL$1.ELEMENT_ARRAY_BUFFER, indexBuffer.buffer);
+                gl.bindBuffer(WGL$3.ELEMENT_ARRAY_BUFFER, indexBuffer.buffer);
                 gl.handleError();
                 // start parameter has to be multiple of sizeof(WGL.UNSIGNED_SHORT)
-                gl.drawElements(mode, count, WGL$1.UNSIGNED_SHORT, 2 * start);
+                gl.drawElements(mode, count, WGL$3.UNSIGNED_SHORT, 2 * start);
                 gl.handleError();
             }
             else {
@@ -895,33 +1013,30 @@ function currentGL() {
     return LightGLContext.gl;
 }
 const WGL$1 = WebGLRenderingContext;
-class LightGLContext extends WebGLRenderingContext {
-    constructor() {
+function isNumber(obj) {
+    const str = Object.prototype.toString.call(obj);
+    return str == '[object Number]' || str == '[object Boolean]';
+}
+// awkward cast so the super() call doesn't fail
+class LightGLContext extends Object {
+    constructor(gl) {
         super();
-        this.modelViewMatrix = new M4();
-        this.projectionMatrix = new M4();
-        this.MODELVIEW = {};
-        this.PROJECTION = {};
-        this.tempMatrix = new M4();
-        this.resultMatrix = new M4();
+        this.modelViewMatrix = new ts3dutils.M4();
+        this.projectionMatrix = new ts3dutils.M4();
+        this.MODELVIEW = LightGLContext.MODELVIEW;
+        this.PROJECTION = LightGLContext.PROJECTION;
+        this.tempMatrix = new ts3dutils.M4();
+        this.resultMatrix = new ts3dutils.M4();
         this.modelViewStack = [];
         this.projectionStack = [];
-    }
-    init() {
-        this.modelViewMatrix = new M4();
-        this.projectionMatrix = new M4();
         this.drawCallCount = 0;
         this.projectionMatrixVersion = 0;
         this.modelViewMatrixVersion = 0;
-        this.tempMatrix = new M4();
-        this.resultMatrix = new M4();
-        this.modelViewStack = [];
-        this.projectionStack = [];
         /////////// IMMEDIATE MODE
         // ### Immediate mode
         //
         // Provide an implementation of OpenGL's deprecated immediate mode. This is
-        // depricated for a reason: constantly re-specifying the geometry is a bad
+        // deprecated for a reason: constantly re-specifying the geometry is a bad
         // idea for performance. You should use a `GL.Mesh` instead, which specifies
         // the geometry once and caches it on the graphics card. Still, nothing
         // beats a quick `viewerGL.begin(WGL.POINTS); viewerGL.vertex(1, 2, 3); viewerGL.end();` for
@@ -930,31 +1045,32 @@ class LightGLContext extends WebGLRenderingContext {
         this.immediate = {
             mesh: new Mesh()
                 .addVertexBuffer('coords', 'LGL_TexCoord')
-                .addVertexBuffer('vertices', 'LGL_Vertex')
                 .addVertexBuffer('colors', 'LGL_Color'),
             mode: -1,
-            coord: [0, 0, 0, 0],
+            coord: [0, 0],
             color: [1, 1, 1, 1],
             pointSize: 1,
             shader: new Shader(`
-uniform float pointSize;
-varying vec4 color;
-varying vec4 coord;
-void main() {
-	color = LGL_Color;
-	coord = LGL_TexCoord;
-	gl_Position = LGL_ModelViewProjectionMatrix * LGL_Vertex;
-	gl_PointSize = pointSize;
-}`, `
-uniform sampler2D texture;
-uniform float pointSize;
-uniform bool useTexture;
-varying vec4 color;
-varying vec4 coord;
-void main() {
-	gl_FragColor = color;
-	if (useTexture) gl_FragColor *= texture2D(texture, coord.xy);
-}`)
+            uniform float pointSize;
+            varying vec4 color;
+            varying vec2 coord;
+            void main() {
+                color = LGL_Color;
+                coord = LGL_TexCoord;
+                gl_Position = LGL_ModelViewProjectionMatrix * LGL_Vertex;
+                gl_PointSize = pointSize;
+            }
+        `, `
+            uniform sampler2D texture;
+            uniform float pointSize;
+            uniform bool useTexture;
+            varying vec4 color;
+            varying vec2 coord;
+            void main() {
+                gl_FragColor = color;
+                if (useTexture) gl_FragColor *= texture2D(texture, coord.xy);
+            }
+        `),
         };
         this.matrixMode(LightGLContext.MODELVIEW);
     }
@@ -963,84 +1079,71 @@ void main() {
         switch (mode) {
             case this.MODELVIEW:
                 this.currentMatrixName = 'modelViewMatrix';
+                //this.currentMatrix = this.modelViewMatrix
                 this.stack = this.modelViewStack;
                 break;
             case this.PROJECTION:
                 this.currentMatrixName = 'projectionMatrix';
+                //this.currentMatrix = this.projectionMatrix
                 this.stack = this.projectionStack;
                 break;
             default:
                 throw new Error('invalid matrix mode ' + mode);
         }
     }
-    modelViewMode() {
-        Object.defineProperty(LightGLContext.gl, 'currentMatrix', {
-            get: function () {
-                return this.modelViewMatrix;
-            },
-            set: function (val) {
-                this.modelViewMatrix = val;
-            },
-            writable: true,
-        });
-        this.currentMatrixName = 'modelViewMatrix';
-        this.stack = this.modelViewStack;
-    }
-    projectionMode() {
-        this.currentMatrixName = 'projectionMatrix';
-        this.stack = this.projectionStack;
-    }
     loadIdentity() {
-        M4.identity(this[this.currentMatrixName]);
+        ts3dutils.M4.identity(this[this.currentMatrixName]);
+        this.currentMatrixName == 'projectionMatrix' ? this.projectionMatrixVersion++ : this.modelViewMatrixVersion++;
     }
     loadMatrix(m4) {
-        M4.copy(m4, this[this.currentMatrixName]);
+        ts3dutils.M4.copy(m4, this[this.currentMatrixName]);
+        this.currentMatrixName == 'projectionMatrix' ? this.projectionMatrixVersion++ : this.modelViewMatrixVersion++;
     }
     multMatrix(m4) {
-        M4.multiply(this[this.currentMatrixName], m4, this.resultMatrix);
+        ts3dutils.M4.multiply(this[this.currentMatrixName], m4, this.resultMatrix);
         const temp = this.resultMatrix;
         this.resultMatrix = this[this.currentMatrixName];
         this[this.currentMatrixName] = temp;
         this.currentMatrixName == 'projectionMatrix' ? this.projectionMatrixVersion++ : this.modelViewMatrixVersion++;
     }
     mirror(plane) {
-        this.multMatrix(M4.mirror(plane));
+        this.multMatrix(ts3dutils.M4.mirror(plane));
     }
     perspective(fovDegrees, aspect, near, far, result) {
-        this.multMatrix(M4.perspectiveRad(fovDegrees * DEG, aspect, near, far, this.tempMatrix));
+        this.multMatrix(ts3dutils.M4.perspectiveRad(fovDegrees * ts3dutils.DEG, aspect, near, far, this.tempMatrix));
     }
     frustum(left, right, bottom, top, near, far) {
-        this.multMatrix(M4.frustum(left, right, bottom, top, near, far, this.tempMatrix));
+        this.multMatrix(ts3dutils.M4.frustum(left, right, bottom, top, near, far, this.tempMatrix));
     }
     ortho(left, right, bottom, top, near, far) {
-        this.multMatrix(M4.ortho(left, right, bottom, top, near, far, this.tempMatrix));
+        this.multMatrix(ts3dutils.M4.ortho(left, right, bottom, top, near, far, this.tempMatrix));
     }
     scale(...args) {
-        this.multMatrix(M4.scale(...args, this.tempMatrix));
+        this.multMatrix(ts3dutils.M4.scale(...args, this.tempMatrix));
     }
     mirroredX() {
-        this.multMatrix(M4.mirror(P3ZX));
+        this.multMatrix(ts3dutils.M4.mirror(ts3dutils.P3ZX));
     }
     translate(x, y, z) {
         if (undefined !== y) {
-            this.multMatrix(M4.translate(x, y, z, this.tempMatrix));
+            this.multMatrix(ts3dutils.M4.translate(x, y, z, this.tempMatrix));
         }
         else {
-            this.multMatrix(M4.translate(x, this.tempMatrix));
+            this.multMatrix(ts3dutils.M4.translate(x, this.tempMatrix));
         }
     }
     rotate(angleDegrees, x, y, z) {
-        this.multMatrix(M4.rotate(angleDegrees, { x, y, z }, this.tempMatrix));
+        this.multMatrix(ts3dutils.M4.rotate(angleDegrees * ts3dutils.DEG, { x, y, z }, this.tempMatrix));
     }
     lookAt(eye, center, up) {
-        this.multMatrix(M4.lookAt(eye, center, up, this.tempMatrix));
+        this.multMatrix(ts3dutils.M4.lookAt(eye, center, up, this.tempMatrix));
     }
     pushMatrix() {
-        this.stack.push(M4.copy(this[this.currentMatrixName]));
+        this.stack.push(ts3dutils.M4.copy(this[this.currentMatrixName]));
     }
     popMatrix() {
         const pop = this.stack.pop();
-        assert(undefined !== pop);
+        ts3dutils.assert(undefined !== pop);
         this[this.currentMatrixName] = pop;
         this.currentMatrixName == 'projectionMatrix' ? this.projectionMatrixVersion++ : this.modelViewMatrixVersion++;
     }
@@ -1050,20 +1153,20 @@ void main() {
     wcToWindowMatrix() {
         const viewport = this.getParameter(this.VIEWPORT);
         const [x, y, w, h] = viewport;
-        const viewportToScreenMatrix = new M4([
+        const viewportToScreenMatrix = new ts3dutils.M4([
             w / 2, 0, 0, x + w / 2,
             h / 2, 0, 0, y + h / 2,
             0, 0, 1, 0,
             0, 0, 0, 1,
         ]);
-        return M4.multiplyMultiple(viewportToScreenMatrix, this.projectionMatrix, this.modelViewMatrix);
+        return ts3dutils.M4.multiplyMultiple(viewportToScreenMatrix, this.projectionMatrix, this.modelViewMatrix);
     }
     pointSize(pointSize) {
         this.immediate.shader.uniforms({ pointSize: pointSize });
     }
     begin(mode) {
         if (this.immediate.mode != -1)
-            throw new Error('mismatched begin() and end() calls');
+            throw new Error('mismatched viewerGL.begin() and viewerGL.end() calls');
         this.immediate.mode = mode;
         this.immediate.mesh.colors = [];
         this.immediate.mesh.coords = [];
@@ -1077,12 +1180,12 @@ void main() {
                         [args[0], args[1], args[2], args[3] || 0];
     }
     texCoord(...args) {
-        this.immediate.coord = V.apply(undefined, args).toArray(2);
+        this.immediate.coord = ts3dutils.V.apply(undefined, args).toArray(2);
     }
     vertex(...args) {
         this.immediate.mesh.colors.push(this.immediate.color);
         this.immediate.mesh.coords.push(this.immediate.coord);
-        this.immediate.mesh.vertices.push(V.apply(undefined, args));
+        this.immediate.mesh.vertices.push(ts3dutils.V.apply(undefined, args));
     }
     end() {
         if (this.immediate.mode == -1)
@@ -1090,33 +1193,31 @@ void main() {
         this.immediate.mesh.compile();
         this.immediate.shader.uniforms({
             useTexture: !!LightGLContext.gl.getParameter(WGL$1.TEXTURE_BINDING_2D),
-        }).draw(this.immediate.mesh, this.immediate.mode);
+        }).drawBuffers(this.immediate.mesh.vertexBuffers, undefined, this.immediate.mode);
         this.immediate.mode = -1;
     }
     makeCurrent() {
         LightGLContext.gl = this;
     }
     /**
-     * Starts an animation loop which calls {@link onupdate} and {@link ondraw}
+     * Starts an animation loop.
      */
-    animate() {
+    animate(callback) {
         const requestAnimationFrame = window.requestAnimationFrame ||
             window.mozRequestAnimationFrame ||
             window.webkitRequestAnimationFrame ||
             function (callback) {
                 setTimeout(() => callback(performance.now()), 1000 / 60);
             };
-        let time = new Date().getTime();
-        const update = () => {
-            const now = new Date().getTime();
-            if (this.onupdate)
-                this.onupdate(now - time);
-            if (this.ondraw)
-                this.ondraw();
-            requestAnimationFrame(update);
+        let time = performance.now(), keepUpdating = true;
+        const update = (domHighResTimeStamp) => {
+            const now = performance.now();
+            callback.call(this, now, now - time);
             time = now;
+            keepUpdating && requestAnimationFrame(update);
         };
-        update();
+        requestAnimationFrame(update);
+        return () => { keepUpdating = false; };
     }
     /**
      * Provide an easy way to get a fullscreen app running, including an
@@ -1160,11 +1261,10 @@ void main() {
                 gl.perspective(options.fov || 45, gl.canvas.width / gl.canvas.height, options.near || 0.1, options.far || 1000);
                 gl.matrixMode(LightGLContext.MODELVIEW);
             }
-            if (gl.ondraw)
-                gl.ondraw();
         }
         window.addEventListener('resize', windowOnResize);
         windowOnResize();
+        return this;
     }
     viewportFill() {
         this.viewport(0, 0, this.canvas.width, this.canvas.height);
@@ -1203,15 +1303,15 @@ void main() {
         }
         if (!newGL)
             throw new Error('WebGL not supported');
-        addOwnProperties(newGL, LightGLContext.prototype);
         LightGLContext.gl = newGL;
-        newGL.init();
+        ts3dutils.addOwnProperties(newGL, LightGLContext.prototype);
+        ts3dutils.addOwnProperties(newGL, new LightGLContext(newGL));
         //addEventListeners(newGL)
         return newGL;
     }
 }
-LightGLContext.MODELVIEW = {};
-LightGLContext.PROJECTION = {};
+LightGLContext.MODELVIEW = 0;
+LightGLContext.PROJECTION = 1;
 LightGLContext.HALF_FLOAT_OES = 0x8D61;
 var WGL_ERROR;
 (function (WGL_ERROR) {
@@ -1244,34 +1344,17 @@ function pushQuad(triangles, flipped, a, b, c, d) {
 function hexIntToGLColor(color) {
     return [(color >> 16) / 255.0, ((color >> 8) & 0xff) / 255.0, (color & 0xff) / 255.0, 1.0];
 }
-/**
- * These are all the draw modes usable in OpenGL ES
- */
 
-(function (DRAW_MODES) {
-    DRAW_MODES[DRAW_MODES["POINTS"] = WGL$1.POINTS] = "POINTS";
-    DRAW_MODES[DRAW_MODES["LINES"] = WGL$1.LINES] = "LINES";
-    DRAW_MODES[DRAW_MODES["LINE_STRIP"] = WGL$1.LINE_STRIP] = "LINE_STRIP";
-    DRAW_MODES[DRAW_MODES["LINE_LOOP"] = WGL$1.LINE_LOOP] = "LINE_LOOP";
-    DRAW_MODES[DRAW_MODES["TRIANGLES"] = WGL$1.TRIANGLES] = "TRIANGLES";
-    DRAW_MODES[DRAW_MODES["TRIANGLE_STRIP"] = WGL$1.TRIANGLE_STRIP] = "TRIANGLE_STRIP";
-    DRAW_MODES[DRAW_MODES["TRIANGLE_FAN"] = WGL$1.TRIANGLE_FAN] = "TRIANGLE_FAN";
-})(exports.DRAW_MODES || (exports.DRAW_MODES = {}));
-const GL_COLOR_BLACK = [0, 0, 0, 1]; // there's only one constant, use it for default values. Use chroma-js
-// or similar for actual colors.
-const SHADER_VAR_TYPES = ['FLOAT', 'FLOAT_MAT2', 'FLOAT_MAT3', 'FLOAT_MAT4', 'FLOAT_VEC2', 'FLOAT_VEC3', 'FLOAT_VEC4', 'INT', 'INT_VEC2', 'INT_VEC3', 'INT_VEC4', 'UNSIGNED_INT'];
-
-///<reference path="../node_modules/ts3dutils/out/complete.d.ts"/>
 const WGL = WebGLRenderingContext;
 class Buffer {
     /**
      * Provides a simple method of uploading data to a GPU buffer. Example usage:
      *
-     *     var vertices = new GL.Buffer(WGL.ARRAY_BUFFER, Float32Array)
+     *     const vertices = new Buffer(WGL.ARRAY_BUFFER, Float32Array)
      *     vertices.data = [[0, 0, 0], [1, 0, 0], [0, 1, 0], [1, 1, 0]]
      *     vertices.compile()
      *
-     *     var indices = new GL.Buffer(WGL.ELEMENT_ARRAY_BUFFER, Uint16Array)
+     *     const indices = new Buffer(WGL.ELEMENT_ARRAY_BUFFER, Uint16Array)
      *     indices.data = [[0, 1, 2], [2, 1, 3]]
      *     indices.compile()
      *
@@ -1281,8 +1364,8 @@ class Buffer {
     constructor(target, type) {
         this.target = target;
         this.type = type;
-        assert(target == WGL.ARRAY_BUFFER || target == WGL.ELEMENT_ARRAY_BUFFER, 'target == WGL.ARRAY_BUFFER || target == WGL.ELEMENT_ARRAY_BUFFER');
-        assert(type == Float32Array || type == Uint16Array, 'type == Float32Array || type == Uint16Array');
+        ts3dutils.assert(target == WGL.ARRAY_BUFFER || target == WGL.ELEMENT_ARRAY_BUFFER, 'target == WGL.ARRAY_BUFFER || target == WGL.ELEMENT_ARRAY_BUFFER');
+        ts3dutils.assert(type == Float32Array || type == Uint16Array, 'type == Float32Array || type == Uint16Array');
         this.buffer = undefined;
         this.type = type;
         this.data = [];
@@ -1301,7 +1384,7 @@ class Buffer {
      * @param type Either `WGL.STATIC_DRAW` or `WGL.DYNAMIC_DRAW`. Defaults to `WGL.STATIC_DRAW`
      */
     compile(type = WGL.STATIC_DRAW, gl = currentGL()) {
-        assert(WGL.STATIC_DRAW == type || WGL.DYNAMIC_DRAW == type, 'WGL.STATIC_DRAW == type || WGL.DYNAMIC_DRAW == type');
+        ts3dutils.assert(WGL.STATIC_DRAW == type || WGL.DYNAMIC_DRAW == type, 'WGL.STATIC_DRAW == type || WGL.DYNAMIC_DRAW == type');
         gl.handleError();
         this.buffer = this.buffer || gl.createBuffer();
         gl.handleError();
@@ -1310,9 +1393,9 @@ class Buffer {
             console.warn('empty buffer ' + this.name);
             //console.trace()
         }
-        if (this.data.length == 0 || this.data[0] instanceof V3) {
-            assert(!(this.data[0] instanceof V3) || this.type == Float32Array);
-            V3.pack(this.data, buffer = new this.type(this.data.length * 3)); // asserts that all
+        if (this.data.length == 0 || this.data[0] instanceof ts3dutils.V3) {
+            ts3dutils.assert(!(this.data[0] instanceof ts3dutils.V3) || this.type == Float32Array);
+            ts3dutils.V3.pack(this.data, buffer = new this.type(this.data.length * 3)); // asserts that all
             // elements are V3s
             this.spacing = 3;
             this.count = this.data.length;
@@ -1331,14 +1414,14 @@ class Buffer {
                         buffer[--destPtr] = subArray[j];
                     }
                 }
-                assert(0 == destPtr);
+                ts3dutils.assert(0 == destPtr);
             }
             else {
                 buffer = new this.type(this.data);
             }
             const spacing = this.data.length ? buffer.length / this.data.length : 0;
-            assert(spacing % 1 == 0, `buffer ${this.name} elements not of consistent size, average size is ` + spacing);
-            if (NLA_DEBUG) {
+            ts3dutils.assert(spacing % 1 == 0, `buffer ${this.name} elements not of consistent size, average size is ` + spacing);
+            if (ts3dutils.NLA_DEBUG) {
                 if (10000 <= buffer.length) {
                     this.maxValue = 0;
                 }
@@ -1346,7 +1429,7 @@ class Buffer {
                     this.maxValue = Math.max.apply(undefined, buffer);
                 }
             }
-            assert(spacing !== 0);
+            ts3dutils.assert(spacing !== 0);
             this.spacing = spacing;
             this.count = this.data.length;
         }
@@ -1382,23 +1465,21 @@ class Texture {
          *     })
      *
      */
-    constructor(width, height, options, gl = currentGL()) {
+    constructor(width, height, options = {}, gl = currentGL()) {
         this.gl = gl;
-        options = options || {};
         this.texture = gl.createTexture();
         gl.handleError(); // in case createTexture returns null & fails
         this.width = width;
-        this.gl = gl;
         this.height = height;
-        this.format = options.format || WGL$1.RGBA;
-        this.type = options.type || WGL$1.UNSIGNED_BYTE;
-        const magFilter = options.filter || options.magFilter || WGL$1.LINEAR;
-        const minFilter = options.filter || options.minFilter || WGL$1.LINEAR;
-        if (this.type === WGL$1.FLOAT) {
+        this.format = options.format || gl.RGBA;
+        this.type = options.type || gl.UNSIGNED_BYTE;
+        const magFilter = options.filter || options.magFilter || gl.LINEAR;
+        const minFilter = options.filter || options.minFilter || gl.LINEAR;
+        if (this.type === gl.FLOAT) {
             if (!gl.getExtension('OES_texture_float')) {
                 throw new Error('OES_texture_float is required but not supported');
             }
-            if ((minFilter !== WGL$1.NEAREST || magFilter !== WGL$1.NEAREST) && !gl.getExtension('OES_texture_float_linear')) {
+            if ((minFilter !== gl.NEAREST || magFilter !== gl.NEAREST) && !gl.getExtension('OES_texture_float_linear')) {
                 throw new Error('OES_texture_float_linear is required but not supported');
             }
         }
@@ -1406,60 +1487,60 @@ class Texture {
             if (!gl.getExtension('OES_texture_half_float')) {
                 throw new Error('OES_texture_half_float is required but not supported');
             }
-            if ((minFilter !== WGL$1.NEAREST || magFilter !== WGL$1.NEAREST) && !gl.getExtension('OES_texture_half_float_linear')) {
+            if ((minFilter !== gl.NEAREST || magFilter !== gl.NEAREST) && !gl.getExtension('OES_texture_half_float_linear')) {
                 throw new Error('OES_texture_half_float_linear is required but not supported');
             }
         }
-        gl.bindTexture(WGL$1.TEXTURE_2D, this.texture);
-        gl.pixelStorei(WGL$1.UNPACK_FLIP_Y_WEBGL, 1);
-        gl.texParameteri(WGL$1.TEXTURE_2D, WGL$1.TEXTURE_MAG_FILTER, magFilter);
-        gl.texParameteri(WGL$1.TEXTURE_2D, WGL$1.TEXTURE_MIN_FILTER, minFilter);
-        gl.texParameteri(WGL$1.TEXTURE_2D, WGL$1.TEXTURE_WRAP_S, options.wrap || options.wrapS || WGL$1.CLAMP_TO_EDGE);
-        gl.texParameteri(WGL$1.TEXTURE_2D, WGL$1.TEXTURE_WRAP_T, options.wrap || options.wrapT || WGL$1.CLAMP_TO_EDGE);
-        gl.texImage2D(WGL$1.TEXTURE_2D, 0, this.format, width, height, 0, this.format, this.type, null);
+        gl.bindTexture(gl.TEXTURE_2D, this.texture);
+        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, magFilter);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, minFilter);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, options.wrap || options.wrapS || gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, options.wrap || options.wrapT || gl.CLAMP_TO_EDGE);
+        gl.texImage2D(gl.TEXTURE_2D, 0, this.format, width, height, 0, this.format, this.type, null);
     }
-    bind(unit = 0) {
-        this.gl.activeTexture(WGL$1.TEXTURE0 + unit);
-        this.gl.bindTexture(WGL$1.TEXTURE_2D, this.texture);
+    bind(unit) {
+        this.gl.activeTexture(this.gl.TEXTURE0 + unit);
+        this.gl.bindTexture(this.gl.TEXTURE_2D, this.texture);
     }
-    unbind(unit = 0) {
-        this.gl.activeTexture(WGL$1.TEXTURE0 + unit);
-        this.gl.bindTexture(WGL$1.TEXTURE_2D, null);
+    unbind(unit) {
+        this.gl.activeTexture(this.gl.TEXTURE0 + unit);
+        this.gl.bindTexture(this.gl.TEXTURE_2D, null);
     }
     canDrawTo() {
         const gl = this.gl;
         this.framebuffer = this.framebuffer || gl.createFramebuffer();
-        gl.bindFramebuffer(WGL$1.FRAMEBUFFER, this.framebuffer);
-        gl.framebufferTexture2D(WGL$1.FRAMEBUFFER, WGL$1.COLOR_ATTACHMENT0, WGL$1.TEXTURE_2D, this.texture, 0);
-        const result = gl.checkFramebufferStatus(WGL$1.FRAMEBUFFER) == WGL$1.FRAMEBUFFER_COMPLETE;
-        gl.bindFramebuffer(WGL$1.FRAMEBUFFER, null);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebuffer);
+        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.texture, 0);
+        const result = gl.checkFramebufferStatus(gl.FRAMEBUFFER) == gl.FRAMEBUFFER_COMPLETE;
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
         return result;
     }
     drawTo(callback) {
         const gl = this.gl;
         this.framebuffer = this.framebuffer || gl.createFramebuffer();
         this.renderbuffer = this.renderbuffer || gl.createRenderbuffer();
-        gl.bindFramebuffer(WGL$1.FRAMEBUFFER, this.framebuffer);
-        gl.bindRenderbuffer(WGL$1.RENDERBUFFER, this.renderbuffer);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebuffer);
+        gl.bindRenderbuffer(gl.RENDERBUFFER, this.renderbuffer);
         if (this.width != this.renderbuffer.width || this.height != this.renderbuffer.height) {
             this.renderbuffer.width = this.width;
             this.renderbuffer.height = this.height;
-            gl.renderbufferStorage(WGL$1.RENDERBUFFER, WGL$1.DEPTH_COMPONENT16, this.width, this.height);
+            gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, this.width, this.height);
         }
-        gl.framebufferTexture2D(WGL$1.FRAMEBUFFER, WGL$1.COLOR_ATTACHMENT0, WGL$1.TEXTURE_2D, this.texture, 0);
-        gl.framebufferRenderbuffer(WGL$1.FRAMEBUFFER, WGL$1.DEPTH_ATTACHMENT, WGL$1.RENDERBUFFER, this.renderbuffer);
-        if (gl.checkFramebufferStatus(WGL$1.FRAMEBUFFER) != WGL$1.FRAMEBUFFER_COMPLETE) {
+        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.texture, 0);
+        gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, this.renderbuffer);
+        if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) != gl.FRAMEBUFFER_COMPLETE) {
             throw new Error('Rendering to this texture is not supported (incomplete this.framebuffer)');
         }
+        const viewport = gl.getParameter(gl.VIEWPORT);
         gl.viewport(0, 0, this.width, this.height);
         callback(gl);
-        gl.bindFramebuffer(WGL$1.FRAMEBUFFER, null);
-        gl.bindRenderbuffer(WGL$1.RENDERBUFFER, null);
-        const viewport = gl.getParameter(WGL$1.VIEWPORT);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        gl.bindRenderbuffer(gl.RENDERBUFFER, null);
         gl.viewport(viewport[0], viewport[1], viewport[2], viewport[3]);
     }
     swapWith(other) {
-        assert(this.gl == other.gl);
+        ts3dutils.assert(this.gl == other.gl);
         let temp;
         temp = other.texture;
         other.texture = this.texture;
@@ -1478,7 +1559,7 @@ class Texture {
         options = options || {};
         const texture = new Texture(imgElement.width, imgElement.height, options);
         try {
-            gl.texImage2D(WGL$1.TEXTURE_2D, 0, texture.format, texture.format, texture.type, imgElement);
+            gl.texImage2D(gl.TEXTURE_2D, 0, texture.format, texture.format, texture.type, imgElement);
         }
         catch (e) {
             if (location.protocol == 'file:') {
@@ -1489,15 +1570,15 @@ class Texture {
                     'domain as this page or use Cross-Origin Resource Sharing)');
             }
         }
-        if (options.minFilter && options.minFilter != WGL$1.NEAREST && options.minFilter != WGL$1.LINEAR) {
-            gl.generateMipmap(WGL$1.TEXTURE_2D);
+        if (options.minFilter && options.minFilter != gl.NEAREST && options.minFilter != gl.LINEAR) {
+            gl.generateMipmap(gl.TEXTURE_2D);
         }
         return texture;
     }
     /**
      * Returns a checkerboard texture that will switch to the correct texture when it loads.
      */
-    static fromURL(url, options, gl = currentGL()) {
+    static fromURL(url, options = {}, gl = currentGL()) {
         Texture.checkerBoardCanvas = Texture.checkerBoardCanvas || (function () {
             const c = document.createElement('canvas').getContext('2d');
             if (!c)
@@ -1521,16 +1602,16 @@ class Texture {
 }
 
 exports.Buffer = Buffer;
-exports.currentGL = currentGL;
-exports.WGL = WGL$1;
-exports.LightGLContext = LightGLContext;
-exports.pushQuad = pushQuad;
-exports.hexIntToGLColor = hexIntToGLColor;
+exports.Mesh = Mesh;
 exports.GL_COLOR_BLACK = GL_COLOR_BLACK;
 exports.SHADER_VAR_TYPES = SHADER_VAR_TYPES;
-exports.Mesh = Mesh;
+exports.isArray = isArray;
 exports.Shader = Shader;
 exports.Texture = Texture;
+exports.currentGL = currentGL;
+exports.isNumber = isNumber;
+exports.LightGLContext = LightGLContext;
+exports.pushQuad = pushQuad;
 
 Object.defineProperty(exports, '__esModule', { value: true });
 

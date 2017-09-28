@@ -15,6 +15,7 @@
     "module": "es6",
     "moduleResolution": "node",
     "noImplicitAny": true,
+    "noUnusedLocals": true,
     "outDir": "out",
     "rootDir": "src",
     "skipLibCheck": true,

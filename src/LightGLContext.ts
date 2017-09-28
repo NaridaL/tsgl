@@ -1,15 +1,28 @@
-function currentGL(): LightGLContext {
+import chroma from 'chroma-js'
+import {
+	 addOwnProperties, assert, DEG,
+    int,
+	M4,
+	P3ZX,
+	V,
+	V3
+} from 'ts3dutils'
+
+import { Mesh } from './Mesh'
+import { Shader } from './Shader'
+
+export function currentGL(): LightGLContext {
     return LightGLContext.gl
 }
 const WGL = WebGLRenderingContext
-function isNumber(obj: any) {
+export function isNumber(obj: any) {
 	const str = Object.prototype.toString.call(obj)
 	return str == '[object Number]' || str == '[object Boolean]'
 }
-type UniformType = V3 | M4 | number[] | boolean | number
+export type UniformType = V3 | M4 | number[] | boolean | number
 
 // awkward cast so the super() call doesn't fail
-class LightGLContext extends (Object as any as typeof WebGLRenderingContext) {
+export class LightGLContext extends (Object as any as typeof WebGLRenderingContext) {
 	modelViewMatrix: M4 = new M4()
 	projectionMatrix: M4 = new M4()
 	static readonly MODELVIEW: { __MATRIX_MODE_CONSTANT: any } = 0 as any
@@ -392,7 +405,7 @@ LightGLContext.prototype.HALF_FLOAT_OES = LightGLContext.HALF_FLOAT_OES
  * | \ |
  * a - b
  */
-function pushQuad(triangles: int[], flipped: boolean, a: int, b: int, c: int, d: int) {
+export function pushQuad(triangles: int[], flipped: boolean, a: int, b: int, c: int, d: int) {
 	if (flipped) {
 		triangles.push(
 			a, c, b,
@@ -406,32 +419,4 @@ function pushQuad(triangles: int[], flipped: boolean, a: int, b: int, c: int, d:
 
 function hexIntToGLColor(color: int): GL_COLOR {
     return [(color >> 16) / 255.0, ((color >> 8) & 0xff) / 255.0, (color & 0xff) / 255.0, 1.0]
-}
-
-/**
- * These are all the draw modes usable in OpenGL ES
- */
-enum DRAW_MODES {
-    POINTS = WGL.POINTS,
-    LINES = WGL.LINES,
-    LINE_STRIP = WGL.LINE_STRIP,
-    LINE_LOOP = WGL.LINE_LOOP,
-    TRIANGLES = WGL.TRIANGLES,
-    TRIANGLE_STRIP = WGL.TRIANGLE_STRIP,
-    TRIANGLE_FAN = WGL.TRIANGLE_FAN
-}
-type DRAW_MODES_ENUM = keyof typeof DRAW_MODES
-const x: DRAW_MODES_ENUM = 'TRIANGLES'
-type GL_COLOR = [number, number, number, number]
-const GL_COLOR_BLACK: GL_COLOR = [0, 0, 0, 1]// there's only one constant, use it for default values. Use chroma-js or
-                                             // similar for actual colors.
-const SHADER_VAR_TYPES = ['FLOAT', 'FLOAT_MAT2', 'FLOAT_MAT3', 'FLOAT_MAT4', 'FLOAT_VEC2', 'FLOAT_VEC3', 'FLOAT_VEC4', 'INT', 'INT_VEC2', 'INT_VEC3', 'INT_VEC4', 'UNSIGNED_INT']
-const DRAW_MODE_CHECKS: { [type: string]: (x: int) => boolean } = {
-    [DRAW_MODES.POINTS]: x => true,
-    [DRAW_MODES.LINES]: x => 0 == x % 2, // divisible by 2
-    [DRAW_MODES.LINE_STRIP]: x => x > 2, // need at least 2
-    [DRAW_MODES.LINE_LOOP]: x => x > 2, // more like > 3, but oh well
-    [DRAW_MODES.TRIANGLES]: x => 0 == x % 3, // divisible by 3
-    [DRAW_MODES.TRIANGLE_STRIP]: x => x > 3,
-    [DRAW_MODES.TRIANGLE_FAN]: x => x > 3,
 }

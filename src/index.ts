@@ -1,5 +1,5 @@
 export * from './Buffer'
-export * from './LightGLContext'
 export * from './Mesh'
 export * from './Shader'
 export * from './Texture'
+export * from './LightGLContext'

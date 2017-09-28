@@ -1,6 +1,6 @@
 import {assert, int} from 'ts3dutils'
 
-import {currentGL, LightGLContext, WGL} from './LightGLContext'
+import {currentGL, LightGLContext} from './LightGLContext'
 
 export interface TextureOptions {
     wrap?: number // defaults to WGL.CLAMP_TO_EDGE, or set wrapS and wrapT individually.

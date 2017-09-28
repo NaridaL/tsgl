@@ -1,5 +1,5 @@
 import {assert, int, NLA_DEBUG, V3} from 'ts3dutils'
-import {currentGL} from './LightGLContext'
+import {currentGL, LightGLContext} from './LightGLContext'
 
 const WGL = WebGLRenderingContext
 
@@ -54,7 +54,7 @@ export class Buffer {
 	 *
 	 * @param type Either `WGL.STATIC_DRAW` or `WGL.DYNAMIC_DRAW`. Defaults to `WGL.STATIC_DRAW`
 	 */
-	compile(type: int = WGL.STATIC_DRAW, gl = currentGL()): void {
+	compile(type: int = WGL.STATIC_DRAW, gl: LightGLContext = currentGL()): void {
 		assert(WGL.STATIC_DRAW == type || WGL.DYNAMIC_DRAW == type, 'WGL.STATIC_DRAW == type || WGL.DYNAMIC_DRAW == type')
         gl.handleError()
 		this.buffer = this.buffer || gl.createBuffer()!

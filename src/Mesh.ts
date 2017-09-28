@@ -1,10 +1,25 @@
+import {
+	AABB, arrayFromFunction, assert, assertVectors, int, lerp, M4,
+    NLA_PRECISION,
+    raddd,
+    Transformable,
+    Tuple3,
+    V,
+    V3,} from 'ts3dutils'
+
+import {Buffer} from './Buffer'
+import { currentGL, GL_COLOR, LightGLContext, pushQuad } from './LightGLContext'
+
+const {cos, sin, PI, min, max} = Math
+const WGL = WebGLRenderingContext
+
 /**
  * @example new Mesh()
  * 		.addIndexBuffer('TRIANGLES')
  * 		.addIndexBuffer('LINES')
  * 		.addVertexBuffer('normals', 'LGL_Normal')
  */
-class Mesh extends Transformable {
+export class Mesh extends Transformable {
 	hasBeenCompiled: boolean = false
     vertexBuffers: { [name: string]: Buffer } = {}
     indexBuffers: { [name: string]: Buffer } = {}
@@ -104,7 +119,7 @@ class Mesh extends Transformable {
 	 *
 	 * Sets `this.hasBeenCompiled` to true.
 	 */
-	compile(gl = currentGL()) {
+	compile(gl: LightGLContext = currentGL()) {
 		// figure out shortest vertex buffer to make sure indexBuffers are in bounds
 		let minVertexBufferLength = Infinity, minBufferName
 		Object.getOwnPropertyNames(this.vertexBuffers).forEach(attribute => {
@@ -423,7 +438,7 @@ class Mesh extends Transformable {
 		new V3(1, 0, 0),
 		new V3(1, 0, 1),
 		new V3(1, 1, 0),
-		V3.XYZ
+		V3.XYZ,
 	]
 
 	/**
