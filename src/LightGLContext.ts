@@ -1,7 +1,3 @@
-
-
-
-
 function currentGL(): LightGLContext {
     return LightGLContext.gl
 }
@@ -146,7 +142,7 @@ class LightGLContext extends (Object as any as typeof WebGLRenderingContext) {
             w / 2, 0, 0, x + w / 2,
             h / 2, 0, 0, y + h / 2,
             0, 0, 1, 0,
-            0, 0, 0, 1
+            0, 0, 0, 1,
         ])
         return M4.multiplyMultiple(viewportToScreenMatrix, this.projectionMatrix, this.modelViewMatrix)
     }
@@ -235,7 +231,7 @@ class LightGLContext extends (Object as any as typeof WebGLRenderingContext) {
         if (this.immediate.mode == -1) throw new Error('mismatched viewerGL.begin() and viewerGL.end() calls')
         this.immediate.mesh.compile()
         this.immediate.shader.uniforms({
-            useTexture: !!LightGLContext.gl.getParameter(WGL.TEXTURE_BINDING_2D)
+            useTexture: !!LightGLContext.gl.getParameter(WGL.TEXTURE_BINDING_2D),
         }).drawBuffers(this.immediate.mesh.vertexBuffers, undefined, this.immediate.mode)
         this.immediate.mode = -1
     }
@@ -427,7 +423,8 @@ enum DRAW_MODES {
 type DRAW_MODES_ENUM = keyof typeof DRAW_MODES
 const x: DRAW_MODES_ENUM = 'TRIANGLES'
 type GL_COLOR = [number, number, number, number]
-const GL_COLOR_BLACK: GL_COLOR = [0, 0, 0, 1]// there's only one constant, use it for default values. Use chroma-js or similar for actual colors.
+const GL_COLOR_BLACK: GL_COLOR = [0, 0, 0, 1]// there's only one constant, use it for default values. Use chroma-js or
+                                             // similar for actual colors.
 const SHADER_VAR_TYPES = ['FLOAT', 'FLOAT_MAT2', 'FLOAT_MAT3', 'FLOAT_MAT4', 'FLOAT_VEC2', 'FLOAT_VEC3', 'FLOAT_VEC4', 'INT', 'INT_VEC2', 'INT_VEC3', 'INT_VEC4', 'UNSIGNED_INT']
 const DRAW_MODE_CHECKS: { [type: string]: (x: int) => boolean } = {
     [DRAW_MODES.POINTS]: x => true,

@@ -18,7 +18,6 @@ void main() {
 
     gl.enable(gl.DEPTH_TEST)
 
-    console.log(gl.projectionMatrix.toString())
     return gl.animate(function (abs, diff) {
         const angleDeg = abs / 1000 * 45
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
@@ -62,7 +61,6 @@ function multiTexture(gl: LightGLContext) {
 
     gl.enable(gl.DEPTH_TEST)
 
-    console.log(gl.projectionMatrix.toString())
     return gl.animate(function (abs, diff) {
         const angleDeg = abs / 1000 * 45
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
@@ -177,7 +175,6 @@ function immediateMode(gl: LightGLContext) {
 
     gl.enable(gl.DEPTH_TEST)
 
-    console.log(gl.projectionMatrix.toString())
     return gl.animate(function (abs, diff) {
         const angleDeg = abs / 1000 * 45
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
@@ -321,7 +318,7 @@ async function shadowMap(gl: LightGLContext) {
     const cube = Mesh.cube()
     const sphere = Mesh.sphere(2).computeWireframeFromFlatTriangles().compile()
     const plane = Mesh.plane().translate(-0.5, -0.5).scale(300, 300, 1)
-    const depthMap = new Texture(1024, 1024, { format: gl.RGB })
+    const depthMap = new Texture(1024, 1024, { format: gl.RGBA })
     const texturePlane = Mesh.plane()
     const boundingSphere = mesh.getBoundingSphere()
     const boundingBox = mesh.getAABB()
@@ -690,7 +687,7 @@ async function shadowMap(gl: LightGLContext) {
 //
 //}
 
-async function gpuLightMap2(gl: LightGLContext) {
+async function gpuLightMap(gl: LightGLContext) {
     // modified version of https://evanw.github.io/lightgl.js/tests/gpulightmap.html
 
     const gazebo = Mesh.load(await fetch('gazebo.json').then(response => response.json()))
@@ -717,7 +714,7 @@ async function gpuLightMap2(gl: LightGLContext) {
 `)
 
     const texture = Texture.fromURL('texture.png')
-    const depthMap = new Texture(1024, 1024, {format: gl.RGB})
+    const depthMap = new Texture(1024, 1024, {format: gl.RGBA})
     const depthShader = new Shader(`
   varying vec4 pos;
   void main() {
@@ -869,7 +866,7 @@ async function gpuLightMap2(gl: LightGLContext) {
             const textureSize = quadsPerSide * texelsPerSide
             console.log('texture size: ' + textureSize)
             this.lightmapTexture = new Texture(textureSize, textureSize,
-                {format: gl.RGB, type: gl.FLOAT, filter: gl.LINEAR})
+                {format: gl.RGBA, type: gl.FLOAT, filter: gl.LINEAR})
         }
 
         drawShadow(dir: V3) {

@@ -1,3 +1,9 @@
+/**
+ * @example new Mesh()
+ * 		.addIndexBuffer('TRIANGLES')
+ * 		.addIndexBuffer('LINES')
+ * 		.addVertexBuffer('normals', 'LGL_Normal')
+ */
 class Mesh extends Transformable {
 	hasBeenCompiled: boolean = false
     vertexBuffers: { [name: string]: Buffer } = {}
@@ -251,7 +257,7 @@ class Mesh extends Transformable {
      */
     computeWireframeFromFlatTriangles(this: Mesh & { TRIANGLES: int[] }): this & { LINES: int[] }
     computeWireframeFromFlatTriangles<T extends string>(
-        this: Mesh & { TRIANGLES: int[] } & { [k in T]?: int[] },
+        this: Mesh & { TRIANGLES: int[] },
         indexBufferName: T): this & { [k in T]: int[] }
     computeWireframeFromFlatTriangles(this: any, indexBufferName: string = 'LINES'): this {
 		if (!this.TRIANGLES) throw new Error('TRIANGLES must be defined.')
@@ -281,7 +287,7 @@ class Mesh extends Transformable {
 
     computeWireframeFromFlatTrianglesClosedMesh(this: Mesh & { TRIANGLES: int[] }): this & { LINES: int[] }
     computeWireframeFromFlatTrianglesClosedMesh<T extends string>(
-        this: Mesh & { TRIANGLES: int[] } & { [k in T]?: int[] },
+        this: Mesh & { TRIANGLES: int[] },
         indexBufferName: T): this & { [k in T]: int[] }
 	computeWireframeFromFlatTrianglesClosedMesh(this: any, indexBufferName: string = 'LINES'): this {
         if(!this.TRIANGLES) throw new Error('TRIANGLES must be defined.')
@@ -300,7 +306,7 @@ class Mesh extends Transformable {
 
     computeNormalLines(this: Mesh & { normals: V3[] }, length: number): this & { LINES: int[] }
     computeNormalLines<T extends string>(
-        this: Mesh & { normals: V3[] } & { [k in T]?: int[] },
+        this: Mesh & { normals: V3[] },
         length: number, indexBufferName: T): this & { [k in T]: int[] }
     computeNormalLines(this: any, length: number = 1, indexBufferName: string = 'LINES') {
         if (!this.normals) {
