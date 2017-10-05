@@ -2,7 +2,7 @@
 import {assert, assertf, assertInst, assertVectors, int, M4, NLA_DEBUG, V3} from 'ts3dutils'
 
 import {Buffer} from './Buffer'
-import {currentGL, LightGLContext} from './LightGLContext'
+import { currentGL, GL_COLOR, LightGLContext } from './LightGLContext'
 import {Mesh} from './Mesh'
 
 const WGL = WebGLRenderingContext
@@ -20,9 +20,6 @@ export enum DRAW_MODES {
     TRIANGLE_FAN = WGL.TRIANGLE_FAN
 }
 export type DRAW_MODES_ENUM = keyof typeof DRAW_MODES
-export type GL_COLOR = [number, number, number, number]
-export const GL_COLOR_BLACK: GL_COLOR = [0, 0, 0, 1]// there's only one constant, use it for default values. Use chroma-js or
-// similar for actual colors.
 export const SHADER_VAR_TYPES = ['FLOAT', 'FLOAT_MAT2', 'FLOAT_MAT3', 'FLOAT_MAT4', 'FLOAT_VEC2', 'FLOAT_VEC3', 'FLOAT_VEC4', 'INT', 'INT_VEC2', 'INT_VEC3', 'INT_VEC4', 'UNSIGNED_INT']
 
 const DRAW_MODE_CHECKS: {[type: string]: (x: int) => boolean} = {

@@ -15,7 +15,7 @@
     "module": "es6",
     "moduleResolution": "node",
     "noImplicitAny": true,
-    "noUnusedLocals": true,
+    // "noUnusedLocals": true,
     "outDir": "out",
     "rootDir": "src",
     "skipLibCheck": true,
@@ -24,7 +24,6 @@
     "target": "es6"
   },
   "include": [
-    "src/**/*.ts",
-    "src/**/*.tsx"
+    "src/index.ts"
   ]
 }

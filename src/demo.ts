@@ -1,8 +1,9 @@
 /// <reference path="types.d.ts" />
 
-import { AABB, arrayFromFunction, clamp, DEG, int, lerp, M4, TAU, V, V3, Tuple4, time } from 'ts3dutils'
+import chroma from 'chroma-js'
+import { AABB, arrayFromFunction, clamp, DEG, int, lerp, M4, TAU, time, Tuple4, V, V3 } from 'ts3dutils'
 
-import { LightGLContext, Mesh, pushQuad, Shader, Texture, DRAW_MODES } from './index'
+import { DRAW_MODES, LightGLContext, Mesh, pushQuad, Shader, Texture } from './index'
 
 const {sin, PI} = Math
 
@@ -1057,12 +1058,10 @@ export async function gpuLightMap(gl: LightGLContext) {
 
 }
 
-import magFragShader from './shaders/magFS.glslx'
 import colorFS from './shaders/colorFS.glslx'
-import varyingColorFS from './shaders/varyingColorFS.glslx'
 import posVS from './shaders/posVS.glslx'
+import varyingColorFS from './shaders/varyingColorFS.glslx'
 import vectorFieldVS from './shaders/vectorFieldVS.glslx'
-import chroma from 'chroma-js'
 
 /**
  * Returns a 1d array of V3s in a 2d-grid. The V3s are all within [0; 1]²

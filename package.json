@@ -46,6 +46,6 @@
     "watchdemo": "rollup --version && rollup -c rollup.demo.config.js -w"
   },
   "types": "index.d.ts",
-  "umdGlobal": "nla",
+  "umdGlobal": "tsgl",
   "version": "1.0.0"
 }

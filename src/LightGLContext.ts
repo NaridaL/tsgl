@@ -9,7 +9,13 @@ import {
 } from 'ts3dutils'
 
 import { Mesh } from './Mesh'
-import { Shader } from './Shader'
+import { DRAW_MODES, Shader } from './Shader'
+
+export type GL_COLOR = [number, number, number, number]
+/**
+ * There's only one constant, use it for default values. Use chroma-js or similar for actual colors.
+ */
+export const GL_COLOR_BLACK: GL_COLOR = [0, 0, 0, 1]
 
 export function currentGL(): LightGLContext {
     return LightGLContext.gl

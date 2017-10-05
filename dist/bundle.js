@@ -1,7 +1,7 @@
 (function (global, factory) {
 	typeof exports === 'object' && typeof module !== 'undefined' ? factory(exports, require('ts3dutils'), require('chroma-js')) :
 	typeof define === 'function' && define.amd ? define(['exports', 'ts3dutils', 'chroma-js'], factory) :
-	(factory((global.nla = {}),global.ts3dutils,global.chroma));
+	(factory((global.tsgl = {}),global.ts3dutils,global.chroma));
 }(this, (function (exports,ts3dutils,chroma) { 'use strict';
 
 chroma = chroma && chroma.hasOwnProperty('default') ? chroma['default'] : chroma;
@@ -649,8 +649,6 @@ const WGL$3 = WebGLRenderingContext;
     DRAW_MODES[DRAW_MODES["TRIANGLE_STRIP"] = WGL$3.TRIANGLE_STRIP] = "TRIANGLE_STRIP";
     DRAW_MODES[DRAW_MODES["TRIANGLE_FAN"] = WGL$3.TRIANGLE_FAN] = "TRIANGLE_FAN";
 })(exports.DRAW_MODES || (exports.DRAW_MODES = {}));
-const GL_COLOR_BLACK = [0, 0, 0, 1]; // there's only one constant, use it for default values. Use chroma-js or
-// similar for actual colors.
 const SHADER_VAR_TYPES = ['FLOAT', 'FLOAT_MAT2', 'FLOAT_MAT3', 'FLOAT_MAT4', 'FLOAT_VEC2', 'FLOAT_VEC3', 'FLOAT_VEC4', 'INT', 'INT_VEC2', 'INT_VEC3', 'INT_VEC4', 'UNSIGNED_INT'];
 const DRAW_MODE_CHECKS = {
     [exports.DRAW_MODES.POINTS]: x => true,
@@ -802,14 +800,17 @@ class Shader {
                 ts3dutils.assert(gl.FLOAT_VEC3 != info.type ||
                     (1 == info.size && value instanceof ts3dutils.V3 ||
                         Array.isArray(value) && info.size == value.length && ts3dutils.assertVectors(...value)));
-                ts3dutils.assert(gl.FLOAT_VEC4 != info.type || isFloatArray(value) && value.length == 4);
+                ts3dutils.assert(gl.FLOAT_VEC4 != info.type || 1 != info.size || isFloatArray(value) && value.length == 4);
                 ts3dutils.assert(gl.FLOAT_MAT4 != info.type || value instanceof ts3dutils.M4, () => value.toSource());
                 ts3dutils.assert(gl.FLOAT_MAT3 != info.type || value.length == 9 || value instanceof ts3dutils.M4);
             }
             if (value instanceof ts3dutils.V3) {
                 value = value.toArray();
             }
-            if (value.length) {
+            if (gl.FLOAT_VEC4 == info.type && info.size != 1) {
+                gl.uniform4fv(location, value.concatenated());
+            }
+            else if (value.length) {
                 switch (value.length) {
                     case 1:
                         gl.uniform1fv(location, value);
@@ -1009,6 +1010,10 @@ class Shader {
     }
 }
 
+/**
+ * There's only one constant, use it for default values. Use chroma-js or similar for actual colors.
+ */
+const GL_COLOR_BLACK = [0, 0, 0, 1];
 function currentGL() {
     return LightGLContext.gl;
 }
@@ -1603,11 +1608,11 @@ class Texture {
 
 exports.Buffer = Buffer;
 exports.Mesh = Mesh;
-exports.GL_COLOR_BLACK = GL_COLOR_BLACK;
 exports.SHADER_VAR_TYPES = SHADER_VAR_TYPES;
 exports.isArray = isArray;
 exports.Shader = Shader;
 exports.Texture = Texture;
+exports.GL_COLOR_BLACK = GL_COLOR_BLACK;
 exports.currentGL = currentGL;
 exports.isNumber = isNumber;
 exports.LightGLContext = LightGLContext;

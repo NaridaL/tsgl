@@ -9,7 +9,7 @@ Light TypeScript wrapper around WebGL
 ## Installation
 NPM:  `npm install tsgl --save`
     
-In the browser, you can include the [UMD bundle](./dist/bundle.js) in a script tag, and the module will be available under the global `nla` 
+In the browser, you can include the [UMD bundle](./dist/bundle.js) in a script tag, and the module will be available under the global `tsgl` 
     
 <!--- CONTENT-START --->
 Some content

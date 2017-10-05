@@ -644,8 +644,6 @@ var DRAW_MODES;
     DRAW_MODES[DRAW_MODES["TRIANGLE_STRIP"] = WGL$3.TRIANGLE_STRIP] = "TRIANGLE_STRIP";
     DRAW_MODES[DRAW_MODES["TRIANGLE_FAN"] = WGL$3.TRIANGLE_FAN] = "TRIANGLE_FAN";
 })(DRAW_MODES || (DRAW_MODES = {}));
-const GL_COLOR_BLACK = [0, 0, 0, 1]; // there's only one constant, use it for default values. Use chroma-js or
-// similar for actual colors.
 const SHADER_VAR_TYPES = ['FLOAT', 'FLOAT_MAT2', 'FLOAT_MAT3', 'FLOAT_MAT4', 'FLOAT_VEC2', 'FLOAT_VEC3', 'FLOAT_VEC4', 'INT', 'INT_VEC2', 'INT_VEC3', 'INT_VEC4', 'UNSIGNED_INT'];
 const DRAW_MODE_CHECKS = {
     [DRAW_MODES.POINTS]: x => true,
@@ -797,14 +795,17 @@ class Shader {
                 assert(gl.FLOAT_VEC3 != info.type ||
                     (1 == info.size && value instanceof V3 ||
                         Array.isArray(value) && info.size == value.length && assertVectors(...value)));
-                assert(gl.FLOAT_VEC4 != info.type || isFloatArray(value) && value.length == 4);
+                assert(gl.FLOAT_VEC4 != info.type || 1 != info.size || isFloatArray(value) && value.length == 4);
                 assert(gl.FLOAT_MAT4 != info.type || value instanceof M4, () => value.toSource());
                 assert(gl.FLOAT_MAT3 != info.type || value.length == 9 || value instanceof M4);
             }
             if (value instanceof V3) {
                 value = value.toArray();
             }
-            if (value.length) {
+            if (gl.FLOAT_VEC4 == info.type && info.size != 1) {
+                gl.uniform4fv(location, value.concatenated());
+            }
+            else if (value.length) {
                 switch (value.length) {
                     case 1:
                         gl.uniform1fv(location, value);
@@ -1004,6 +1005,10 @@ class Shader {
     }
 }
 
+/**
+ * There's only one constant, use it for default values. Use chroma-js or similar for actual colors.
+ */
+const GL_COLOR_BLACK = [0, 0, 0, 1];
 function currentGL() {
     return LightGLContext.gl;
 }
@@ -1596,5 +1601,5 @@ class Texture {
     }
 }
 
-export { Buffer, Mesh, DRAW_MODES, GL_COLOR_BLACK, SHADER_VAR_TYPES, isArray, Shader, Texture, currentGL, isNumber, LightGLContext, pushQuad };
+export { Buffer, Mesh, DRAW_MODES, SHADER_VAR_TYPES, isArray, Shader, Texture, GL_COLOR_BLACK, currentGL, isNumber, LightGLContext, pushQuad };
 //# sourceMappingURL=bundle.module.js.map
