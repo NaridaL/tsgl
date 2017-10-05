@@ -1,0 +1,22 @@
+const int NUM_PS = 3;
+float q = 0.01;
+uniform vec4 ps[NUM_PS];
+uniform sampler2D texture;
+uniform sampler2D texture2;
+varying vec2 coord;
+void main() {
+    //gl_FragColor = vec4(coord.x, coord.y, 0, 1);
+    gl_FragColor = vec4(0.8,0.8,0.8,1);
+    float totalForce = 0.0;
+    for (int i = 0; i < NUM_PS; i++) {
+        vec4 p = ps[i];
+        float pCharge = p.w;
+        vec2 coordToP = p.xy - coord.xy;
+        float r = length(coordToP);
+        float partialForce = pCharge * q / r / r;
+        totalForce += partialForce;
+    }
+    const float INTERVAL = 0.5;
+    float c = 1.0 - pow((mod(totalForce, INTERVAL) * 2.0 / INTERVAL - 1.0), 8.0);
+    gl_FragColor = vec4(c, c, c, 1);
+}

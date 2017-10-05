@@ -207,14 +207,16 @@ export class Shader<UniformTypes extends { [uniformName: string]: keyof UniformT
                 assert(gl.FLOAT_VEC3 != info.type ||
                     (1 == info.size && value instanceof V3 ||
                         Array.isArray(value) && info.size == value.length && assertVectors(...value)))
-                assert(gl.FLOAT_VEC4 != info.type || isFloatArray(value) && value.length == 4)
+                assert(gl.FLOAT_VEC4 != info.type || 1 != info.size || isFloatArray(value) && value.length == 4)
                 assert(gl.FLOAT_MAT4 != info.type || value instanceof M4, () => value.toSource())
                 assert(gl.FLOAT_MAT3 != info.type || value.length == 9 || value instanceof M4)
 			}
 			if (value instanceof V3) {
 				value = value.toArray()
 			}
-			if (value.length) {
+			if (gl.FLOAT_VEC4 == info.type && info.size != 1) {
+				gl.uniform4fv(location, value.concatenated())
+			} else if (value.length) {
 				switch (value.length) {
 					case 1:
 						gl.uniform1fv(location, value)

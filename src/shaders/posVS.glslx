@@ -1,0 +1,3 @@
+void main() {
+    gl_Position = LGL_ModelViewProjectionMatrix * LGL_Vertex;
+}

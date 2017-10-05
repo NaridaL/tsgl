@@ -5,16 +5,15 @@
 	<title>TSGL</title>
 	<script type="text/javascript" src="node_modules/chroma-js/chroma.js"></script>
 
-	<script type="text/javascript" src="node_modules/file-saver/FileSaver.js"></script>
-	<script type="text/javascript" src="node_modules/ts3dutils/out/complete.js"></script>
-	<script type="text/javascript" src="out/complete.js"></script>
+	<script type="text/javascript" src="dist/demo.js"></script>
 </head>
 <body>
 
 
 <script type="text/javascript">
 	const hash = window.location.hash
-	window.onload = () => eval(hash && hash.substr(1) || 'setupDemo')(LightGLContext.create({antialias: true}).fullscreen())
+	const fName = hash && hash.substr(1) || 'setupDemo'
+	window.onload = () => demo[fName](demo.LightGLContext.create({antialias: true}).fullscreen())
 </script>
 </body>
 </html>

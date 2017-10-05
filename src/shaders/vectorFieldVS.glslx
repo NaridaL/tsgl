@@ -1,0 +1,28 @@
+const int NUM_PS = 64;
+float q = 0.01;
+uniform vec4 ps[NUM_PS];
+varying vec4 color;
+vec3 forceAtPos(vec3 coord) {
+    vec3 totalForce = vec3(0.0, 0.0, 0.0);
+    for (int i = 0; i < NUM_PS; i++) {
+        vec4 p = ps[i];
+        float pCharge = p.w;
+        vec3 coordToP = p.xyz - coord;
+        float r = length(coordToP);
+        float partialForceMagnitude = pCharge * q / r / r;
+        vec3 partialForce = normalize(coordToP) * partialForceMagnitude;
+        totalForce += partialForce;
+    }
+    return totalForce;
+}
+void main() {
+    //gl_FragColor = vec4(coord.x, coord.y, 0, 1);
+    vec4 pos = LGL_Vertex;
+    vec3 fieldPos = pos.xyz;
+    vec3 fieldForce = forceAtPos(fieldPos);
+    color = vec4(1,0,0,1) * sqrt(length(fieldForce)) / 1.0;
+    gl_Position = vec4(
+        fieldPos * 2.0
+        + normalize(fieldForce) * pos.z
+        + vec3(-1, -1, -1), 1);
+}

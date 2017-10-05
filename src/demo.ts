@@ -1,4 +1,14 @@
-async function setupDemo(gl: LightGLContext) {
+/// <reference path="types.d.ts" />
+
+import { AABB, arrayFromFunction, clamp, DEG, int, lerp, M4, TAU, V, V3, Tuple4, time } from 'ts3dutils'
+
+import { LightGLContext, Mesh, pushQuad, Shader, Texture, DRAW_MODES } from './index'
+
+const {sin, PI} = Math
+
+export {LightGLContext}
+
+export async function setupDemo(gl: LightGLContext) {
     const mesh = Mesh.cube()
     const shader = new Shader<{ color: 'FLOAT_VEC4' }>(`
 void main() {
@@ -31,7 +41,7 @@ void main() {
     })
 }
 
-function multiTexture(gl: LightGLContext) {
+export function multiTexture(gl: LightGLContext) {
     const mesh = Mesh.plane()
     const texture = Texture.fromURL('texture.png')
     const texture2 = Texture.fromURL('texture2.png')
@@ -79,7 +89,7 @@ function multiTexture(gl: LightGLContext) {
     })
 }
 
-function camera(gl: LightGLContext) {
+export function camera(gl: LightGLContext) {
     let yRot = -10 * DEG
     let zRot = 90 * DEG
     let camera = new V3(0, -5, 1)
@@ -164,7 +174,7 @@ function camera(gl: LightGLContext) {
 
 }
 
-function immediateMode(gl: LightGLContext) {
+export function immediateMode(gl: LightGLContext) {
 
     // setup camera
     gl.matrixMode(gl.PROJECTION)
@@ -216,7 +226,7 @@ function immediateMode(gl: LightGLContext) {
     })
 }
 
-async function renderToTexture(gl: LightGLContext) {
+export async function renderToTexture(gl: LightGLContext) {
     const mesh = Mesh.load(await fetch('gazebo.json').then(response => response.json()))
     const sinVertices = arrayFromFunction(32, i => {
         const x = lerp(-PI, PI, i / 31)
@@ -304,7 +314,7 @@ async function renderToTexture(gl: LightGLContext) {
     })
 }
 
-async function shadowMap(gl: LightGLContext) {
+export async function shadowMap(gl: LightGLContext) {
 
     //const mesh = await fetch('dodecahedron.stl')
     //    .then(r => r.blob())
@@ -687,7 +697,7 @@ async function shadowMap(gl: LightGLContext) {
 //
 //}
 
-async function gpuLightMap(gl: LightGLContext) {
+export async function gpuLightMap(gl: LightGLContext) {
     // modified version of https://evanw.github.io/lightgl.js/tests/gpulightmap.html
 
     const gazebo = Mesh.load(await fetch('gazebo.json').then(response => response.json()))
@@ -1045,4 +1055,168 @@ async function gpuLightMap(gl: LightGLContext) {
 
     })
 
+}
+
+import magFragShader from './shaders/magFS.glslx'
+import colorFS from './shaders/colorFS.glslx'
+import varyingColorFS from './shaders/varyingColorFS.glslx'
+import posVS from './shaders/posVS.glslx'
+import vectorFieldVS from './shaders/vectorFieldVS.glslx'
+import chroma from 'chroma-js'
+
+/**
+ * Returns a 1d array of V3s in a 2d-grid. The V3s are all within [0; 1]²
+ * The V3s are spaced like circles fit together as tight as possible. i.e. rows offset by half the x-spacing.
+ * .   .   .
+ *   .   .   .
+ * .   .   .
+ *
+ * @param xCount
+ */
+function ballGrid(xCount = 64) {
+    const xSpacing = 1 / xCount
+    const ySpacing = xSpacing * Math.sqrt(3) / 2
+    const yCount = (1 / ySpacing) | 0
+    return arrayFromFunction(xCount * yCount, i => {
+        const x = i % xCount
+        const y = (i / xCount) | 0
+        return new V3((x + (y % 2) * 0.5) / xCount, y / yCount, 0)
+    })
+}
+function grid3d(xCount = 64, yCount = xCount, zCount = 1) {
+    return arrayFromFunction(xCount * yCount * zCount, i => {
+        const x = i % xCount
+        const y = (i / xCount) % yCount | 0
+        const z = (i / xCount / yCount) | 0
+        return new V3(x / xCount, y / yCount, z / zCount)
+    })
+}
+export async function mag(gl: LightGLContext) {
+    const cubeMesh = Mesh.cube()
+    const cubeShader = new Shader(posVS, colorFS)
+    const vectorFieldShader = new Shader(vectorFieldVS, varyingColorFS)
+    gl.clearColor(1, 1, 1, 1)
+
+    const vec4 = (...args: number[]) => [...args] as Tuple4<number>
+    const ps: Tuple4<number>[] = []
+    // ps.push(
+    //     vec4(0.2, 0.5, 0, 1),
+    //     vec4(0.2, 0.8, 0, 1),
+    //     vec4(0.8, 0.5, 0, -1),
+    // )
+
+    const q = 0.01
+    function forceAtPos(coord: V3) {
+        let totalForce: V3 = V3.O
+        ps.forEach(p => {
+            const pCharge = p[3]
+            const coordToP = new V3(p[0], p[1], p[2]).minus(coord)
+            const r = coordToP.length()
+            const partialForceMagnitude = pCharge * q / r / r
+            const partialForce = coordToP.toLength(partialForceMagnitude)
+            totalForce = totalForce.plus(partialForce)
+        })
+        return totalForce
+    }
+
+    const bounds = new AABB(V3.O, V(1,1,0.3))
+    function *qPath(start: V3, dir: number) {
+        let pos = start, f, i = 0
+        while (true) {
+            f = forceAtPos(pos)
+            pos = pos.plus(f.toLength(dir))
+            if (!(f.squared() / q < 2.5e5 && i++ < 1000 && bounds.containsPoint(pos))) break
+            yield pos
+        }
+    }
+
+
+    function barMagnet(count = 4) {
+        return arrayFromFunction(count * count, i => {
+            const x = i % count
+            const y = (i / count) | 0
+            return vec4((0.5 + x) / count, (0.5 + y) / count, 0, (+(x < count / 2) || -1))
+        })
+    }
+
+    const barMats = [
+        M4.multiplyMultiple(M4.translate(0.5, 0.5, 0.1), M4.rotateZ(20 * DEG), M4.scale(0.2, 0.1, 0.02)),
+        M4.multiplyMultiple(M4.translate(0.2, 0.1), M4.rotateZ(60 * DEG), M4.scale(0.1, 0.05, 0.02)),
+        M4.multiplyMultiple(M4.translate(0.2, 0.8), M4.rotateZ(120 * DEG), M4.rotateY(-100 * DEG), M4.scale(0.2, 0.02, 0.02)),
+    ]
+    barMats.forEach(mat => ps.push(...(barMagnet(6).map(([x, y, z, c]) => {
+        const pos = mat.transformPoint(new V3(x, y, z))
+        return [...pos, c] as Tuple4<number>
+    }))))
+
+    const linesMesh = new Mesh().addIndexBuffer('LINES')
+    console.log('generation took (ms): ' + time(() => {
+        for (const [x, y, z] of grid3d(10, 10, 4)) {
+            const start = V(x, y, z * bounds.max.z)
+            linesMesh.vertices.push(start)
+            const STEP = 0.01
+            for (const p of qPath(start, STEP)) {
+                linesMesh.vertices.push(p)
+                linesMesh.LINES.push(linesMesh.vertices.length - 2, linesMesh.vertices.length - 1)
+            }
+            linesMesh.vertices.push(start)
+            for (const p of qPath(start, -STEP)) {
+                linesMesh.vertices.push(p)
+                linesMesh.LINES.push(linesMesh.vertices.length - 2, linesMesh.vertices.length - 1)
+            }
+        }
+    }))
+    linesMesh.compile()
+
+    const vectorFieldMesh = new Mesh()
+
+    const fieldLinesXSide = 64
+    const vectorFieldVectorLength = 2 * 0.9 / fieldLinesXSide
+    vectorFieldMesh.vertices = ballGrid(fieldLinesXSide).flatMap(
+        p => [new V3(p.x, p.y, -vectorFieldVectorLength / 2), new V3(p.x, p.y, vectorFieldVectorLength / 2)])
+
+    // vectorFieldMesh.vertices = arrayFromFunction(fieldLinesXSide * fieldLinesXSide * 2, i => {
+    //     const startOrEnd = i % 2
+    //     const x = ((i / 2) | 0) % fieldLinesXSide
+    //     const y = ((i / 2 / fieldLinesXSide) | 0) % fieldLinesXSide
+    //     return new V3(x / fieldLinesXSide, y / fieldLinesXSide, (startOrEnd || -1) * 0.01)
+    // })
+    vectorFieldMesh.compile()
+
+    // setup camera
+    gl.matrixMode(gl.PROJECTION)
+    gl.loadIdentity()
+    gl.perspective(60, gl.canvas.width / gl.canvas.height, 0.1, 1000)
+    gl.lookAt(V(0.5, 2, 1), V(0.5, 0.5), V3.Z)
+    gl.matrixMode(gl.MODELVIEW)
+    gl.clearColor(...chroma('black').gl())
+
+    gl.enable(gl.DEPTH_TEST)
+
+    vectorFieldShader.uniforms({
+        'ps[0]': ps as any,
+        color: chroma('red').gl()
+    })
+
+    return gl.animate(function (abs, diff) {
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
+        gl.loadIdentity()
+        gl.multMatrix(M4.rotateLine(V(0.5, 0.5), V3.Z, abs / 5000))
+        // gl.translate(-1, -1, -1)
+        // gl.scale(2)
+
+        cubeShader.uniforms({color: chroma('white').gl()}).draw(linesMesh, DRAW_MODES.LINES)
+        barMats.forEach(mat => {
+            gl.pushMatrix()
+            gl.multMatrix(mat)
+            gl.scale(0.5, 1, 1)
+            cubeShader.uniforms({color: chroma('red').gl()}).draw(cubeMesh, DRAW_MODES.LINES)
+            gl.translate(1, 0)
+            cubeShader.uniforms({color: chroma('blue').gl()}).draw(cubeMesh, DRAW_MODES.LINES)
+            gl.popMatrix()
+        })
+        gl.scale(bounds.max)
+        cubeShader.uniforms({color: chroma('grey').gl()}).draw(cubeMesh, DRAW_MODES.LINES)
+        // vectorFieldShader.drawBuffers(vectorFieldMesh.vertexBuffers, undefined, DRAW_MODES.LINES)
+    })
 }
