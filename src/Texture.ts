@@ -3,15 +3,16 @@ import {assert, int} from 'ts3dutils'
 import {currentGL, LightGLContext} from './LightGLContext'
 
 export interface TextureOptions {
-    wrap?: number // defaults to WGL.CLAMP_TO_EDGE, or set wrapS and wrapT individually.
-    wrapS?: number
-    wrapT?: number
-    filter?: number // defaults to WGL.LINEAR, or set minFilter and magFilter individually.
-    minFilter?: number
-    magFilter?: number
-    format?: number // defaults to WGL.RGBA.
-    type?: number // defaults to WGL.UNSIGNED_BYTE.
+	wrap?: number // defaults to WGL.CLAMP_TO_EDGE, or set wrapS and wrapT individually.
+	wrapS?: number
+	wrapT?: number
+	filter?: number // defaults to WGL.LINEAR, or set minFilter and magFilter individually.
+	minFilter?: number
+	magFilter?: number
+	format?: number // defaults to WGL.RGBA.
+	type?: number // defaults to WGL.UNSIGNED_BYTE.
 }
+
 export class Texture {
 	height: int
 	width: int
@@ -46,7 +47,7 @@ export class Texture {
 	 */
 	constructor(width: int, height: int, options: TextureOptions = {}, readonly gl = currentGL()) {
 		this.texture = gl.createTexture()!
-        gl.handleError() // in case createTexture returns null & fails
+		gl.handleError() // in case createTexture returns null & fails
 		this.width = width
 		this.height = height
 		this.format = options.format || gl.RGBA
@@ -79,19 +80,20 @@ export class Texture {
 
 	bind(unit: int) {
 		this.gl.activeTexture(this.gl.TEXTURE0 + unit)
-        this.gl.bindTexture(this.gl.TEXTURE_2D, this.texture)
+		this.gl.bindTexture(this.gl.TEXTURE_2D, this.texture)
 	}
 
 	unbind(unit: int) {
-        this.gl.activeTexture(this.gl.TEXTURE0 + unit)
-        this.gl.bindTexture(this.gl.TEXTURE_2D, null)
+		this.gl.activeTexture(this.gl.TEXTURE0 + unit)
+		this.gl.bindTexture(this.gl.TEXTURE_2D, null)
 	}
 
 	private framebuffer: WebGLFramebuffer
-    private renderbuffer: WebGLRenderbuffer & { width: number, height: number }
+	private renderbuffer: WebGLRenderbuffer & { width: number, height: number }
 	static checkerBoardCanvas: HTMLCanvasElement
+
 	canDrawTo() {
-	    const gl = this.gl
+		const gl = this.gl
 		this.framebuffer = this.framebuffer || gl.createFramebuffer()
 		gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebuffer)
 		gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.texture, 0)
@@ -101,7 +103,7 @@ export class Texture {
 	}
 
 	drawTo(callback: (gl: LightGLContext) => void): void {
-	    const gl = this.gl
+		const gl = this.gl
 		this.framebuffer = this.framebuffer || gl.createFramebuffer()
 		this.renderbuffer = this.renderbuffer || gl.createRenderbuffer() as any
 		gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebuffer)
@@ -116,7 +118,7 @@ export class Texture {
 		if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) != gl.FRAMEBUFFER_COMPLETE) {
 			throw new Error('Rendering to this texture is not supported (incomplete this.framebuffer)')
 		}
-        const viewport = gl.getParameter(gl.VIEWPORT)
+		const viewport = gl.getParameter(gl.VIEWPORT)
 		gl.viewport(0, 0, this.width, this.height)
 
 		callback(gl)
@@ -127,7 +129,7 @@ export class Texture {
 	}
 
 	swapWith(other: Texture): void {
-	    assert(this.gl == other.gl)
+		assert(this.gl == other.gl)
 		let temp
 		temp = other.texture
 		other.texture = this.texture
@@ -169,22 +171,22 @@ export class Texture {
 	 */
 	static fromURL(url: string, options: TextureOptions = {}, gl = currentGL()): Texture {
 		Texture.checkerBoardCanvas = Texture.checkerBoardCanvas || (function () {
-				const c = document.createElement('canvas').getContext('2d')
-                if (!c) throw new Error('Could not create 2d canvas.')
-				c.canvas.width = c.canvas.height = 128
-				for (let y = 0; y < c.canvas.height; y += 16) {
-					for (let x = 0; x < c.canvas.width; x += 16) {
-						//noinspection JSBitwiseOperatorUsage
-						c.fillStyle = (x ^ y) & 16 ? '#FFF' : '#DDD'
-						c.fillRect(x, y, 16, 16)
-					}
+			const c = document.createElement('canvas').getContext('2d')
+			if (!c) throw new Error('Could not create 2d canvas.')
+			c.canvas.width = c.canvas.height = 128
+			for (let y = 0; y < c.canvas.height; y += 16) {
+				for (let x = 0; x < c.canvas.width; x += 16) {
+					//noinspection JSBitwiseOperatorUsage
+					c.fillStyle = (x ^ y) & 16 ? '#FFF' : '#DDD'
+					c.fillRect(x, y, 16, 16)
 				}
-				return c.canvas
-			})()
+			}
+			return c.canvas
+		})()
 		const texture = Texture.fromImage(Texture.checkerBoardCanvas, options)
 		const image = new Image()
 		image.onload = () => Texture.fromImage(image, options, gl).swapWith(texture)
-        image.src = url
+		image.src = url
 		return texture
 	}
 }

@@ -1,15 +1,8 @@
 import chroma from 'chroma-js'
-import {
-	 addOwnProperties, assert, DEG,
-    int,
-	M4,
-	P3ZX,
-	V,
-	V3
-} from 'ts3dutils'
+import {addOwnProperties, assert, DEG, int, M4, P3ZX, V, V3,} from 'ts3dutils'
 
-import { Mesh } from './Mesh'
-import { DRAW_MODES, Shader } from './Shader'
+import {Mesh} from './Mesh'
+import {DRAW_MODES, Shader} from './Shader'
 
 export type GL_COLOR = [number, number, number, number]
 /**
@@ -18,13 +11,16 @@ export type GL_COLOR = [number, number, number, number]
 export const GL_COLOR_BLACK: GL_COLOR = [0, 0, 0, 1]
 
 export function currentGL(): LightGLContext {
-    return LightGLContext.gl
+	return LightGLContext.gl
 }
+
 const WGL = WebGLRenderingContext
+
 export function isNumber(obj: any) {
 	const str = Object.prototype.toString.call(obj)
 	return str == '[object Number]' || str == '[object Boolean]'
 }
+
 export type UniformType = V3 | M4 | number[] | boolean | number
 
 // awkward cast so the super() call doesn't fail
@@ -50,13 +46,13 @@ export class LightGLContext extends (Object as any as typeof WebGLRenderingConte
 
 	meshes: { [name: string]: Mesh }
 	shaders: { [name: string]: Shader }
-    public drawCallCount: int = 0
-    public projectionMatrixVersion: int = 0
+	public drawCallCount: int = 0
+	public projectionMatrixVersion: int = 0
 	public modelViewMatrixVersion: int = 0
 
 	protected constructor(gl: LightGLContext) {
 		super()
-        this.matrixMode(LightGLContext.MODELVIEW)
+		this.matrixMode(LightGLContext.MODELVIEW)
 	}
 
 	/// Implement the OpenGL modelview and projection matrix stacks, along with some other useful GLU matrix functions.
@@ -64,12 +60,12 @@ export class LightGLContext extends (Object as any as typeof WebGLRenderingConte
 		switch (mode) {
 			case this.MODELVIEW:
 				this.currentMatrixName = 'modelViewMatrix'
-                //this.currentMatrix = this.modelViewMatrix
+				//this.currentMatrix = this.modelViewMatrix
 				this.stack = this.modelViewStack
 				break
 			case this.PROJECTION:
 				this.currentMatrixName = 'projectionMatrix'
-                //this.currentMatrix = this.projectionMatrix
+				//this.currentMatrix = this.projectionMatrix
 				this.stack = this.projectionStack
 				break
 			default:
@@ -79,12 +75,12 @@ export class LightGLContext extends (Object as any as typeof WebGLRenderingConte
 
 	loadIdentity(): void {
 		M4.identity(this[this.currentMatrixName])
-        this.currentMatrixName == 'projectionMatrix' ? this.projectionMatrixVersion++ : this.modelViewMatrixVersion++
+		this.currentMatrixName == 'projectionMatrix' ? this.projectionMatrixVersion++ : this.modelViewMatrixVersion++
 	}
 
 	loadMatrix(m4: M4) {
 		M4.copy(m4, this[this.currentMatrixName])
-        this.currentMatrixName == 'projectionMatrix' ? this.projectionMatrixVersion++ : this.modelViewMatrixVersion++
+		this.currentMatrixName == 'projectionMatrix' ? this.projectionMatrixVersion++ : this.modelViewMatrixVersion++
 	}
 
 	multMatrix(m4: M4) {
@@ -92,38 +88,38 @@ export class LightGLContext extends (Object as any as typeof WebGLRenderingConte
 		const temp = this.resultMatrix
 		this.resultMatrix = this[this.currentMatrixName]
 		this[this.currentMatrixName] = temp
-        this.currentMatrixName == 'projectionMatrix' ? this.projectionMatrixVersion++ : this.modelViewMatrixVersion++
+		this.currentMatrixName == 'projectionMatrix' ? this.projectionMatrixVersion++ : this.modelViewMatrixVersion++
 	}
 
-	mirror(plane: {normal1: V3, w: number}) {
-	    this.multMatrix(M4.mirror(plane))
-    }
+	mirror(plane: { normal1: V3, w: number }) {
+		this.multMatrix(M4.mirror(plane))
+	}
 
 	perspective(fovDegrees: number, aspect: number, near: number, far: number, result?: M4) {
 		this.multMatrix(M4.perspectiveRad(fovDegrees * DEG, aspect, near, far, this.tempMatrix))
 	}
 
-    frustum(left: number, right: number, bottom: number, top: number, near: number, far: number) {
-        this.multMatrix(M4.frustum(left, right, bottom, top, near, far, this.tempMatrix))
-    }
+	frustum(left: number, right: number, bottom: number, top: number, near: number, far: number) {
+		this.multMatrix(M4.frustum(left, right, bottom, top, near, far, this.tempMatrix))
+	}
 
-    ortho(left: number, right: number, bottom: number, top: number, near: number, far: number) {
-        this.multMatrix(M4.ortho(left, right, bottom, top, near, far, this.tempMatrix))
-    }
+	ortho(left: number, right: number, bottom: number, top: number, near: number, far: number) {
+		this.multMatrix(M4.ortho(left, right, bottom, top, near, far, this.tempMatrix))
+	}
 
-    scale(x: number, y: number, z?: number): void
-    scale(scale: number): void
-    scale(v: V3): void
-    scale(...args: any[]) {
+	scale(x: number, y: number, z?: number): void
+	scale(scale: number): void
+	scale(v: V3): void
+	scale(...args: any[]) {
 		this.multMatrix((M4.scale as any)(...args, this.tempMatrix))
 	}
 
 	mirroredX() {
-	    this.multMatrix(M4.mirror(P3ZX))
-    }
+		this.multMatrix(M4.mirror(P3ZX))
+	}
 
-    translate(x: number, y?: number, z?: number): void
-    translate(v: V3): void
+	translate(x: number, y?: number, z?: number): void
+	translate(v: V3): void
 	translate(x: any, y?: any, z?: any) {
 		if (undefined !== y) {
 			this.multMatrix(M4.translate(x, y, z, this.tempMatrix))
@@ -145,46 +141,46 @@ export class LightGLContext extends (Object as any as typeof WebGLRenderingConte
 	}
 
 	popMatrix() {
-	    const pop = this.stack.pop()
-        assert(undefined !== pop)
+		const pop = this.stack.pop()
+		assert(undefined !== pop)
 		this[this.currentMatrixName] = pop as M4
-        this.currentMatrixName == 'projectionMatrix' ? this.projectionMatrixVersion++ : this.modelViewMatrixVersion++
+		this.currentMatrixName == 'projectionMatrix' ? this.projectionMatrixVersion++ : this.modelViewMatrixVersion++
 	}
 
-    /**
-     * World coordinates (WC) to screen/window coordinates matrix
-     */
+	/**
+	 * World coordinates (WC) to screen/window coordinates matrix
+	 */
 	wcToWindowMatrix() {
-        const viewport = this.getParameter(this.VIEWPORT)
-        const [x, y, w, h] = viewport
-        const viewportToScreenMatrix = new M4([
-            w / 2, 0, 0, x + w / 2,
-            h / 2, 0, 0, y + h / 2,
-            0, 0, 1, 0,
-            0, 0, 0, 1,
-        ])
-        return M4.multiplyMultiple(viewportToScreenMatrix, this.projectionMatrix, this.modelViewMatrix)
-    }
+		const viewport = this.getParameter(this.VIEWPORT)
+		const [x, y, w, h] = viewport
+		const viewportToScreenMatrix = new M4([
+			w / 2, 0, 0, x + w / 2,
+			h / 2, 0, 0, y + h / 2,
+			0, 0, 1, 0,
+			0, 0, 0, 1,
+		])
+		return M4.multiplyMultiple(viewportToScreenMatrix, this.projectionMatrix, this.modelViewMatrix)
+	}
 
 	/////////// IMMEDIATE MODE
 	// ### Immediate mode
-    //
-    // Provide an implementation of OpenGL's deprecated immediate mode. This is
-    // deprecated for a reason: constantly re-specifying the geometry is a bad
-    // idea for performance. You should use a `GL.Mesh` instead, which specifies
-    // the geometry once and caches it on the graphics card. Still, nothing
-    // beats a quick `viewerGL.begin(WGL.POINTS); viewerGL.vertex(1, 2, 3); viewerGL.end();` for
-    // debugging. This intentionally doesn't implement fixed-function lighting
-    // because it's only meant for quick debugging tasks.
-    private immediate = {
-        mesh: new Mesh()
-            .addVertexBuffer('coords', 'LGL_TexCoord')
-            .addVertexBuffer('colors', 'LGL_Color'),
-        mode: -1 as DRAW_MODES | -1,
-        coord: [0, 0] as [number, number],
-        color: [1, 1, 1, 1] as GL_COLOR,
-        pointSize: 1,
-        shader: new Shader(`
+	//
+	// Provide an implementation of OpenGL's deprecated immediate mode. This is
+	// deprecated for a reason: constantly re-specifying the geometry is a bad
+	// idea for performance. You should use a `GL.Mesh` instead, which specifies
+	// the geometry once and caches it on the graphics card. Still, nothing
+	// beats a quick `viewerGL.begin(WGL.POINTS); viewerGL.vertex(1, 2, 3); viewerGL.end();` for
+	// debugging. This intentionally doesn't implement fixed-function lighting
+	// because it's only meant for quick debugging tasks.
+	private immediate = {
+		mesh: new Mesh()
+			.addVertexBuffer('coords', 'LGL_TexCoord')
+			.addVertexBuffer('colors', 'LGL_Color'),
+		mode: -1 as DRAW_MODES | -1,
+		coord: [0, 0] as [number, number],
+		color: [1, 1, 1, 1] as GL_COLOR,
+		pointSize: 1,
+		shader: new Shader(`
             uniform float pointSize;
             varying vec4 color;
             varying vec2 coord;
@@ -207,57 +203,61 @@ export class LightGLContext extends (Object as any as typeof WebGLRenderingConte
         `),
 	}
 
-    pointSize(pointSize: number): void {
-        this.immediate.shader.uniforms({pointSize: pointSize})
-    }
+	pointSize(pointSize: number): void {
+		this.immediate.shader.uniforms({pointSize: pointSize})
+	}
 
-    begin(mode: DRAW_MODES | -1) {
-        if (this.immediate.mode != -1) throw new Error('mismatched viewerGL.begin() and viewerGL.end() calls')
-        this.immediate.mode = mode
-        this.immediate.mesh.colors = []
-        this.immediate.mesh.coords = []
-        this.immediate.mesh.vertices = []
-    }
+	begin(mode: DRAW_MODES | -1) {
+		if (this.immediate.mode != -1) throw new Error('mismatched viewerGL.begin() and viewerGL.end() calls')
+		this.immediate.mode = mode
+		this.immediate.mesh.colors = []
+		this.immediate.mesh.coords = []
+		this.immediate.mesh.vertices = []
+	}
 
 	color(cssColor: string): void
 	color(r: number, g: number, b: number, a?: number): void
 	color(hexInt: int): void
 	color(glColor: GL_COLOR): void
-    color(...args: any[]) {
-        this.immediate.color =
-            (1 == args.length && Array.isArray(args[0])) ? args[0] :
-            (1 == args.length && 'number' == typeof args[0]) ? hexIntToGLColor(args[0]) :
-            (1 == args.length && 'string' == typeof args[0]) ? chroma(args[0]).gl() :
-                [args[0], args[1], args[2], args[3] || 0]
-    }
+	color(...args: any[]) {
+		this.immediate.color =
+			(1 == args.length && Array.isArray(args[0]))
+				? args[0]
+				: (1 == args.length && 'number' == typeof args[0])
+				? hexIntToGLColor(args[0])
+				: (1 == args.length && 'string' == typeof args[0])
+					  ? chroma(args[0]).gl()
+					  : [args[0], args[1], args[2], args[3] || 0]
+	}
 
-    texCoord(s: number, t: number): void
-    texCoord(coords: [number, number]): void
-    texCoord(coords: {x: number, y: number}): void
-    texCoord(...args: any[]) {
-        this.immediate.coord = V.apply(undefined, args).toArray(2)
-    }
+	texCoord(s: number, t: number): void
+	texCoord(coords: [number, number]): void
+	texCoord(coords: { x: number, y: number }): void
+	texCoord(...args: any[]) {
+		this.immediate.coord = V.apply(undefined, args).toArray(2)
+	}
 
-    vertex(v: V3): void
-    vertex(x: number, y: number, z: number): void
-    vertex(...args: any[]) {
-        this.immediate.mesh.colors.push(this.immediate.color)
-        this.immediate.mesh.coords.push(this.immediate.coord)
-        this.immediate.mesh.vertices.push(V.apply(undefined, args))
-    }
+	vertex(v: V3): void
+	vertex(x: number, y: number, z: number): void
+	vertex(...args: any[]) {
+		this.immediate.mesh.colors.push(this.immediate.color)
+		this.immediate.mesh.coords.push(this.immediate.coord)
+		this.immediate.mesh.vertices.push(V.apply(undefined, args))
+	}
 
-    end(): void {
-        if (this.immediate.mode == -1) throw new Error('mismatched viewerGL.begin() and viewerGL.end() calls')
-        this.immediate.mesh.compile()
-        this.immediate.shader.uniforms({
-            useTexture: !!LightGLContext.gl.getParameter(WGL.TEXTURE_BINDING_2D),
-        }).drawBuffers(this.immediate.mesh.vertexBuffers, undefined, this.immediate.mode)
-        this.immediate.mode = -1
-    }
+	end(): void {
+		if (this.immediate.mode == -1) throw new Error('mismatched viewerGL.begin() and viewerGL.end() calls')
+		this.immediate.mesh.compile()
+		this.immediate.shader.uniforms({
+			useTexture: !!LightGLContext.gl.getParameter(WGL.TEXTURE_BINDING_2D),
+		}).drawBuffers(this.immediate.mesh.vertexBuffers, undefined, this.immediate.mode)
+		this.immediate.mode = -1
+	}
 
 
 	////////// MISCELLANEOUS METHODS
-    static gl: LightGLContext
+	static gl: LightGLContext
+
 	makeCurrent() {
 		LightGLContext.gl = this
 	}
@@ -275,13 +275,13 @@ export class LightGLContext extends (Object as any as typeof WebGLRenderingConte
 			}
 		let time = performance.now(), keepUpdating = true
 		const update = (domHighResTimeStamp: number) => {
-		    const now = performance.now()
-            callback.call(this, now, now - time)
-            time = now
-            keepUpdating && requestAnimationFrame(update)
+			const now = performance.now()
+			callback.call(this, now, now - time)
+			time = now
+			keepUpdating && requestAnimationFrame(update)
 		}
 		requestAnimationFrame(update)
-        return () => { keepUpdating = false }
+		return () => { keepUpdating = false }
 	}
 
 
@@ -310,7 +310,8 @@ export class LightGLContext extends (Object as any as typeof WebGLRenderingConte
 		camera?: boolean,
 		fov?: number,
 		near?: number,
-		far?: number} = {}) {
+		far?: number
+	} = {}) {
 
 		const top = options.paddingTop || 0
 		const left = options.paddingLeft || 0
@@ -342,61 +343,62 @@ export class LightGLContext extends (Object as any as typeof WebGLRenderingConte
 
 		window.addEventListener('resize', windowOnResize)
 		windowOnResize()
-        return this
+		return this
 	}
 
 	viewportFill() {
-	    this.viewport(0, 0, this.canvas.width, this.canvas.height)
-    }
+		this.viewport(0, 0, this.canvas.width, this.canvas.height)
+	}
 
 	handleError(): void {
-	    const errorCode = this.getError()
-        if (0 !== errorCode) {
+		const errorCode = this.getError()
+		if (0 !== errorCode) {
 			throw new Error('' + errorCode + WGL_ERROR[errorCode])
 		}
 	}
 
 
-    /**
-     * `create()` creates a new WebGL context and augments it with more methods. The alpha channel is disabled
-     * by default because it usually causes unintended transparencies in the canvas.
-     */
-    static create(options: {canvas?: HTMLCanvasElement, alpha?: boolean} = {}): LightGLContext {
-        const canvas = options.canvas || document.createElement('canvas')
-        if (!options.canvas) {
-            canvas.width = 800
-            canvas.height = 600
-        }
-        if (!('alpha' in options)) options.alpha = false
-        let newGL: LightGLContext | undefined = undefined
-        try {
-            newGL = canvas.getContext('webgl', options) as LightGLContext
-            console.log('getting context')
-        } catch (e) {
-            console.log(e, newGL)
-        }
-        try {
-            newGL = newGL || canvas.getContext('experimental-webgl', options) as LightGLContext
-        } catch (e) {
-            console.log(e, newGL)
-        }
-        if (!newGL) throw new Error('WebGL not supported')
+	/**
+	 * `create()` creates a new WebGL context and augments it with more methods. The alpha channel is disabled
+	 * by default because it usually causes unintended transparencies in the canvas.
+	 */
+	static create(options: { canvas?: HTMLCanvasElement, alpha?: boolean } = {}): LightGLContext {
+		const canvas = options.canvas || document.createElement('canvas')
+		if (!options.canvas) {
+			canvas.width = 800
+			canvas.height = 600
+		}
+		if (!('alpha' in options)) options.alpha = false
+		let newGL: LightGLContext | undefined = undefined
+		try {
+			newGL = canvas.getContext('webgl', options) as LightGLContext
+			console.log('getting context')
+		} catch (e) {
+			console.log(e, newGL)
+		}
+		try {
+			newGL = newGL || canvas.getContext('experimental-webgl', options) as LightGLContext
+		} catch (e) {
+			console.log(e, newGL)
+		}
+		if (!newGL) throw new Error('WebGL not supported')
 
-        LightGLContext.gl = newGL
-        addOwnProperties(newGL, LightGLContext.prototype)
-        addOwnProperties(newGL, new LightGLContext(newGL))
-        //addEventListeners(newGL)
-        return newGL
-    }
+		LightGLContext.gl = newGL
+		addOwnProperties(newGL, LightGLContext.prototype)
+		addOwnProperties(newGL, new LightGLContext(newGL))
+		//addEventListeners(newGL)
+		return newGL
+	}
 }
+
 enum WGL_ERROR {
-    NO_ERROR = WGL.NO_ERROR,
-    INVALID_ENUM = WGL.INVALID_ENUM,
-    INVALID_VALUE = WGL.INVALID_VALUE,
-    INVALID_OPERATION = WGL.INVALID_OPERATION,
-    INVALID_FRAMEBUFFER_OPERATION = WGL.INVALID_FRAMEBUFFER_OPERATION,
-    OUT_OF_MEMORY = WGL.OUT_OF_MEMORY,
-    CONTEXT_LOST_WEBGL = WGL.CONTEXT_LOST_WEBGL,
+	NO_ERROR = WGL.NO_ERROR,
+	INVALID_ENUM = WGL.INVALID_ENUM,
+	INVALID_VALUE = WGL.INVALID_VALUE,
+	INVALID_OPERATION = WGL.INVALID_OPERATION,
+	INVALID_FRAMEBUFFER_OPERATION = WGL.INVALID_FRAMEBUFFER_OPERATION,
+	OUT_OF_MEMORY = WGL.OUT_OF_MEMORY,
+	CONTEXT_LOST_WEBGL = WGL.CONTEXT_LOST_WEBGL,
 }
 
 LightGLContext.prototype.MODELVIEW = LightGLContext.MODELVIEW
@@ -424,5 +426,5 @@ export function pushQuad(triangles: int[], flipped: boolean, a: int, b: int, c: 
 }
 
 function hexIntToGLColor(color: int): GL_COLOR {
-    return [(color >> 16) / 255.0, ((color >> 8) & 0xff) / 255.0, (color & 0xff) / 255.0, 1.0]
+	return [(color >> 16) / 255.0, ((color >> 8) & 0xff) / 255.0, (color & 0xff) / 255.0, 1.0]
 }

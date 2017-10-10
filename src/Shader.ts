@@ -2,7 +2,7 @@
 import {assert, assertf, assertInst, assertVectors, int, M4, NLA_DEBUG, V3} from 'ts3dutils'
 
 import {Buffer} from './Buffer'
-import { currentGL, GL_COLOR, LightGLContext } from './LightGLContext'
+import {currentGL, GL_COLOR, LightGLContext} from './LightGLContext'
 import {Mesh} from './Mesh'
 
 const WGL = WebGLRenderingContext
@@ -11,72 +11,76 @@ const WGL = WebGLRenderingContext
  * These are all the draw modes usable in OpenGL ES
  */
 export enum DRAW_MODES {
-    POINTS = WGL.POINTS,
-    LINES = WGL.LINES,
-    LINE_STRIP = WGL.LINE_STRIP,
-    LINE_LOOP = WGL.LINE_LOOP,
-    TRIANGLES = WGL.TRIANGLES,
-    TRIANGLE_STRIP = WGL.TRIANGLE_STRIP,
-    TRIANGLE_FAN = WGL.TRIANGLE_FAN
+	POINTS = WGL.POINTS,
+	LINES = WGL.LINES,
+	LINE_STRIP = WGL.LINE_STRIP,
+	LINE_LOOP = WGL.LINE_LOOP,
+	TRIANGLES = WGL.TRIANGLES,
+	TRIANGLE_STRIP = WGL.TRIANGLE_STRIP,
+	TRIANGLE_FAN = WGL.TRIANGLE_FAN
 }
+
 export type DRAW_MODES_ENUM = keyof typeof DRAW_MODES
 export const SHADER_VAR_TYPES = ['FLOAT', 'FLOAT_MAT2', 'FLOAT_MAT3', 'FLOAT_MAT4', 'FLOAT_VEC2', 'FLOAT_VEC3', 'FLOAT_VEC4', 'INT', 'INT_VEC2', 'INT_VEC3', 'INT_VEC4', 'UNSIGNED_INT']
 
-const DRAW_MODE_CHECKS: {[type: string]: (x: int) => boolean} = {
-    [DRAW_MODES.POINTS]: x => true,
-    [DRAW_MODES.LINES]: x => 0 == x % 2, // divisible by 2
-    [DRAW_MODES.LINE_STRIP]: x => x > 2, // need at least 2
-    [DRAW_MODES.LINE_LOOP]: x => x > 2, // more like > 3, but oh well
-    [DRAW_MODES.TRIANGLES]: x => 0 == x % 3, // divisible by 3
-    [DRAW_MODES.TRIANGLE_STRIP]: x => x > 3,
-    [DRAW_MODES.TRIANGLE_FAN]: x => x > 3,
+const DRAW_MODE_CHECKS: { [type: string]: (x: int) => boolean } = {
+	[DRAW_MODES.POINTS]: x => true,
+	[DRAW_MODES.LINES]: x => 0 == x % 2, // divisible by 2
+	[DRAW_MODES.LINE_STRIP]: x => x > 2, // need at least 2
+	[DRAW_MODES.LINE_LOOP]: x => x > 2, // more like > 3, but oh well
+	[DRAW_MODES.TRIANGLES]: x => 0 == x % 3, // divisible by 3
+	[DRAW_MODES.TRIANGLE_STRIP]: x => x > 3,
+	[DRAW_MODES.TRIANGLE_FAN]: x => x > 3,
 }
 
 export function isArray<T>(obj: any): obj is T[] {
-    return Array == obj.constructor || Float32Array == obj.constructor || Float64Array == obj.constructor
+	return Array == obj.constructor || Float32Array == obj.constructor || Float64Array == obj.constructor
 }
 
 export interface UniformTypesMap {
-    FLOAT_VEC4: GL_COLOR | V3
-    FLOAT_VEC3: [number, number, number] | V3
-    FLOAT_VEC2: [number, number] | V3
-    FLOAT: number
-    INT: int
-    FLOAT_MAT4: M4 | number[]
-    FLOAT_MAT3: M4 | number[]
-    SAMPLER_2D: int
-    BOOL: boolean
+	FLOAT_VEC4: GL_COLOR | V3
+	FLOAT_VEC3: [number, number, number] | V3
+	FLOAT_VEC2: [number, number] | V3
+	FLOAT: number
+	INT: int
+	FLOAT_MAT4: M4 | number[]
+	FLOAT_MAT3: M4 | number[]
+	SAMPLER_2D: int
+	BOOL: boolean
 }
+
 function isFloatArray(obj: any): obj is number[] | Float64Array | Float32Array {
-    return Float32Array == obj.constructor || Float64Array == obj.constructor ||
-        Array.isArray(obj) && obj.every(x => 'number' == typeof x)
+	return Float32Array == obj.constructor || Float64Array == obj.constructor ||
+		Array.isArray(obj) && obj.every(x => 'number' == typeof x)
 }
+
 function isIntArray(x: any) {
-    if ([Int8Array, Uint8Array, Uint8ClampedArray, Int16Array, Uint16Array, Int32Array, Uint32Array]
-            .some(y => x instanceof y)) {
-        return true
-    }
-    return (x instanceof Float32Array || x instanceof Float64Array || Array.isArray(x)) &&
-        (x as number[]).every(x => Number.isInteger(x))
+	if ([Int8Array, Uint8Array, Uint8ClampedArray, Int16Array, Uint16Array, Int32Array, Uint32Array]
+			.some(y => x instanceof y)) {
+		return true
+	}
+	return (x instanceof Float32Array || x instanceof Float64Array || Array.isArray(x)) &&
+		(x as number[]).every(x => Number.isInteger(x))
 }
+
 export type ShaderType<UniformTypes> = string & { T?: UniformTypes }
 
 //const x:keyof UniformTypesMap = undefined as 'FLOAT_VEC4' | 'FLOAT_VEC3'
-export class Shader<UniformTypes extends { [uniformName: string]: keyof UniformTypesMap} = any> {
+export class Shader<UniformTypes extends { [uniformName: string]: keyof UniformTypesMap } = any> {
 	program: WebGLProgram
 	activeMatrices: { [matrixName: string ]: boolean }
 	attributes: { [attributeName: string ]: number }
 	uniformLocations: { [uniformName: string ]: WebGLUniformLocation }
 	uniformInfos: { [uniformName: string ]: WebGLActiveInfo }
-    projectionMatrixVersion = -1
-    modelViewMatrixVersion = -1
+	projectionMatrixVersion = -1
+	modelViewMatrixVersion = -1
 	gl: LightGLContext
-    static create<
-            S extends { [uniformName: string]: keyof UniformTypesMap},
-            T extends { [uniformName: string]: keyof UniformTypesMap}>
-    (vertexSource: ShaderType<S>, fragmentSource: ShaderType<T>): Shader<S & T> {
-	    return new Shader(vertexSource, fragmentSource) as any
-    }
+
+	static create<S extends { [uniformName: string]: keyof UniformTypesMap },
+		T extends { [uniformName: string]: keyof UniformTypesMap }>
+	(vertexSource: ShaderType<S>, fragmentSource: ShaderType<T>): Shader<S & T> {
+		return new Shader(vertexSource, fragmentSource) as any
+	}
 
 	/**
 	 * Provides a convenient wrapper for WebGL shaders. A few uniforms and attributes,
@@ -139,10 +143,10 @@ export class Shader<UniformTypes extends { [uniformName: string]: keyof UniformT
 		}
 
 		this.gl = gl
-        const program = gl.createProgram()
-        if (!program) {
-		    gl.handleError()
-        }
+		const program = gl.createProgram()
+		if (!program) {
+			gl.handleError()
+		}
 		this.program = program!
 		gl.attachShader(this.program, compileSource(WGL.VERTEX_SHADER, vertexHeader + vertexSource))
 		gl.attachShader(this.program, compileSource(WGL.FRAGMENT_SHADER, fragmentHeader + fragmentSource))
@@ -156,7 +160,7 @@ export class Shader<UniformTypes extends { [uniformName: string]: keyof UniformT
 		// Check for the use of built-in matrices that require expensive matrix
 		// multiplications to compute, and record these in `activeMatrices`.
 		this.activeMatrices = {}
-        matrixNames && matrixNames.forEach(name => {
+		matrixNames && matrixNames.forEach(name => {
 			if (gl.getUniformLocation(this.program, name)) {
 				this.activeMatrices[name] = true
 			}
@@ -164,13 +168,13 @@ export class Shader<UniformTypes extends { [uniformName: string]: keyof UniformT
 
 		this.uniformInfos = {}
 		for (let i = gl.getProgramParameter(this.program, WGL.ACTIVE_UNIFORMS); i-- > 0;) {
-            // see https://www.khronos.org/registry/OpenGL-Refpages/es2.0/xhtml/glGetActiveUniform.xml
-            // this.program has already been checked
-            // i is in bounds
+			// see https://www.khronos.org/registry/OpenGL-Refpages/es2.0/xhtml/glGetActiveUniform.xml
+			// this.program has already been checked
+			// i is in bounds
 			const info = gl.getActiveUniform(this.program, i)!
 			this.uniformInfos[info.name] = info
 		}
-        gl.handleError()
+		gl.handleError()
 	}
 
 
@@ -179,9 +183,9 @@ export class Shader<UniformTypes extends { [uniformName: string]: keyof UniformT
 	 * value types and from the stored uniform sampler flags.
 	 */
 	uniforms(uniforms: Partial<{ [K in keyof UniformTypes]: UniformTypesMap[UniformTypes[K]] }>): this {
-        const gl = this.gl
+		const gl = this.gl
 		gl.useProgram(this.program)
-        gl.handleError()
+		gl.handleError()
 
 		for (const name in uniforms) {
 			const location = this.uniformLocations[name] || gl.getUniformLocation(this.program, name)
@@ -191,22 +195,22 @@ export class Shader<UniformTypes extends { [uniformName: string]: keyof UniformT
 			let value: any = uniforms[name] as any
 			const info = this.uniformInfos[name]
 			if (NLA_DEBUG) {
-			    // TODO: better errors
-			    if (gl.SAMPLER_2D == info.type || gl.SAMPLER_CUBE == info.type || gl.INT == info.type) {
-			        if (1 == info.size) {
-			            assert(Number.isInteger(value))
-                    } else {
-			            assert(isIntArray(value) && value.length == info.size, 'value must be int array if info.size != 1')
-                    }
-                }
-                assert(gl.FLOAT != info.type ||
-                    (1 == info.size && 'number' === typeof value || isFloatArray(value) && info.size == value.length))
-                assert(gl.FLOAT_VEC3 != info.type ||
-                    (1 == info.size && value instanceof V3 ||
-                        Array.isArray(value) && info.size == value.length && assertVectors(...value)))
-                assert(gl.FLOAT_VEC4 != info.type || 1 != info.size || isFloatArray(value) && value.length == 4)
-                assert(gl.FLOAT_MAT4 != info.type || value instanceof M4, () => value.toSource())
-                assert(gl.FLOAT_MAT3 != info.type || value.length == 9 || value instanceof M4)
+				// TODO: better errors
+				if (gl.SAMPLER_2D == info.type || gl.SAMPLER_CUBE == info.type || gl.INT == info.type) {
+					if (1 == info.size) {
+						assert(Number.isInteger(value))
+					} else {
+						assert(isIntArray(value) && value.length == info.size, 'value must be int array if info.size != 1')
+					}
+				}
+				assert(gl.FLOAT != info.type ||
+					(1 == info.size && 'number' === typeof value || isFloatArray(value) && info.size == value.length))
+				assert(gl.FLOAT_VEC3 != info.type ||
+					(1 == info.size && value instanceof V3 ||
+						Array.isArray(value) && info.size == value.length && assertVectors(...value)))
+				assert(gl.FLOAT_VEC4 != info.type || 1 != info.size || isFloatArray(value) && value.length == 4)
+				assert(gl.FLOAT_MAT4 != info.type || value instanceof M4, () => value.toSource())
+				assert(gl.FLOAT_MAT3 != info.type || value.length == 9 || value instanceof M4)
 			}
 			if (value instanceof V3) {
 				value = value.toArray()
@@ -248,37 +252,37 @@ export class Shader<UniformTypes extends { [uniformName: string]: keyof UniformT
 						throw new Error('don\'t know how to load uniform "' + name + '" of length ' + value.length)
 				}
 			} else if ('number' == typeof value) {
-                if (gl.SAMPLER_2D == info.type || gl.SAMPLER_CUBE == info.type || gl.INT == info.type) {
-                    gl.uniform1i(location, value)
-                } else {
-                    gl.uniform1f(location, value)
-                }
-            } else if ('boolean' == typeof value) {
-			    gl.uniform1i(location, +value)
-            } else if (value instanceof M4) {
-                const m = value.m
-                if (gl.FLOAT_MAT4 == info.type) {
-                    gl.uniformMatrix4fv(location, false, [
-                        m[0], m[4], m[8], m[12],
-                        m[1], m[5], m[9], m[13],
-                        m[2], m[6], m[10], m[14],
-                        m[3], m[7], m[11], m[15]])
-                } else if (gl.FLOAT_MAT3 == info.type) {
-                    gl.uniformMatrix3fv(location, false, [
-                        m[0], m[4], m[8],
-                        m[1], m[5], m[9],
-                        m[2], m[6], m[10]])
-                } else if (gl.FLOAT_MAT2 == info.type) {
-                    gl.uniformMatrix2fv(location, false, new Float32Array([
-                        m[0], m[4],
-                        m[1], m[5]]))
-                } else {
-                    throw new Error(`Can't assign M4 to ${info.type}`)
-                }
-            } else {
+				if (gl.SAMPLER_2D == info.type || gl.SAMPLER_CUBE == info.type || gl.INT == info.type) {
+					gl.uniform1i(location, value)
+				} else {
+					gl.uniform1f(location, value)
+				}
+			} else if ('boolean' == typeof value) {
+				gl.uniform1i(location, +value)
+			} else if (value instanceof M4) {
+				const m = value.m
+				if (gl.FLOAT_MAT4 == info.type) {
+					gl.uniformMatrix4fv(location, false, [
+						m[0], m[4], m[8], m[12],
+						m[1], m[5], m[9], m[13],
+						m[2], m[6], m[10], m[14],
+						m[3], m[7], m[11], m[15]])
+				} else if (gl.FLOAT_MAT3 == info.type) {
+					gl.uniformMatrix3fv(location, false, [
+						m[0], m[4], m[8],
+						m[1], m[5], m[9],
+						m[2], m[6], m[10]])
+				} else if (gl.FLOAT_MAT2 == info.type) {
+					gl.uniformMatrix2fv(location, false, new Float32Array([
+						m[0], m[4],
+						m[1], m[5]]))
+				} else {
+					throw new Error(`Can't assign M4 to ${info.type}`)
+				}
+			} else {
 				throw new Error('attempted to set uniform "' + name + '" to invalid value ' + value)
 			}
-            gl.handleError()
+			gl.handleError()
 		}
 
 		return this
@@ -298,8 +302,8 @@ export class Shader<UniformTypes extends { [uniformName: string]: keyof UniformT
 	draw(mesh: Mesh, mode: DRAW_MODES = DRAW_MODES.TRIANGLES, start?: int, count?: int): this {
 		assert(mesh.hasBeenCompiled, 'mesh.hasBeenCompiled')
 		assert(undefined != DRAW_MODES[mode])
-        const modeStr: string = DRAW_MODES[mode]
-        // assert(mesh.indexBuffers[modeStr], `mesh.indexBuffers[${modeStr}] undefined`)
+		const modeStr: string = DRAW_MODES[mode]
+		// assert(mesh.indexBuffers[modeStr], `mesh.indexBuffers[${modeStr}] undefined`)
 		return this.drawBuffers(mesh.vertexBuffers, mesh.indexBuffers[modeStr], mode, start, count)
 	}
 
@@ -312,66 +316,67 @@ export class Shader<UniformTypes extends { [uniformName: string]: keyof UniformT
 	 * vertex attribute pointers for attributes as needed.
 	 */
 	drawBuffers(vertexBuffers: { [attributeName: string]: Buffer },
-                indexBuffer: Buffer | undefined,
-                mode: DRAW_MODES = DRAW_MODES.TRIANGLES,
-                start: int = 0, count?: int): this {
-        const gl = this.gl
-        gl.handleError()
-        assert(undefined != DRAW_MODES[mode])
+				indexBuffer: Buffer | undefined,
+				mode: DRAW_MODES = DRAW_MODES.TRIANGLES,
+				start: int = 0, count?: int): this {
+		const gl = this.gl
+		gl.handleError()
+		assert(undefined != DRAW_MODES[mode])
 		assertf(() => 1 <= Object.keys(vertexBuffers).length)
 		Object.keys(vertexBuffers).forEach(key => assertInst(Buffer, vertexBuffers[key]))
 
 		// Only varruct up the built-in matrices that are active in the shader
-        const on = this.activeMatrices
-        const modelViewMatrixInverse = (on['LGL_ModelViewMatrixInverse'] || on['LGL_NormalMatrix'])
-            //&& this.modelViewMatrixVersion != gl.modelViewMatrixVersion
-            && gl.modelViewMatrix.inversed()
-        const projectionMatrixInverse = on['LGL_ProjectionMatrixInverse']
-            //&& this.projectionMatrixVersion != gl.projectionMatrixVersion
-            && gl.projectionMatrix.inversed()
-        const modelViewProjectionMatrix = (on['LGL_ModelViewProjectionMatrix'] || on['LGL_ModelViewProjectionMatrixInverse'])
-            //&& (this.projectionMatrixVersion != gl.projectionMatrixVersion || this.modelViewMatrixVersion != gl.modelViewMatrixVersion)
-            && gl.projectionMatrix.times(gl.modelViewMatrix)
+		const on = this.activeMatrices
+		const modelViewMatrixInverse = (on['LGL_ModelViewMatrixInverse'] || on['LGL_NormalMatrix'])
+			//&& this.modelViewMatrixVersion != gl.modelViewMatrixVersion
+			&& gl.modelViewMatrix.inversed()
+		const projectionMatrixInverse = on['LGL_ProjectionMatrixInverse']
+			//&& this.projectionMatrixVersion != gl.projectionMatrixVersion
+			&& gl.projectionMatrix.inversed()
+		const modelViewProjectionMatrix = (on['LGL_ModelViewProjectionMatrix'] || on['LGL_ModelViewProjectionMatrixInverse'])
+			//&& (this.projectionMatrixVersion != gl.projectionMatrixVersion || this.modelViewMatrixVersion !=
+			// gl.modelViewMatrixVersion)
+			&& gl.projectionMatrix.times(gl.modelViewMatrix)
 
-        const uni: { [matrixName: string ]: M4 } = {} // Uniform Matrices
+		const uni: { [matrixName: string ]: M4 } = {} // Uniform Matrices
 		on['LGL_ModelViewMatrix']
-            && this.modelViewMatrixVersion != gl.modelViewMatrixVersion
-            && (uni['LGL_ModelViewMatrix'] = gl.modelViewMatrix)
-        on['LGL_ModelViewMatrixInverse'] && (uni['LGL_ModelViewMatrixInverse'] = modelViewMatrixInverse as M4)
+		&& this.modelViewMatrixVersion != gl.modelViewMatrixVersion
+		&& (uni['LGL_ModelViewMatrix'] = gl.modelViewMatrix)
+		on['LGL_ModelViewMatrixInverse'] && (uni['LGL_ModelViewMatrixInverse'] = modelViewMatrixInverse as M4)
 		on['LGL_ProjectionMatrix']
-            && this.projectionMatrixVersion != gl.projectionMatrixVersion
-            && (uni['LGL_ProjectionMatrix'] = gl.projectionMatrix)
-        projectionMatrixInverse && (uni['LGL_ProjectionMatrixInverse'] = projectionMatrixInverse)
-        modelViewProjectionMatrix && (uni['LGL_ModelViewProjectionMatrix'] = modelViewProjectionMatrix)
-        modelViewProjectionMatrix && on['LGL_ModelViewProjectionMatrixInverse']
-                && (uni['LGL_ModelViewProjectionMatrixInverse'] = modelViewProjectionMatrix.inversed())
-        on['LGL_NormalMatrix']
-            && this.modelViewMatrixVersion != gl.modelViewMatrixVersion
-            && (uni['LGL_NormalMatrix'] = (modelViewMatrixInverse as M4).transposed())
+		&& this.projectionMatrixVersion != gl.projectionMatrixVersion
+		&& (uni['LGL_ProjectionMatrix'] = gl.projectionMatrix)
+		projectionMatrixInverse && (uni['LGL_ProjectionMatrixInverse'] = projectionMatrixInverse)
+		modelViewProjectionMatrix && (uni['LGL_ModelViewProjectionMatrix'] = modelViewProjectionMatrix)
+		modelViewProjectionMatrix && on['LGL_ModelViewProjectionMatrixInverse']
+		&& (uni['LGL_ModelViewProjectionMatrixInverse'] = modelViewProjectionMatrix.inversed())
+		on['LGL_NormalMatrix']
+		&& this.modelViewMatrixVersion != gl.modelViewMatrixVersion
+		&& (uni['LGL_NormalMatrix'] = (modelViewMatrixInverse as M4).transposed())
 		this.uniforms(uni as any)
-        this.projectionMatrixVersion = gl.projectionMatrixVersion
-        this.modelViewMatrixVersion = gl.modelViewMatrixVersion
+		this.projectionMatrixVersion = gl.projectionMatrixVersion
+		this.modelViewMatrixVersion = gl.modelViewMatrixVersion
 
 		// Create and enable attribute pointers as necessary.
 		let minVertexBufferLength = Infinity
 		for (const attribute in vertexBuffers) {
-            const buffer = vertexBuffers[attribute]
-            assert(buffer.hasBeenCompiled)
-            const location = this.attributes[attribute] || gl.getAttribLocation(this.program, attribute)
-            gl.handleError()
+			const buffer = vertexBuffers[attribute]
+			assert(buffer.hasBeenCompiled)
+			const location = this.attributes[attribute] || gl.getAttribLocation(this.program, attribute)
+			gl.handleError()
 			if (location == -1 || !buffer.buffer) {
 				//console.warn(`Vertex buffer ${attribute} was not bound because the attribute is not active.`)
 				continue
 			}
 			this.attributes[attribute] = location
 			gl.bindBuffer(WGL.ARRAY_BUFFER, buffer.buffer)
-            gl.handleError()
+			gl.handleError()
 
 			gl.enableVertexAttribArray(location)
-            gl.handleError()
+			gl.handleError()
 
 			gl.vertexAttribPointer(location, buffer.spacing, WGL.FLOAT, false, 0, 0)
-            gl.handleError()
+			gl.handleError()
 
 			minVertexBufferLength = Math.min(minVertexBufferLength, buffer.count)
 		}
@@ -380,7 +385,7 @@ export class Shader<UniformTypes extends { [uniformName: string]: keyof UniformT
 		for (const attribute in this.attributes) {
 			if (!(attribute in vertexBuffers)) {
 				gl.disableVertexAttribArray(this.attributes[attribute])
-                gl.handleError()
+				gl.handleError()
 			}
 		}
 
@@ -391,24 +396,24 @@ export class Shader<UniformTypes extends { [uniformName: string]: keyof UniformT
 				+ DRAW_MODE_CHECKS[mode].toString() + ' for mode ' + DRAW_MODES[mode])
 
 			if (indexBuffer) {
-			    assert(indexBuffer.hasBeenCompiled)
-			    assert(minVertexBufferLength > indexBuffer.maxValue!)
+				assert(indexBuffer.hasBeenCompiled)
+				assert(minVertexBufferLength > indexBuffer.maxValue!)
 				assert(count % indexBuffer.spacing == 0)
 				assert(start % indexBuffer.spacing == 0)
 				if (start + count > indexBuffer.count) {
 					throw new Error('Buffer not long enough for passed parameters start/length/buffer length' + ' ' + start + ' ' + count + ' ' + indexBuffer.count)
 				}
 				gl.bindBuffer(WGL.ELEMENT_ARRAY_BUFFER, indexBuffer.buffer!)
-                gl.handleError()
+				gl.handleError()
 				// start parameter has to be multiple of sizeof(WGL.UNSIGNED_SHORT)
 				gl.drawElements(mode, count, WGL.UNSIGNED_SHORT, 2 * start)
-                gl.handleError()
+				gl.handleError()
 			} else {
 				if (start + count > minVertexBufferLength) {
 					throw new Error('invalid')
 				}
 				gl.drawArrays(mode, start, count)
-                gl.handleError()
+				gl.handleError()
 			}
 			gl.drawCallCount++
 		}

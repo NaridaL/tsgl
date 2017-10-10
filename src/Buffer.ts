@@ -17,7 +17,7 @@ export class Buffer {
 
 	name?: string
 
-    maxValue?: number
+	maxValue?: number
 
 	/**
 	 * Provides a simple method of uploading data to a GPU buffer. Example usage:
@@ -56,38 +56,38 @@ export class Buffer {
 	 */
 	compile(type: int = WGL.STATIC_DRAW, gl: LightGLContext = currentGL()): void {
 		assert(WGL.STATIC_DRAW == type || WGL.DYNAMIC_DRAW == type, 'WGL.STATIC_DRAW == type || WGL.DYNAMIC_DRAW == type')
-        gl.handleError()
+		gl.handleError()
 		this.buffer = this.buffer || gl.createBuffer()!
-        gl.handleError()
-		let buffer:  Float32Array | Uint16Array
+		gl.handleError()
+		let buffer: Float32Array | Uint16Array
 		if (this.data.length == 0) {
 			console.warn('empty buffer ' + this.name)
 			//console.trace()
 		}
 		if (this.data.length == 0 || this.data[0] instanceof V3) {
-		    assert(!(this.data[0] instanceof V3) || this.type == Float32Array)
+			assert(!(this.data[0] instanceof V3) || this.type == Float32Array)
 			V3.pack(this.data, buffer = new this.type(this.data.length * 3) as Float32Array) // asserts that all
-                                                                                             // elements are V3s
+																							 // elements are V3s
 			this.spacing = 3
 			this.count = this.data.length
 			this.maxValue = 0
 		} else {
 			//assert(Array != this.data[0].constructor, this.name + this.data[0])
-            if (Array.isArray(this.data[0])) {
-                const bufferLength = this.data.length * this.data[0].length
-                buffer = new this.type(bufferLength)
-                let i = this.data.length, destPtr = bufferLength
-                while (i--) {
-                    const subArray = this.data[i]
-                    let j = subArray.length
-                    while (j--) {
-                        buffer[--destPtr] = subArray[j]
-                    }
-                }
-                assert(0 == destPtr)
-            } else {
-                buffer = new this.type(this.data)
-            }
+			if (Array.isArray(this.data[0])) {
+				const bufferLength = this.data.length * this.data[0].length
+				buffer = new this.type(bufferLength)
+				let i = this.data.length, destPtr = bufferLength
+				while (i--) {
+					const subArray = this.data[i]
+					let j = subArray.length
+					while (j--) {
+						buffer[--destPtr] = subArray[j]
+					}
+				}
+				assert(0 == destPtr)
+			} else {
+				buffer = new this.type(this.data)
+			}
 
 			const spacing = this.data.length ? buffer.length / this.data.length : 0
 			assert(spacing % 1 == 0, `buffer ${this.name} elements not of consistent size, average size is ` + spacing)
@@ -102,10 +102,10 @@ export class Buffer {
 			this.spacing = spacing
 			this.count = this.data.length
 		}
-        gl.bindBuffer(this.target, this.buffer)
-        gl.handleError()
+		gl.bindBuffer(this.target, this.buffer)
+		gl.handleError()
 		gl.bufferData(this.target, buffer, type)
-        gl.handleError()
+		gl.handleError()
 		this.hasBeenCompiled = true
 	}
 }

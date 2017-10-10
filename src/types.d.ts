@@ -1,4 +1,4 @@
-declare module "*.glslx" {
-    const x: string
-    export default x
+declare module '*.glslx' {
+	const x: string
+	export default x
 }
