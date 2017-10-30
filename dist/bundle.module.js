@@ -13,9 +13,9 @@ const { cos, sin, PI, min, max } = Math;
 const WGL$2 = WebGLRenderingContext;
 /**
  * @example new Mesh()
- * 		.addIndexBuffer('TRIANGLES')
- * 		.addIndexBuffer('LINES')
- * 		.addVertexBuffer('normals', 'LGL_Normal')
+ *        .addIndexBuffer('TRIANGLES')
+ *        .addIndexBuffer('LINES')
+ *        .addVertexBuffer('normals', 'LGL_Normal')
  */
 class Mesh extends Transformable {
     constructor() {
@@ -107,7 +107,7 @@ class Mesh extends Transformable {
         Object.getOwnPropertyNames(this.vertexBuffers).forEach(attribute => {
             const buffer = this.vertexBuffers[attribute];
             buffer.data = this[buffer.name];
-            buffer.compile();
+            buffer.compile(undefined, gl);
             
         });
         for (const name in this.indexBuffers) {
@@ -926,7 +926,8 @@ class Shader {
             //&& this.projectionMatrixVersion != gl.projectionMatrixVersion
             && gl.projectionMatrix.inversed();
         const modelViewProjectionMatrix = (on['LGL_ModelViewProjectionMatrix'] || on['LGL_ModelViewProjectionMatrixInverse'])
-            //&& (this.projectionMatrixVersion != gl.projectionMatrixVersion || this.modelViewMatrixVersion != gl.modelViewMatrixVersion)
+            //&& (this.projectionMatrixVersion != gl.projectionMatrixVersion || this.modelViewMatrixVersion !=
+            // gl.modelViewMatrixVersion)
             && gl.projectionMatrix.times(gl.modelViewMatrix);
         const uni = {}; // Uniform Matrices
         on['LGL_ModelViewMatrix']
@@ -1017,32 +1018,8 @@ function isNumber(obj) {
     const str = Object.prototype.toString.call(obj);
     return str == '[object Number]' || str == '[object Boolean]';
 }
-// awkward cast so the super() call doesn't fail
-class LightGLContext extends Object {
-    constructor(gl) {
-        super();
-        this.modelViewMatrix = new M4();
-        this.projectionMatrix = new M4();
-        this.MODELVIEW = LightGLContext.MODELVIEW;
-        this.PROJECTION = LightGLContext.PROJECTION;
-        this.tempMatrix = new M4();
-        this.resultMatrix = new M4();
-        this.modelViewStack = [];
-        this.projectionStack = [];
-        this.drawCallCount = 0;
-        this.projectionMatrixVersion = 0;
-        this.modelViewMatrixVersion = 0;
-        /////////// IMMEDIATE MODE
-        // ### Immediate mode
-        //
-        // Provide an implementation of OpenGL's deprecated immediate mode. This is
-        // deprecated for a reason: constantly re-specifying the geometry is a bad
-        // idea for performance. You should use a `GL.Mesh` instead, which specifies
-        // the geometry once and caches it on the graphics card. Still, nothing
-        // beats a quick `viewerGL.begin(WGL.POINTS); viewerGL.vertex(1, 2, 3); viewerGL.end();` for
-        // debugging. This intentionally doesn't implement fixed-function lighting
-        // because it's only meant for quick debugging tasks.
-        this.immediate = {
+class LightGLContext {
+    constructor(gl, immediate = {
             mesh: new Mesh()
                 .addVertexBuffer('coords', 'LGL_TexCoord')
                 .addVertexBuffer('colors', 'LGL_Color'),
@@ -1070,8 +1047,20 @@ class LightGLContext extends Object {
                 gl_FragColor = color;
                 if (useTexture) gl_FragColor *= texture2D(texture, coord.xy);
             }
-        `),
-        };
+        `, gl),
+        }) {
+        this.immediate = immediate;
+        this.modelViewMatrix = new M4();
+        this.projectionMatrix = new M4();
+        this.MODELVIEW = LightGLContext.MODELVIEW;
+        this.PROJECTION = LightGLContext.PROJECTION;
+        this.tempMatrix = new M4();
+        this.resultMatrix = new M4();
+        this.modelViewStack = [];
+        this.projectionStack = [];
+        this.drawCallCount = 0;
+        this.projectionMatrixVersion = 0;
+        this.modelViewMatrixVersion = 0;
         this.matrixMode(LightGLContext.MODELVIEW);
     }
     /// Implement the OpenGL modelview and projection matrix stacks, along with some other useful GLU matrix functions.
@@ -1161,6 +1150,16 @@ class LightGLContext extends Object {
         ]);
         return M4.multiplyMultiple(viewportToScreenMatrix, this.projectionMatrix, this.modelViewMatrix);
     }
+    /////////// IMMEDIATE MODE
+    // ### Immediate mode
+    //
+    // Provide an implementation of OpenGL's deprecated immediate mode. This is
+    // deprecated for a reason: constantly re-specifying the geometry is a bad
+    // idea for performance. You should use a `GL.Mesh` instead, which specifies
+    // the geometry once and caches it on the graphics card. Still, nothing
+    // beats a quick `viewerGL.begin(WGL.POINTS); viewerGL.vertex(1, 2, 3); viewerGL.end();` for
+    // debugging. This intentionally doesn't implement fixed-function lighting
+    // because it's only meant for quick debugging tasks.
     pointSize(pointSize) {
         this.immediate.shader.uniforms({ pointSize: pointSize });
     }
@@ -1174,10 +1173,13 @@ class LightGLContext extends Object {
     }
     color(...args) {
         this.immediate.color =
-            (1 == args.length && Array.isArray(args[0])) ? args[0] :
-                (1 == args.length && 'number' == typeof args[0]) ? hexIntToGLColor(args[0]) :
-                    (1 == args.length && 'string' == typeof args[0]) ? chroma(args[0]).gl() :
-                        [args[0], args[1], args[2], args[3] || 0];
+            (1 == args.length && Array.isArray(args[0]))
+                ? args[0]
+                : (1 == args.length && 'number' == typeof args[0])
+                    ? hexIntToGLColor(args[0])
+                    : (1 == args.length && 'string' == typeof args[0])
+                        ? chroma(args[0]).gl()
+                        : [args[0], args[1], args[2], args[3] || 0];
     }
     texCoord(...args) {
         this.immediate.coord = V.apply(undefined, args).toArray(2);
@@ -1270,10 +1272,10 @@ class LightGLContext extends Object {
         this.viewport(0, 0, this.canvas.width, this.canvas.height);
     }
     handleError() {
-        const errorCode = this.getError();
-        if (0 !== errorCode) {
-            throw new Error('' + errorCode + WGL_ERROR[errorCode]);
-        }
+        // const errorCode = this.getError()
+        // if (0 !== errorCode) {
+        //     throw new Error('' + errorCode + WGL_ERROR[errorCode])
+        // }
     }
     /**
      * `create()` creates a new WebGL context and augments it with more methods. The alpha channel is disabled
@@ -1557,7 +1559,7 @@ class Texture {
      */
     static fromImage(imgElement, options, gl = currentGL()) {
         options = options || {};
-        const texture = new Texture(imgElement.width, imgElement.height, options);
+        const texture = new Texture(imgElement.width, imgElement.height, options, gl);
         try {
             gl.texImage2D(gl.TEXTURE_2D, 0, texture.format, texture.format, texture.type, imgElement);
         }

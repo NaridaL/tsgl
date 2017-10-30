@@ -120,7 +120,7 @@ export class Mesh extends Transformable {
 		Object.getOwnPropertyNames(this.vertexBuffers).forEach(attribute => {
 			const buffer = this.vertexBuffers[attribute]
 			buffer.data = (this as any)[buffer.name!]
-			buffer.compile()
+			buffer.compile(undefined, gl)
 			if ((this as any)[buffer.name!].length < minVertexBufferLength) {
 				minBufferName = attribute
 				minVertexBufferLength = (this as any)[buffer.name!].length

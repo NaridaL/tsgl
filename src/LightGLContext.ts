@@ -23,8 +23,8 @@ export function isNumber(obj: any) {
 
 export type UniformType = V3 | M4 | number[] | boolean | number
 
-// awkward cast so the super() call doesn't fail
-export class LightGLContext extends (Object as any as typeof WebGLRenderingContext) {
+export interface LightGLContext extends WebGLRenderingContext {}
+export class LightGLContext {
 	modelViewMatrix: M4 = new M4()
 	projectionMatrix: M4 = new M4()
 	static readonly MODELVIEW: { __MATRIX_MODE_CONSTANT: any } = 0 as any
@@ -50,8 +50,36 @@ export class LightGLContext extends (Object as any as typeof WebGLRenderingConte
 	public projectionMatrixVersion: int = 0
 	public modelViewMatrixVersion: int = 0
 
-	protected constructor(gl: LightGLContext) {
-		super()
+	protected constructor(gl: LightGLContext, private immediate = {
+		mesh: new Mesh()
+			.addVertexBuffer('coords', 'LGL_TexCoord')
+			.addVertexBuffer('colors', 'LGL_Color'),
+		mode: -1 as DRAW_MODES | -1,
+		coord: [0, 0] as [number, number],
+		color: [1, 1, 1, 1] as GL_COLOR,
+		pointSize: 1,
+		shader: new Shader(`
+            uniform float pointSize;
+            varying vec4 color;
+            varying vec2 coord;
+            void main() {
+                color = LGL_Color;
+                coord = LGL_TexCoord;
+                gl_Position = LGL_ModelViewProjectionMatrix * LGL_Vertex;
+                gl_PointSize = pointSize;
+            }
+        `, `
+            uniform sampler2D texture;
+            uniform float pointSize;
+            uniform bool useTexture;
+            varying vec4 color;
+            varying vec2 coord;
+            void main() {
+                gl_FragColor = color;
+                if (useTexture) gl_FragColor *= texture2D(texture, coord.xy);
+            }
+        `, gl),
+	}) {
 		this.matrixMode(LightGLContext.MODELVIEW)
 	}
 
@@ -172,36 +200,7 @@ export class LightGLContext extends (Object as any as typeof WebGLRenderingConte
 	// beats a quick `viewerGL.begin(WGL.POINTS); viewerGL.vertex(1, 2, 3); viewerGL.end();` for
 	// debugging. This intentionally doesn't implement fixed-function lighting
 	// because it's only meant for quick debugging tasks.
-	private immediate = {
-		mesh: new Mesh()
-			.addVertexBuffer('coords', 'LGL_TexCoord')
-			.addVertexBuffer('colors', 'LGL_Color'),
-		mode: -1 as DRAW_MODES | -1,
-		coord: [0, 0] as [number, number],
-		color: [1, 1, 1, 1] as GL_COLOR,
-		pointSize: 1,
-		shader: new Shader(`
-            uniform float pointSize;
-            varying vec4 color;
-            varying vec2 coord;
-            void main() {
-                color = LGL_Color;
-                coord = LGL_TexCoord;
-                gl_Position = LGL_ModelViewProjectionMatrix * LGL_Vertex;
-                gl_PointSize = pointSize;
-            }
-        `, `
-            uniform sampler2D texture;
-            uniform float pointSize;
-            uniform bool useTexture;
-            varying vec4 color;
-            varying vec2 coord;
-            void main() {
-                gl_FragColor = color;
-                if (useTexture) gl_FragColor *= texture2D(texture, coord.xy);
-            }
-        `),
-	}
+
 
 	pointSize(pointSize: number): void {
 		this.immediate.shader.uniforms({pointSize: pointSize})
@@ -226,8 +225,8 @@ export class LightGLContext extends (Object as any as typeof WebGLRenderingConte
 				: (1 == args.length && 'number' == typeof args[0])
 				? hexIntToGLColor(args[0])
 				: (1 == args.length && 'string' == typeof args[0])
-					  ? chroma(args[0]).gl()
-					  : [args[0], args[1], args[2], args[3] || 0]
+					? chroma(args[0]).gl()
+					: [args[0], args[1], args[2], args[3] || 0]
 	}
 
 	texCoord(s: number, t: number): void
@@ -351,10 +350,10 @@ export class LightGLContext extends (Object as any as typeof WebGLRenderingConte
 	}
 
 	handleError(): void {
-		const errorCode = this.getError()
-		if (0 !== errorCode) {
-			throw new Error('' + errorCode + WGL_ERROR[errorCode])
-		}
+		// const errorCode = this.getError()
+		// if (0 !== errorCode) {
+		//     throw new Error('' + errorCode + WGL_ERROR[errorCode])
+		// }
 	}
 
 

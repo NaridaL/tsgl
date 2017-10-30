@@ -149,7 +149,7 @@ export class Texture {
 	 */
 	static fromImage(imgElement: HTMLImageElement | HTMLCanvasElement, options: TextureOptions, gl: LightGLContext = currentGL()): Texture {
 		options = options || {}
-		const texture = new Texture(imgElement.width, imgElement.height, options)
+		const texture = new Texture(imgElement.width, imgElement.height, options, gl)
 		try {
 			gl.texImage2D(gl.TEXTURE_2D, 0, texture.format, texture.format, texture.type, imgElement)
 		} catch (e) {
