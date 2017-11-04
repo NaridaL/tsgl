@@ -68,8 +68,8 @@ export default {
 			// Source maps are on by default
 			// sourceMap: false
 		}),
-		serve('.'),
-		livereload()
+		!process.env.PRODUCTION && serve('.'),
+		!process.env.PRODUCTION && livereload()
 	],
 	// onwarn: function (warning) {
 	// 	// Suppress this error message... there are hundreds of them. Angular team says to ignore it.

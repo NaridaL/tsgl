@@ -13,6 +13,9 @@ const {sin, PI} = Math
 
 export {LightGLContext}
 
+/**
+ * Draw a rotating cube.
+ */
 export async function setupDemo(gl: LightGLContext) {
 	const mesh = Mesh.cube()
 	const shader = new Shader<{ color: 'FLOAT_VEC4' }>(`
@@ -46,6 +49,9 @@ void main() {
 	})
 }
 
+/**
+ * Blend two textures while rendering them to a quad.
+ */
 export function multiTexture(gl: LightGLContext) {
 	const mesh = Mesh.plane()
 	const texture = Texture.fromURL('texture.png')
@@ -94,6 +100,9 @@ export function multiTexture(gl: LightGLContext) {
 	})
 }
 
+/**
+ * Move camera using mouse.
+ */
 export function camera(gl: LightGLContext) {
 	let yRot = -10 * DEG
 	let zRot = 90 * DEG
@@ -179,6 +188,9 @@ export function camera(gl: LightGLContext) {
 
 }
 
+/**
+ * OpenGL-style immediate mode.
+ */
 export function immediateMode(gl: LightGLContext) {
 
 	// setup camera
@@ -240,6 +252,9 @@ export function immediateMode(gl: LightGLContext) {
 	})
 }
 
+/**
+ * Render mesh to texture, then render that texture to another mesh.
+ */
 export async function renderToTexture(gl: LightGLContext) {
 	const mesh = Mesh.load(await fetch('gazebo.json').then(response => response.json()))
 	const sinVertices = arrayFromFunction(32, i => {
@@ -328,6 +343,9 @@ export async function renderToTexture(gl: LightGLContext) {
 	})
 }
 
+/**
+ * Draw shadow of a mesh using a shadow map.
+ */
 export async function shadowMap(gl: LightGLContext) {
 
 	//const mesh = await fetch('dodecahedron.stl')
@@ -711,6 +729,9 @@ export async function shadowMap(gl: LightGLContext) {
 //
 //}
 
+/**
+ * Draw soft shadows by calculating a light map in multiple passes.
+ */
 export async function gpuLightMap(gl: LightGLContext) {
 	// modified version of https://evanw.github.io/lightgl.js/tests/gpulightmap.html
 
@@ -1101,6 +1122,9 @@ function grid3d(xCount = 64, yCount = xCount, zCount = 1) {
 	})
 }
 
+/**
+ * Calculate and render magnetic field lines.
+ */
 export async function mag(gl: LightGLContext) {
 	const cubeMesh = Mesh.cube()
 	const cubeShader = new Shader(posVS, colorFS)
