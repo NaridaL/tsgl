@@ -4,7 +4,7 @@
 [![David](https://img.shields.io/david/expressjs/express.svg?style=flat-square)](https://david-dm.org/NaridaL/tsgl)
 
 # tsgl
-Light TypeScript wrapper around WebGL
+Light TypeScript wrapper around WebGL based on https://github.com/evanw/lightgl.js/
 
 ## Installation
 NPM:  `npm install tsgl --save`
@@ -16,15 +16,20 @@ In the browser, you can include the [UMD bundle](./dist/bundle.js) in a script t
 <!--- DEMO-TABLE-START --->
 ||||
 --- | --- | ---
-[setupDemo](https://naridal.github.io/tsgl/demo.html#setupDemo) | [src](./src/demo.ts#L19-L50) | Draw a rotating cube.
-[multiTexture](https://naridal.github.io/tsgl/demo.html#multiTexture) | [src](./src/demo.ts#L55-L101) | Blend two textures while rendering them to a quad.
-[camera](https://naridal.github.io/tsgl/demo.html#camera) | [src](./src/demo.ts#L106-L189) | Move camera using mouse.
-[immediateMode](https://naridal.github.io/tsgl/demo.html#immediateMode) | [src](./src/demo.ts#L194-L253) | OpenGL-style immediate mode.
-[renderToTexture](https://naridal.github.io/tsgl/demo.html#renderToTexture) | [src](./src/demo.ts#L258-L344) | Render mesh to texture, then render that texture to another mesh.
-[shadowMap](https://naridal.github.io/tsgl/demo.html#shadowMap) | [src](./src/demo.ts#L349-L600) | Draw shadow of a mesh using a shadow map.
-[gpuLightMap](https://naridal.github.io/tsgl/demo.html#gpuLightMap) | [src](./src/demo.ts#L735-L1094) | Draw soft shadows by calculating a light map in multiple passes.
-[mag](https://naridal.github.io/tsgl/demo.html#mag) | [src](./src/demo.ts#L1128-L1258) | Calculate and render magnetic field lines.
+[camera](https://naridal.github.io/tsgl/demo.html#camera) | [src](./src/demo/camera.ts) | Move camera using mouse.
+[gpuLightMap](https://naridal.github.io/tsgl/demo.html#gpuLightMap) | [src](./src/demo/gpuLightMap.ts) | Draw soft shadows by calculating a light map in multiple passes.
+[immediateMode](https://naridal.github.io/tsgl/demo.html#immediateMode) | [src](./src/demo/immediateMode.ts) | OpenGL-style immediate mode.
+[mag](https://naridal.github.io/tsgl/demo.html#mag) | [src](./src/demo/mag.ts) | Calculate and render magnetic field lines.
+[multiTexture](https://naridal.github.io/tsgl/demo.html#multiTexture) | [src](./src/demo/multiTexture.ts) | Blend two textures while rendering them to a quad.
+[rayTracing](https://naridal.github.io/tsgl/demo.html#rayTracing) | [src](./src/demo/rayTracing.ts) | Realtime GPU ray tracing including reflection.
+[renderToTexture](https://naridal.github.io/tsgl/demo.html#renderToTexture) | [src](./src/demo/renderToTexture.ts) | Render mesh to texture, then render that texture to another mesh.
+[setupDemo](https://naridal.github.io/tsgl/demo.html#setupDemo) | [src](./src/demo/setupDemo.ts) | Draw a rotating cube.
+[shadowMap](https://naridal.github.io/tsgl/demo.html#shadowMap) | [src](./src/demo/shadowMap.ts) | Draw shadow of a mesh using a shadow map.
 <!--- DEMO-TABLE-END --->
+
+
+
+
 
 
 
@@ -32,5 +37,5 @@ In the browser, you can include the [UMD bundle](./dist/bundle.js) in a script t
 
 <!--- CONTENT-END --->
 <!--- footer generated automatically, don't edit --->
-LICENSE
-MIT
+## License
+[MIT](./LICENSE)

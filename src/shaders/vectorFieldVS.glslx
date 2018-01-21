@@ -1,3 +1,5 @@
+precision mediump float;
+attribute vec4 LGL_Vertex;
 const int NUM_PS = 64;
 float q = 0.01;
 uniform vec4 ps[NUM_PS];

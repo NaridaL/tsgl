@@ -25,13 +25,14 @@ export type UniformType = V3 | M4 | number[] | boolean | number
 
 export interface LightGLContext extends WebGLRenderingContext {}
 export class LightGLContext {
-	modelViewMatrix: M4 = new M4()
-	projectionMatrix: M4 = new M4()
+	modelViewMatrix: M4 = M4.identity()
+	projectionMatrix: M4 = M4.identity()
 	static readonly MODELVIEW: { __MATRIX_MODE_CONSTANT: any } = 0 as any
 	static readonly PROJECTION: { __MATRIX_MODE_CONSTANT: any } = 1 as any
-	MODELVIEW = LightGLContext.MODELVIEW
-	PROJECTION = LightGLContext.PROJECTION
+	MODELVIEW: typeof LightGLContext.MODELVIEW
+	PROJECTION: typeof LightGLContext.PROJECTION
 
+	readonly version: 1 | 2
 
 	static HALF_FLOAT_OES: int = 0x8D61
 	HALF_FLOAT_OES: int
@@ -40,7 +41,6 @@ export class LightGLContext {
 	private resultMatrix = new M4()
 	private modelViewStack: M4[] = []
 	private projectionStack: M4[] = []
-	private currentMatrix: M4
 	private currentMatrixName: 'modelViewMatrix' | 'projectionMatrix'
 	private stack: M4[]
 
@@ -58,7 +58,11 @@ export class LightGLContext {
 		coord: [0, 0] as [number, number],
 		color: [1, 1, 1, 1] as GL_COLOR,
 		pointSize: 1,
-		shader: new Shader(`
+		shader: Shader.create(`
+			attribute vec4 LGL_Color;
+			attribute vec4 LGL_Vertex;
+			uniform mat4 LGL_ModelViewProjectionMatrix;
+			attribute vec2 LGL_TexCoord;
             uniform float pointSize;
             varying vec4 color;
             varying vec2 coord;
@@ -68,15 +72,16 @@ export class LightGLContext {
                 gl_Position = LGL_ModelViewProjectionMatrix * LGL_Vertex;
                 gl_PointSize = pointSize;
             }
-        `, `
+		`, `
+			precision highp float;
             uniform sampler2D texture;
             uniform float pointSize;
-            uniform bool useTexture;
+            // uniform bool useTexture;
             varying vec4 color;
             varying vec2 coord;
             void main() {
                 gl_FragColor = color;
-                if (useTexture) gl_FragColor *= texture2D(texture, coord.xy);
+                // if (useTexture) gl_FragColor *= texture2D(texture, coord.xy);
             }
         `, gl),
 	}) {
@@ -88,12 +93,10 @@ export class LightGLContext {
 		switch (mode) {
 			case this.MODELVIEW:
 				this.currentMatrixName = 'modelViewMatrix'
-				//this.currentMatrix = this.modelViewMatrix
 				this.stack = this.modelViewStack
 				break
 			case this.PROJECTION:
 				this.currentMatrixName = 'projectionMatrix'
-				//this.currentMatrix = this.projectionMatrix
 				this.stack = this.projectionStack
 				break
 			default:
@@ -123,7 +126,7 @@ export class LightGLContext {
 		this.multMatrix(M4.mirror(plane))
 	}
 
-	perspective(fovDegrees: number, aspect: number, near: number, far: number, result?: M4) {
+	perspective(fovDegrees: number, aspect: number, near: number, far: number) {
 		this.multMatrix(M4.perspectiveRad(fovDegrees * DEG, aspect, near, far, this.tempMatrix))
 	}
 
@@ -273,11 +276,12 @@ export class LightGLContext {
 				setTimeout(() => callback(performance.now()), 1000 / 60)
 			}
 		let time = performance.now(), keepUpdating = true
-		const update = (domHighResTimeStamp: number) => {
-			const now = performance.now()
-			callback.call(this, now, now - time)
-			time = now
-			keepUpdating && requestAnimationFrame(update)
+		const update = (now: number) => {
+			if (keepUpdating) {
+				callback.call(this, now, now - time)
+				time = now
+				requestAnimationFrame(update)
+			}
 		}
 		requestAnimationFrame(update)
 		return () => { keepUpdating = false }
@@ -325,11 +329,14 @@ export class LightGLContext {
 		this.canvas.style.position = 'absolute'
 		this.canvas.style.left = left + 'px'
 		this.canvas.style.top = top + 'px'
+		this.canvas.style.width = window.innerWidth - left - right + 'px'
+		this.canvas.style.bottom = window.innerHeight - top - bottom + 'px'
+
 		const gl = this
 
 		function windowOnResize() {
-			gl.canvas.width = window.innerWidth - left - right
-			gl.canvas.height = window.innerHeight - top - bottom
+			gl.canvas.width = (window.innerWidth - left - right) * window.devicePixelRatio
+			gl.canvas.height = (window.innerHeight - top - bottom) * window.devicePixelRatio
 			gl.viewport(0, 0, gl.canvas.width, gl.canvas.height)
 			if (options.camera) {
 				gl.matrixMode(LightGLContext.PROJECTION)
@@ -370,15 +377,15 @@ export class LightGLContext {
 		if (!('alpha' in options)) options.alpha = false
 		let newGL: LightGLContext | undefined = undefined
 		try {
-			newGL = canvas.getContext('webgl', options) as LightGLContext
+			newGL = canvas.getContext('webgl2', options) as LightGLContext
+			newGL && ((newGL as any).version = 2)
+			if (!newGL) {
+				newGL = (canvas.getContext('webgl', options) || canvas.getContext('experimental-webgl', options)) as LightGLContext
+				newGL && ((newGL as any).version = 1)
+			}
 			console.log('getting context')
 		} catch (e) {
-			console.log(e, newGL)
-		}
-		try {
-			newGL = newGL || canvas.getContext('experimental-webgl', options) as LightGLContext
-		} catch (e) {
-			console.log(e, newGL)
+			console.log(e, 'Failed to get context')
 		}
 		if (!newGL) throw new Error('WebGL not supported')
 
@@ -390,15 +397,15 @@ export class LightGLContext {
 	}
 }
 
-enum WGL_ERROR {
-	NO_ERROR = WGL.NO_ERROR,
-	INVALID_ENUM = WGL.INVALID_ENUM,
-	INVALID_VALUE = WGL.INVALID_VALUE,
-	INVALID_OPERATION = WGL.INVALID_OPERATION,
-	INVALID_FRAMEBUFFER_OPERATION = WGL.INVALID_FRAMEBUFFER_OPERATION,
-	OUT_OF_MEMORY = WGL.OUT_OF_MEMORY,
-	CONTEXT_LOST_WEBGL = WGL.CONTEXT_LOST_WEBGL,
-}
+// enum WGL_ERROR {
+// 	NO_ERROR = WGL.NO_ERROR,
+// 	INVALID_ENUM = WGL.INVALID_ENUM,
+// 	INVALID_VALUE = WGL.INVALID_VALUE,
+// 	INVALID_OPERATION = WGL.INVALID_OPERATION,
+// 	INVALID_FRAMEBUFFER_OPERATION = WGL.INVALID_FRAMEBUFFER_OPERATION,
+// 	OUT_OF_MEMORY = WGL.OUT_OF_MEMORY,
+// 	CONTEXT_LOST_WEBGL = WGL.CONTEXT_LOST_WEBGL,
+// }
 
 LightGLContext.prototype.MODELVIEW = LightGLContext.MODELVIEW
 LightGLContext.prototype.PROJECTION = LightGLContext.PROJECTION

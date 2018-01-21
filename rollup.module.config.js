@@ -1,4 +1,4 @@
-import sourcemaps from 'rollup-plugin-sourcemaps';
+import sourcemaps from 'rollup-plugin-sourcemaps'
 import * as fs from 'fs';
 
 export default {
@@ -8,7 +8,7 @@ export default {
 	plugins: [
 		sourcemaps()
 	],
-	external: Object.keys(JSON.parse(fs.readFileSync('package.json')).dependencies),
+	external: Object.keys(JSON.parse(fs.readFileSync('package.json')).dependencies || {}),
 	onwarn: function (warning) {
 		// Suppress this error message... there are hundreds of them. Angular team says to ignore it.
 		// https://github.com/rollup/rollup/wiki/Troubleshooting#this-is-undefined

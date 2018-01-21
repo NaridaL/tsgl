@@ -51,11 +51,12 @@ export class Texture {
 		this.width = width
 		this.height = height
 		this.format = options.format || gl.RGBA
+		this.internalFormat = options.internalFormat || gl.RGBA
 		this.type = options.type || gl.UNSIGNED_BYTE
 		const magFilter = options.filter || options.magFilter || gl.LINEAR
 		const minFilter = options.filter || options.minFilter || gl.LINEAR
 		if (this.type === gl.FLOAT) {
-			if (!gl.getExtension('OES_texture_float')) {
+			if (gl.version != 2 && !gl.getExtension('OES_texture_float')) {
 				throw new Error('OES_texture_float is required but not supported')
 			}
 			if ((minFilter !== gl.NEAREST || magFilter !== gl.NEAREST) && !gl.getExtension('OES_texture_float_linear')) {
@@ -75,7 +76,12 @@ export class Texture {
 		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, minFilter)
 		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, options.wrap || options.wrapS || gl.CLAMP_TO_EDGE)
 		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, options.wrap || options.wrapT || gl.CLAMP_TO_EDGE)
-		gl.texImage2D(gl.TEXTURE_2D, 0, this.format, width, height, 0, this.format, this.type, null)
+		gl.texImage2D(gl.TEXTURE_2D, 0, this.internalFormat, width, height, 0, this.format, this.type, options.data)
+	}
+
+	setData(data: ArrayBufferView) {
+		this.gl.bindTexture(this.gl.TEXTURE_2D, this.texture)
+		this.gl.texImage2D(this.gl.TEXTURE_2D, 0, this.format, this.width, this.height, 0, this.format, this.type, data)
 	}
 
 	bind(unit: int) {
@@ -115,9 +121,9 @@ export class Texture {
 		}
 		gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.texture, 0)
 		gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, this.renderbuffer)
-		if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) != gl.FRAMEBUFFER_COMPLETE) {
-			throw new Error('Rendering to this texture is not supported (incomplete this.framebuffer)')
-		}
+		// if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) != gl.FRAMEBUFFER_COMPLETE) {
+		// 	throw new Error('Rendering to this texture is not supported (incomplete this.framebuffer)')
+		// }
 		const viewport = gl.getParameter(gl.VIEWPORT)
 		gl.viewport(0, 0, this.width, this.height)
 

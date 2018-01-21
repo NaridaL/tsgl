@@ -24,7 +24,7 @@ export type DRAW_MODES_ENUM = keyof typeof DRAW_MODES
 export const SHADER_VAR_TYPES = ['FLOAT', 'FLOAT_MAT2', 'FLOAT_MAT3', 'FLOAT_MAT4', 'FLOAT_VEC2', 'FLOAT_VEC3', 'FLOAT_VEC4', 'INT', 'INT_VEC2', 'INT_VEC3', 'INT_VEC4', 'UNSIGNED_INT']
 
 const DRAW_MODE_CHECKS: { [type: string]: (x: int) => boolean } = {
-	[DRAW_MODES.POINTS]: x => true,
+	[DRAW_MODES.POINTS]: _ => true,
 	[DRAW_MODES.LINES]: x => 0 == x % 2, // divisible by 2
 	[DRAW_MODES.LINE_STRIP]: x => x > 2, // need at least 2
 	[DRAW_MODES.LINE_LOOP]: x => x > 2, // more like > 3, but oh well
@@ -78,8 +78,8 @@ export class Shader<UniformTypes extends { [uniformName: string]: keyof UniformT
 
 	static create<S extends { [uniformName: string]: keyof UniformTypesMap },
 		T extends { [uniformName: string]: keyof UniformTypesMap }>
-	(vertexSource: ShaderType<S>, fragmentSource: ShaderType<T>): Shader<S & T> {
-		return new Shader(vertexSource, fragmentSource) as any
+	(vertexSource: ShaderType<S>, fragmentSource: ShaderType<T>, gl?: LightGLContext): Shader<S & T> {
+		return new Shader(vertexSource, fragmentSource, gl) as any
 	}
 
 	/**
@@ -109,8 +109,8 @@ export class Shader<UniformTypes extends { [uniformName: string]: keyof UniformT
 	 *
 	 * Compiles a shader program using the provided vertex and fragment shaders.
 	 */
-	constructor(vertexSource: string, fragmentSource: string, gl = currentGL()) {
-
+	protected constructor(vertexSource: string, fragmentSource: string, gl = currentGL()) {
+		// const versionRegex = /^(?:\s+|\/\/[\s\S]*?[\r\n]+|\/\*[\s\S]*?\*\/)+(#version\s+(\d+)\s+es)/
 		// Headers are prepended to the sources to provide some automatic functionality.
 		const header = `
 		uniform mat3 LGL_NormalMatrix;
@@ -121,14 +121,6 @@ export class Shader<UniformTypes extends { [uniformName: string]: keyof UniformT
 		uniform mat4 LGL_ProjectionMatrixInverse;
 		uniform mat4 LGL_ModelViewProjectionMatrixInverse;
 	`
-		const vertexHeader = header + `
-		attribute vec4 LGL_Vertex;
-		attribute vec2 LGL_TexCoord;
-		attribute vec3 LGL_Normal;
-		attribute vec4 LGL_Color;
-	`
-		const fragmentHeader = `  precision highp float;` + header
-
 		const matrixNames = header.match(/\bLGL_\w+/g)
 
 		// Compile and link errors are thrown as strings.
@@ -142,14 +134,15 @@ export class Shader<UniformTypes extends { [uniformName: string]: keyof UniformT
 			return shader
 		}
 
+
 		this.gl = gl
 		const program = gl.createProgram()
 		if (!program) {
 			gl.handleError()
 		}
 		this.program = program!
-		gl.attachShader(this.program, compileSource(WGL.VERTEX_SHADER, vertexHeader + vertexSource))
-		gl.attachShader(this.program, compileSource(WGL.FRAGMENT_SHADER, fragmentHeader + fragmentSource))
+		gl.attachShader(this.program, compileSource(WGL.VERTEX_SHADER, vertexSource))
+		gl.attachShader(this.program, compileSource(WGL.FRAGMENT_SHADER, fragmentSource))
 		gl.linkProgram(this.program)
 		if (!gl.getProgramParameter(this.program, WGL.LINK_STATUS)) {
 			throw new Error('link error: ' + gl.getProgramInfoLog(this.program))
@@ -189,7 +182,7 @@ export class Shader<UniformTypes extends { [uniformName: string]: keyof UniformT
 
 		for (const name in uniforms) {
 			const location = this.uniformLocations[name] || gl.getUniformLocation(this.program, name)
-			!location && console.warn(name + ' uniform is not used in shader')
+			// !location && console.warn(name + ' uniform is not used in shader')
 			if (!location) continue
 			this.uniformLocations[name] = location
 			let value: any = uniforms[name] as any
@@ -217,6 +210,10 @@ export class Shader<UniformTypes extends { [uniformName: string]: keyof UniformT
 			}
 			if (gl.FLOAT_VEC4 == info.type && info.size != 1) {
 				gl.uniform4fv(location, value.concatenated())
+			} else if (gl.FLOAT == info.type && info.size != 1) {
+				gl.uniform1fv(location, value)
+			} else if (gl.FLOAT_VEC3 == info.type && info.size != 1) {
+				gl.uniform3fv(location, V3.pack(value))
 			} else if (value.length) {
 				switch (value.length) {
 					case 1:
@@ -365,7 +362,9 @@ export class Shader<UniformTypes extends { [uniformName: string]: keyof UniformT
 			const location = this.attributes[attribute] || gl.getAttribLocation(this.program, attribute)
 			gl.handleError()
 			if (location == -1 || !buffer.buffer) {
-				//console.warn(`Vertex buffer ${attribute} was not bound because the attribute is not active.`)
+				if (!attribute.startsWith('LGL_')) {
+					console.warn(`Vertex buffer ${attribute} was not bound because the attribute is not active.`)
+				}
 				continue
 			}
 			this.attributes[attribute] = location
@@ -386,6 +385,18 @@ export class Shader<UniformTypes extends { [uniformName: string]: keyof UniformT
 			if (!(attribute in vertexBuffers)) {
 				gl.disableVertexAttribArray(this.attributes[attribute])
 				gl.handleError()
+			}
+		}
+
+		if (NLA_DEBUG) {
+			const numAttribs = gl.getProgramParameter(this.program, gl.ACTIVE_ATTRIBUTES)
+			for (let i = 0; i < numAttribs; ++i) {
+				const buffer=gl.getVertexAttrib(i, gl.VERTEX_ATTRIB_ARRAY_BUFFER_BINDING)
+				if (!buffer) {
+					const info = gl.getActiveAttrib(this.program, i)!
+					throw new Error('No buffer is bound to attribute ' + info.name)
+				}
+				// console.log('name:', info.name, 'type:', info.type, 'size:', info.size)
 			}
 		}
 

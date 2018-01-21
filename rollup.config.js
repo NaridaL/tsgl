@@ -7,8 +7,8 @@ export default {
 	output: {format: 'umd', file: 'dist/bundle.js'},
 	name: pkg.umdGlobal,
 	sourcemap: true,
-	external: Object.keys(pkg.dependencies),
-	// globals: {'javasetmap.ts': '' },
+	external: Object.keys(pkg.dependencies || {}),
+	globals: moduleName => require(moduleName + '/package.json').umdGlobal || pkg.umdGlobals && pkg.umdGlobals[moduleName],
 	plugins: [
 		sourcemaps()
 	],

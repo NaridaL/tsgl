@@ -96,7 +96,7 @@ export class Mesh extends Transformable {
 				if (!mesh.vertexBuffers[attribute]) {
 					mesh.addVertexBuffer(bufferName, attribute)
 				}
-				mesh[bufferName].push(oldMesh[bufferName])
+				mesh[bufferName].push(...oldMesh[bufferName])
 			})
 			Object.getOwnPropertyNames(oldMesh.indexBuffers).forEach(name => {
 				if (!mesh.indexBuffers[name]) {
@@ -105,7 +105,7 @@ export class Mesh extends Transformable {
 				mesh[name].push(...(oldMesh[name] as int[]).map(index => index + startIndex))
 			})
 		})
-		return mesh as any
+		return mesh
 	}
 
 	/**
@@ -116,13 +116,13 @@ export class Mesh extends Transformable {
 	 */
 	compile(gl: LightGLContext = currentGL()) {
 		// figure out shortest vertex buffer to make sure indexBuffers are in bounds
-		let minVertexBufferLength = Infinity, minBufferName
+		let minVertexBufferLength = Infinity, _minBufferName
 		Object.getOwnPropertyNames(this.vertexBuffers).forEach(attribute => {
 			const buffer = this.vertexBuffers[attribute]
 			buffer.data = (this as any)[buffer.name!]
 			buffer.compile(undefined, gl)
 			if ((this as any)[buffer.name!].length < minVertexBufferLength) {
-				minBufferName = attribute
+				_minBufferName = attribute
 				minVertexBufferLength = (this as any)[buffer.name!].length
 			}
 		})
@@ -146,7 +146,7 @@ export class Mesh extends Transformable {
 				.addVertexBuffer('normals', 'LGL_Normal')
 			const fileReader = new FileReader()
 			fileReader.onerror = reject
-			fileReader.onload = function (progressEvent) {
+			fileReader.onload = function (_progressEvent) {
 				const dataView = new DataView(this.result)
 				const HEADER_BYTE_SIZE = 80
 				const triangleCount = dataView.getUint32(HEADER_BYTE_SIZE, true)
@@ -231,6 +231,13 @@ export class Mesh extends Transformable {
 		for (const name in this.indexBuffers) {
 			mesh.addIndexBuffer(name)
 			;(mesh as any)[name] = (this as any)[name]
+		}
+		for (const attribute in this.vertexBuffers) {
+			if ('LGL_Vertex' !== attribute && 'LGL_Normal' !== attribute) {
+				const name = this.vertexBuffers[attribute].name!
+				mesh.addVertexBuffer(name, attribute)
+				;(mesh as any)[name] = (this as any)[name]
+			}
 		}
 		mesh.compile()
 		return mesh as this

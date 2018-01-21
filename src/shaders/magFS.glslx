@@ -1,3 +1,4 @@
+precision mediump float;
 const int NUM_PS = 3;
 float q = 0.01;
 uniform vec4 ps[NUM_PS];

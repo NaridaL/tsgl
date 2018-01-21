@@ -10,7 +10,7 @@ var __awaiter = (undefined && undefined.__awaiter) || function (thisArg, _argume
     });
 };
 const { cos, sin, PI, min, max } = Math;
-const WGL$2 = WebGLRenderingContext;
+const WGL = WebGLRenderingContext;
 /**
  * @example new Mesh()
  *        .addIndexBuffer('TRIANGLES')
@@ -59,7 +59,7 @@ class Mesh extends Transformable {
         this.hasBeenCompiled = false;
         assert('string' == typeof name);
         assert('string' == typeof attribute);
-        const buffer = this.vertexBuffers[attribute] = new Buffer(WGL$2.ARRAY_BUFFER, Float32Array);
+        const buffer = this.vertexBuffers[attribute] = new Buffer(WGL.ARRAY_BUFFER, Float32Array);
         buffer.name = name;
         this[name] = [];
         return this;
@@ -71,7 +71,7 @@ class Mesh extends Transformable {
      */
     addIndexBuffer(name) {
         this.hasBeenCompiled = false;
-        const buffer = this.indexBuffers[name] = new Buffer(WGL$2.ELEMENT_ARRAY_BUFFER, Uint16Array);
+        const buffer = this.indexBuffers[name] = new Buffer(WGL.ELEMENT_ARRAY_BUFFER, Uint16Array);
         buffer.name = name;
         this[name] = [];
         return this;
@@ -85,7 +85,7 @@ class Mesh extends Transformable {
                 if (!mesh.vertexBuffers[attribute]) {
                     mesh.addVertexBuffer(bufferName, attribute);
                 }
-                mesh[bufferName].push(oldMesh[bufferName]);
+                mesh[bufferName].push(...oldMesh[bufferName]);
             });
             Object.getOwnPropertyNames(oldMesh.indexBuffers).forEach(name => {
                 if (!mesh.indexBuffers[name]) {
@@ -104,11 +104,14 @@ class Mesh extends Transformable {
      */
     compile(gl = currentGL()) {
         // figure out shortest vertex buffer to make sure indexBuffers are in bounds
+        let minVertexBufferLength = Infinity;
         Object.getOwnPropertyNames(this.vertexBuffers).forEach(attribute => {
             const buffer = this.vertexBuffers[attribute];
             buffer.data = this[buffer.name];
             buffer.compile(undefined, gl);
-            
+            if (this[buffer.name].length < minVertexBufferLength) {
+                minVertexBufferLength = this[buffer.name].length;
+            }
         });
         for (const name in this.indexBuffers) {
             const buffer = this.indexBuffers[name];
@@ -129,7 +132,7 @@ class Mesh extends Transformable {
                     .addVertexBuffer('normals', 'LGL_Normal');
                 const fileReader = new FileReader();
                 fileReader.onerror = reject;
-                fileReader.onload = function (progressEvent) {
+                fileReader.onload = function (_progressEvent) {
                     const dataView = new DataView(this.result);
                     const HEADER_BYTE_SIZE = 80;
                     const triangleCount = dataView.getUint32(HEADER_BYTE_SIZE, true);
@@ -208,6 +211,13 @@ class Mesh extends Transformable {
         for (const name in this.indexBuffers) {
             mesh.addIndexBuffer(name);
             mesh[name] = this[name];
+        }
+        for (const attribute in this.vertexBuffers) {
+            if ('LGL_Vertex' !== attribute && 'LGL_Normal' !== attribute) {
+                const name = this.vertexBuffers[attribute].name;
+                mesh.addVertexBuffer(name, attribute);
+                mesh[name] = this[name];
+            }
         }
         mesh.compile();
         return mesh;
@@ -630,23 +640,23 @@ Mesh.UNIT_CUBE_CORNERS = [
 ];
 
 /* tslint:disable:no-string-literal */
-const WGL$3 = WebGLRenderingContext;
+const WGL$1 = WebGLRenderingContext;
 /**
  * These are all the draw modes usable in OpenGL ES
  */
 var DRAW_MODES;
 (function (DRAW_MODES) {
-    DRAW_MODES[DRAW_MODES["POINTS"] = WGL$3.POINTS] = "POINTS";
-    DRAW_MODES[DRAW_MODES["LINES"] = WGL$3.LINES] = "LINES";
-    DRAW_MODES[DRAW_MODES["LINE_STRIP"] = WGL$3.LINE_STRIP] = "LINE_STRIP";
-    DRAW_MODES[DRAW_MODES["LINE_LOOP"] = WGL$3.LINE_LOOP] = "LINE_LOOP";
-    DRAW_MODES[DRAW_MODES["TRIANGLES"] = WGL$3.TRIANGLES] = "TRIANGLES";
-    DRAW_MODES[DRAW_MODES["TRIANGLE_STRIP"] = WGL$3.TRIANGLE_STRIP] = "TRIANGLE_STRIP";
-    DRAW_MODES[DRAW_MODES["TRIANGLE_FAN"] = WGL$3.TRIANGLE_FAN] = "TRIANGLE_FAN";
+    DRAW_MODES[DRAW_MODES["POINTS"] = WGL$1.POINTS] = "POINTS";
+    DRAW_MODES[DRAW_MODES["LINES"] = WGL$1.LINES] = "LINES";
+    DRAW_MODES[DRAW_MODES["LINE_STRIP"] = WGL$1.LINE_STRIP] = "LINE_STRIP";
+    DRAW_MODES[DRAW_MODES["LINE_LOOP"] = WGL$1.LINE_LOOP] = "LINE_LOOP";
+    DRAW_MODES[DRAW_MODES["TRIANGLES"] = WGL$1.TRIANGLES] = "TRIANGLES";
+    DRAW_MODES[DRAW_MODES["TRIANGLE_STRIP"] = WGL$1.TRIANGLE_STRIP] = "TRIANGLE_STRIP";
+    DRAW_MODES[DRAW_MODES["TRIANGLE_FAN"] = WGL$1.TRIANGLE_FAN] = "TRIANGLE_FAN";
 })(DRAW_MODES || (DRAW_MODES = {}));
 const SHADER_VAR_TYPES = ['FLOAT', 'FLOAT_MAT2', 'FLOAT_MAT3', 'FLOAT_MAT4', 'FLOAT_VEC2', 'FLOAT_VEC3', 'FLOAT_VEC4', 'INT', 'INT_VEC2', 'INT_VEC3', 'INT_VEC4', 'UNSIGNED_INT'];
 const DRAW_MODE_CHECKS = {
-    [DRAW_MODES.POINTS]: x => true,
+    [DRAW_MODES.POINTS]: _ => true,
     [DRAW_MODES.LINES]: x => 0 == x % 2,
     [DRAW_MODES.LINE_STRIP]: x => x > 2,
     [DRAW_MODES.LINE_LOOP]: x => x > 2,
@@ -701,6 +711,7 @@ class Shader {
     constructor(vertexSource, fragmentSource, gl = currentGL()) {
         this.projectionMatrixVersion = -1;
         this.modelViewMatrixVersion = -1;
+        // const versionRegex = /^(?:\s+|\/\/[\s\S]*?[\r\n]+|\/\*[\s\S]*?\*\/)+(#version\s+(\d+)\s+es)/
         // Headers are prepended to the sources to provide some automatic functionality.
         const header = `
 		uniform mat3 LGL_NormalMatrix;
@@ -711,20 +722,13 @@ class Shader {
 		uniform mat4 LGL_ProjectionMatrixInverse;
 		uniform mat4 LGL_ModelViewProjectionMatrixInverse;
 	`;
-        const vertexHeader = header + `
-		attribute vec4 LGL_Vertex;
-		attribute vec2 LGL_TexCoord;
-		attribute vec3 LGL_Normal;
-		attribute vec4 LGL_Color;
-	`;
-        const fragmentHeader = `  precision highp float;` + header;
         const matrixNames = header.match(/\bLGL_\w+/g);
         // Compile and link errors are thrown as strings.
         function compileSource(type, source) {
             const shader = gl.createShader(type);
             gl.shaderSource(shader, source);
             gl.compileShader(shader);
-            if (!gl.getShaderParameter(shader, WGL$3.COMPILE_STATUS)) {
+            if (!gl.getShaderParameter(shader, WGL$1.COMPILE_STATUS)) {
                 throw new Error('compile error: ' + gl.getShaderInfoLog(shader));
             }
             return shader;
@@ -735,10 +739,10 @@ class Shader {
             gl.handleError();
         }
         this.program = program;
-        gl.attachShader(this.program, compileSource(WGL$3.VERTEX_SHADER, vertexHeader + vertexSource));
-        gl.attachShader(this.program, compileSource(WGL$3.FRAGMENT_SHADER, fragmentHeader + fragmentSource));
+        gl.attachShader(this.program, compileSource(WGL$1.VERTEX_SHADER, vertexSource));
+        gl.attachShader(this.program, compileSource(WGL$1.FRAGMENT_SHADER, fragmentSource));
         gl.linkProgram(this.program);
-        if (!gl.getProgramParameter(this.program, WGL$3.LINK_STATUS)) {
+        if (!gl.getProgramParameter(this.program, WGL$1.LINK_STATUS)) {
             throw new Error('link error: ' + gl.getProgramInfoLog(this.program));
         }
         this.attributes = {};
@@ -752,7 +756,7 @@ class Shader {
             }
         });
         this.uniformInfos = {};
-        for (let i = gl.getProgramParameter(this.program, WGL$3.ACTIVE_UNIFORMS); i-- > 0;) {
+        for (let i = gl.getProgramParameter(this.program, WGL$1.ACTIVE_UNIFORMS); i-- > 0;) {
             // see https://www.khronos.org/registry/OpenGL-Refpages/es2.0/xhtml/glGetActiveUniform.xml
             // this.program has already been checked
             // i is in bounds
@@ -761,8 +765,8 @@ class Shader {
         }
         gl.handleError();
     }
-    static create(vertexSource, fragmentSource) {
-        return new Shader(vertexSource, fragmentSource);
+    static create(vertexSource, fragmentSource, gl) {
+        return new Shader(vertexSource, fragmentSource, gl);
     }
     /**
      * Set a uniform for each property of `uniforms`. The correct `viewerGL.uniform*()` method is inferred from the
@@ -774,7 +778,7 @@ class Shader {
         gl.handleError();
         for (const name in uniforms) {
             const location = this.uniformLocations[name] || gl.getUniformLocation(this.program, name);
-            !location && console.warn(name + ' uniform is not used in shader');
+            // !location && console.warn(name + ' uniform is not used in shader')
             if (!location)
                 continue;
             this.uniformLocations[name] = location;
@@ -804,6 +808,12 @@ class Shader {
             }
             if (gl.FLOAT_VEC4 == info.type && info.size != 1) {
                 gl.uniform4fv(location, value.concatenated());
+            }
+            else if (gl.FLOAT == info.type && info.size != 1) {
+                gl.uniform1fv(location, value);
+            }
+            else if (gl.FLOAT_VEC3 == info.type && info.size != 1) {
+                gl.uniform3fv(location, V3.pack(value));
             }
             else if (value.length) {
                 switch (value.length) {
@@ -955,15 +965,17 @@ class Shader {
             const location = this.attributes[attribute] || gl.getAttribLocation(this.program, attribute);
             gl.handleError();
             if (location == -1 || !buffer.buffer) {
-                //console.warn(`Vertex buffer ${attribute} was not bound because the attribute is not active.`)
+                if (!attribute.startsWith('LGL_')) {
+                    console.warn(`Vertex buffer ${attribute} was not bound because the attribute is not active.`);
+                }
                 continue;
             }
             this.attributes[attribute] = location;
-            gl.bindBuffer(WGL$3.ARRAY_BUFFER, buffer.buffer);
+            gl.bindBuffer(WGL$1.ARRAY_BUFFER, buffer.buffer);
             gl.handleError();
             gl.enableVertexAttribArray(location);
             gl.handleError();
-            gl.vertexAttribPointer(location, buffer.spacing, WGL$3.FLOAT, false, 0, 0);
+            gl.vertexAttribPointer(location, buffer.spacing, WGL$1.FLOAT, false, 0, 0);
             gl.handleError();
             minVertexBufferLength = Math.min(minVertexBufferLength, buffer.count);
         }
@@ -972,6 +984,17 @@ class Shader {
             if (!(attribute in vertexBuffers)) {
                 gl.disableVertexAttribArray(this.attributes[attribute]);
                 gl.handleError();
+            }
+        }
+        if (NLA_DEBUG) {
+            const numAttribs = gl.getProgramParameter(this.program, gl.ACTIVE_ATTRIBUTES);
+            for (let i = 0; i < numAttribs; ++i) {
+                const buffer = gl.getVertexAttrib(i, gl.VERTEX_ATTRIB_ARRAY_BUFFER_BINDING);
+                if (!buffer) {
+                    const info = gl.getActiveAttrib(this.program, i);
+                    throw new Error('No buffer is bound to attribute ' + info.name);
+                }
+                // console.log('name:', info.name, 'type:', info.type, 'size:', info.size)
             }
         }
         // Draw the geometry.
@@ -987,10 +1010,10 @@ class Shader {
                 if (start + count > indexBuffer.count) {
                     throw new Error('Buffer not long enough for passed parameters start/length/buffer length' + ' ' + start + ' ' + count + ' ' + indexBuffer.count);
                 }
-                gl.bindBuffer(WGL$3.ELEMENT_ARRAY_BUFFER, indexBuffer.buffer);
+                gl.bindBuffer(WGL$1.ELEMENT_ARRAY_BUFFER, indexBuffer.buffer);
                 gl.handleError();
                 // start parameter has to be multiple of sizeof(WGL.UNSIGNED_SHORT)
-                gl.drawElements(mode, count, WGL$3.UNSIGNED_SHORT, 2 * start);
+                gl.drawElements(mode, count, WGL$1.UNSIGNED_SHORT, 2 * start);
                 gl.handleError();
             }
             else {
@@ -1013,7 +1036,7 @@ const GL_COLOR_BLACK = [0, 0, 0, 1];
 function currentGL() {
     return LightGLContext.gl;
 }
-const WGL$1 = WebGLRenderingContext;
+const WGL$2 = WebGLRenderingContext;
 function isNumber(obj) {
     const str = Object.prototype.toString.call(obj);
     return str == '[object Number]' || str == '[object Boolean]';
@@ -1027,7 +1050,11 @@ class LightGLContext {
             coord: [0, 0],
             color: [1, 1, 1, 1],
             pointSize: 1,
-            shader: new Shader(`
+            shader: Shader.create(`
+			attribute vec4 LGL_Color;
+			attribute vec4 LGL_Vertex;
+			uniform mat4 LGL_ModelViewProjectionMatrix;
+			attribute vec2 LGL_TexCoord;
             uniform float pointSize;
             varying vec4 color;
             varying vec2 coord;
@@ -1037,23 +1064,22 @@ class LightGLContext {
                 gl_Position = LGL_ModelViewProjectionMatrix * LGL_Vertex;
                 gl_PointSize = pointSize;
             }
-        `, `
+		`, `
+			precision highp float;
             uniform sampler2D texture;
             uniform float pointSize;
-            uniform bool useTexture;
+            // uniform bool useTexture;
             varying vec4 color;
             varying vec2 coord;
             void main() {
                 gl_FragColor = color;
-                if (useTexture) gl_FragColor *= texture2D(texture, coord.xy);
+                // if (useTexture) gl_FragColor *= texture2D(texture, coord.xy);
             }
         `, gl),
         }) {
         this.immediate = immediate;
-        this.modelViewMatrix = new M4();
-        this.projectionMatrix = new M4();
-        this.MODELVIEW = LightGLContext.MODELVIEW;
-        this.PROJECTION = LightGLContext.PROJECTION;
+        this.modelViewMatrix = M4.identity();
+        this.projectionMatrix = M4.identity();
         this.tempMatrix = new M4();
         this.resultMatrix = new M4();
         this.modelViewStack = [];
@@ -1068,12 +1094,10 @@ class LightGLContext {
         switch (mode) {
             case this.MODELVIEW:
                 this.currentMatrixName = 'modelViewMatrix';
-                //this.currentMatrix = this.modelViewMatrix
                 this.stack = this.modelViewStack;
                 break;
             case this.PROJECTION:
                 this.currentMatrixName = 'projectionMatrix';
-                //this.currentMatrix = this.projectionMatrix
                 this.stack = this.projectionStack;
                 break;
             default:
@@ -1098,7 +1122,7 @@ class LightGLContext {
     mirror(plane) {
         this.multMatrix(M4.mirror(plane));
     }
-    perspective(fovDegrees, aspect, near, far, result) {
+    perspective(fovDegrees, aspect, near, far) {
         this.multMatrix(M4.perspectiveRad(fovDegrees * DEG, aspect, near, far, this.tempMatrix));
     }
     frustum(left, right, bottom, top, near, far) {
@@ -1194,7 +1218,7 @@ class LightGLContext {
             throw new Error('mismatched viewerGL.begin() and viewerGL.end() calls');
         this.immediate.mesh.compile();
         this.immediate.shader.uniforms({
-            useTexture: !!LightGLContext.gl.getParameter(WGL$1.TEXTURE_BINDING_2D),
+            useTexture: !!LightGLContext.gl.getParameter(WGL$2.TEXTURE_BINDING_2D),
         }).drawBuffers(this.immediate.mesh.vertexBuffers, undefined, this.immediate.mode);
         this.immediate.mode = -1;
     }
@@ -1212,11 +1236,12 @@ class LightGLContext {
                 setTimeout(() => callback(performance.now()), 1000 / 60);
             };
         let time = performance.now(), keepUpdating = true;
-        const update = (domHighResTimeStamp) => {
-            const now = performance.now();
-            callback.call(this, now, now - time);
-            time = now;
-            keepUpdating && requestAnimationFrame(update);
+        const update = (now) => {
+            if (keepUpdating) {
+                callback.call(this, now, now - time);
+                time = now;
+                requestAnimationFrame(update);
+            }
         };
         requestAnimationFrame(update);
         return () => { keepUpdating = false; };
@@ -1252,10 +1277,12 @@ class LightGLContext {
         this.canvas.style.position = 'absolute';
         this.canvas.style.left = left + 'px';
         this.canvas.style.top = top + 'px';
+        this.canvas.style.width = window.innerWidth - left - right + 'px';
+        this.canvas.style.bottom = window.innerHeight - top - bottom + 'px';
         const gl = this;
         function windowOnResize() {
-            gl.canvas.width = window.innerWidth - left - right;
-            gl.canvas.height = window.innerHeight - top - bottom;
+            gl.canvas.width = (window.innerWidth - left - right) * window.devicePixelRatio;
+            gl.canvas.height = (window.innerHeight - top - bottom) * window.devicePixelRatio;
             gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
             if (options.camera) {
                 gl.matrixMode(LightGLContext.PROJECTION);
@@ -1291,17 +1318,16 @@ class LightGLContext {
             options.alpha = false;
         let newGL = undefined;
         try {
-            newGL = canvas.getContext('webgl', options);
+            newGL = canvas.getContext('webgl2', options);
+            newGL && (newGL.version = 2);
+            if (!newGL) {
+                newGL = (canvas.getContext('webgl', options) || canvas.getContext('experimental-webgl', options));
+                newGL && (newGL.version = 1);
+            }
             console.log('getting context');
         }
         catch (e) {
-            console.log(e, newGL);
-        }
-        try {
-            newGL = newGL || canvas.getContext('experimental-webgl', options);
-        }
-        catch (e) {
-            console.log(e, newGL);
+            console.log(e, 'Failed to get context');
         }
         if (!newGL)
             throw new Error('WebGL not supported');
@@ -1315,16 +1341,15 @@ class LightGLContext {
 LightGLContext.MODELVIEW = 0;
 LightGLContext.PROJECTION = 1;
 LightGLContext.HALF_FLOAT_OES = 0x8D61;
-var WGL_ERROR;
-(function (WGL_ERROR) {
-    WGL_ERROR[WGL_ERROR["NO_ERROR"] = WGL$1.NO_ERROR] = "NO_ERROR";
-    WGL_ERROR[WGL_ERROR["INVALID_ENUM"] = WGL$1.INVALID_ENUM] = "INVALID_ENUM";
-    WGL_ERROR[WGL_ERROR["INVALID_VALUE"] = WGL$1.INVALID_VALUE] = "INVALID_VALUE";
-    WGL_ERROR[WGL_ERROR["INVALID_OPERATION"] = WGL$1.INVALID_OPERATION] = "INVALID_OPERATION";
-    WGL_ERROR[WGL_ERROR["INVALID_FRAMEBUFFER_OPERATION"] = WGL$1.INVALID_FRAMEBUFFER_OPERATION] = "INVALID_FRAMEBUFFER_OPERATION";
-    WGL_ERROR[WGL_ERROR["OUT_OF_MEMORY"] = WGL$1.OUT_OF_MEMORY] = "OUT_OF_MEMORY";
-    WGL_ERROR[WGL_ERROR["CONTEXT_LOST_WEBGL"] = WGL$1.CONTEXT_LOST_WEBGL] = "CONTEXT_LOST_WEBGL";
-})(WGL_ERROR || (WGL_ERROR = {}));
+// enum WGL_ERROR {
+// 	NO_ERROR = WGL.NO_ERROR,
+// 	INVALID_ENUM = WGL.INVALID_ENUM,
+// 	INVALID_VALUE = WGL.INVALID_VALUE,
+// 	INVALID_OPERATION = WGL.INVALID_OPERATION,
+// 	INVALID_FRAMEBUFFER_OPERATION = WGL.INVALID_FRAMEBUFFER_OPERATION,
+// 	OUT_OF_MEMORY = WGL.OUT_OF_MEMORY,
+// 	CONTEXT_LOST_WEBGL = WGL.CONTEXT_LOST_WEBGL,
+// }
 LightGLContext.prototype.MODELVIEW = LightGLContext.MODELVIEW;
 LightGLContext.prototype.PROJECTION = LightGLContext.PROJECTION;
 LightGLContext.prototype.HALF_FLOAT_OES = LightGLContext.HALF_FLOAT_OES;
@@ -1347,7 +1372,7 @@ function hexIntToGLColor(color) {
     return [(color >> 16) / 255.0, ((color >> 8) & 0xff) / 255.0, (color & 0xff) / 255.0, 1.0];
 }
 
-const WGL = WebGLRenderingContext;
+const WGL$3 = WebGLRenderingContext;
 class Buffer {
     /**
      * Provides a simple method of uploading data to a GPU buffer. Example usage:
@@ -1366,7 +1391,7 @@ class Buffer {
     constructor(target, type) {
         this.target = target;
         this.type = type;
-        assert(target == WGL.ARRAY_BUFFER || target == WGL.ELEMENT_ARRAY_BUFFER, 'target == WGL.ARRAY_BUFFER || target == WGL.ELEMENT_ARRAY_BUFFER');
+        assert(target == WGL$3.ARRAY_BUFFER || target == WGL$3.ELEMENT_ARRAY_BUFFER, 'target == WGL.ARRAY_BUFFER || target == WGL.ELEMENT_ARRAY_BUFFER');
         assert(type == Float32Array || type == Uint16Array, 'type == Float32Array || type == Uint16Array');
         this.buffer = undefined;
         this.type = type;
@@ -1385,8 +1410,8 @@ class Buffer {
      *
      * @param type Either `WGL.STATIC_DRAW` or `WGL.DYNAMIC_DRAW`. Defaults to `WGL.STATIC_DRAW`
      */
-    compile(type = WGL.STATIC_DRAW, gl = currentGL()) {
-        assert(WGL.STATIC_DRAW == type || WGL.DYNAMIC_DRAW == type, 'WGL.STATIC_DRAW == type || WGL.DYNAMIC_DRAW == type');
+    compile(type = WGL$3.STATIC_DRAW, gl = currentGL()) {
+        assert(WGL$3.STATIC_DRAW == type || WGL$3.DYNAMIC_DRAW == type, 'WGL.STATIC_DRAW == type || WGL.DYNAMIC_DRAW == type');
         gl.handleError();
         this.buffer = this.buffer || gl.createBuffer();
         gl.handleError();
@@ -1474,11 +1499,12 @@ class Texture {
         this.width = width;
         this.height = height;
         this.format = options.format || gl.RGBA;
+        this.internalFormat = options.internalFormat || gl.RGBA;
         this.type = options.type || gl.UNSIGNED_BYTE;
         const magFilter = options.filter || options.magFilter || gl.LINEAR;
         const minFilter = options.filter || options.minFilter || gl.LINEAR;
         if (this.type === gl.FLOAT) {
-            if (!gl.getExtension('OES_texture_float')) {
+            if (gl.version != 2 && !gl.getExtension('OES_texture_float')) {
                 throw new Error('OES_texture_float is required but not supported');
             }
             if ((minFilter !== gl.NEAREST || magFilter !== gl.NEAREST) && !gl.getExtension('OES_texture_float_linear')) {
@@ -1499,7 +1525,11 @@ class Texture {
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, minFilter);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, options.wrap || options.wrapS || gl.CLAMP_TO_EDGE);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, options.wrap || options.wrapT || gl.CLAMP_TO_EDGE);
-        gl.texImage2D(gl.TEXTURE_2D, 0, this.format, width, height, 0, this.format, this.type, null);
+        gl.texImage2D(gl.TEXTURE_2D, 0, this.internalFormat, width, height, 0, this.format, this.type, options.data);
+    }
+    setData(data) {
+        this.gl.bindTexture(this.gl.TEXTURE_2D, this.texture);
+        this.gl.texImage2D(this.gl.TEXTURE_2D, 0, this.format, this.width, this.height, 0, this.format, this.type, data);
     }
     bind(unit) {
         this.gl.activeTexture(this.gl.TEXTURE0 + unit);
@@ -1531,9 +1561,9 @@ class Texture {
         }
         gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.texture, 0);
         gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, this.renderbuffer);
-        if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) != gl.FRAMEBUFFER_COMPLETE) {
-            throw new Error('Rendering to this texture is not supported (incomplete this.framebuffer)');
-        }
+        // if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) != gl.FRAMEBUFFER_COMPLETE) {
+        // 	throw new Error('Rendering to this texture is not supported (incomplete this.framebuffer)')
+        // }
         const viewport = gl.getParameter(gl.VIEWPORT);
         gl.viewport(0, 0, this.width, this.height);
         callback(gl);

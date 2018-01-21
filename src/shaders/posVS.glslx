@@ -1,3 +1,6 @@
+precision mediump float;
+uniform mat4 LGL_ModelViewProjectionMatrix;
+attribute vec4 LGL_Vertex;
 void main() {
     gl_Position = LGL_ModelViewProjectionMatrix * LGL_Vertex;
 }

@@ -7,12 +7,59 @@
 	<script type="text/javascript" src="dist/demo.js"></script>
 </head>
 <body>
+<style type="text/css">
+#info {
+	padding: 8px;
+	right: 8px;
+	bottom: 8px;
+	z-index: 3;
+	font-family: monospace;
+	position: absolute;
+}
+#header {
+	padding: 8px;
+	left: 8px;
+	top: 8px;
+	z-index: 3;
+	font-family: monospace;
+	position: absolute;
+}
+#srclink {
+	/* display: block; */
+	/* background-color: gray; */
+	text-shadow: 0px 0px 2px white;
+	/* color: white; */
+}
+</style>
 
-<!-- See https://github.com/NaridaL/tsgl#installation for demo sources! -->
 <script type="text/javascript">
 	const hash = window.location.hash
 	const fName = hash && hash.substr(1) || 'setupDemo'
-	window.onload = () => demo[fName](demo.LightGLContext.create({antialias: true}).fullscreen())
+	let gl, cancel
+	window.onload = () => {
+		gl = demo.LightGLContext.create({antialias: true}).fullscreen()
+		Object.keys(demo).filter(k => 'LightGLContext' !== k).map(k => {
+			const a = document.createElement('a')
+			a.innerText = k
+			a.href = '#' + k
+			document.getElementById('header').appendChild(a)
+			document.getElementById('header').appendChild(document.createTextNode(" "))
+		})
+		loadHash()
+	}
+	window.onhashchange = loadHash
+	function loadHash() {
+		Promise.resolve(cancel).then(prevCancel => {
+			prevCancel && prevCancel()
+			const hash = window.location.hash
+			const fName = hash && hash.substr(1) || 'setupDemo'
+			document.getElementById('srclink').href = 'https://github.com/NaridaL/tsgl/blob/master/src/demo/' + fName + '.ts'
+			document.getElementById('infotext').innerText = demo[fName].info || ''
+			cancel = demo[fName](gl)
+		})
+	}
 </script>
+<div id="header">demos </div>
+<div id="info"><span id="infotext"></span> <a id="srclink">source</a></div>
 </body>
 </html>
