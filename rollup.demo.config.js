@@ -10,7 +10,6 @@ import alias from 'rollup-plugin-alias'
 import * as typescript from 'typescript'
 import * as fs from 'fs'
 
-console.log("process.env.PRODUCTION", process.env.PRODUCTION)
 export default {
 	input: 'src/demo/*.ts',
 	output: {
@@ -81,7 +80,7 @@ export default {
 			// sourceMap: false
 		}),
 		rollupJSON(),
-		!process.env.PRODUCTION && serve(
+		process.env.ROLLUP_WATCH && serve(
 			// 	{
 			// 	contentBase: '.',
 			// 	open: true,
@@ -89,14 +88,14 @@ export default {
 			// 	port: 10002
 			// }
 		),
-		!process.env.PRODUCTION && livereload(),
-	],
-	// onwarn: function (warning) {
-	// 	// Suppress this error message... there are hundreds of them. Angular team says to ignore it.
-	// 	// https://github.com/rollup/rollup/wiki/Troubleshooting#this-is-undefined
-	// 	if (warning.code === 'THIS_IS_UNDEFINED') {
-	// 		return
-	// 	}
-	// 	console.error(warning.message)
-	// },
+		process.env.ROLLUP_WATCH && livereload(),
+	].filter(x => x),
+	onwarn: function (warning, warn) {
+		// Suppress this error message... there are hundreds of them. Angular team says to ignore it.
+		// https://github.com/rollup/rollup/wiki/Troubleshooting#this-is-undefined
+		if (warning.code === 'THIS_IS_UNDEFINED') {
+			return
+		}
+		warn(warning)
+	},
 }

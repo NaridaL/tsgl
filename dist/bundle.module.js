@@ -1,21 +1,14 @@
-import { AABB, DEG, M4, NLA_DEBUG, NLA_PRECISION, P3ZX, Transformable, V, V3, addOwnProperties, arrayFromFunction, assert, assertInst, assertVectors, assertf, lerp } from 'ts3dutils';
+import { __awaiter } from 'tslib';
+import { AABB, arrayFromFunction, assert, assertVectors, lerp, M4, NLA_PRECISION, Transformable, V, V3, assertf, assertInst, NLA_DEBUG, addOwnProperties, DEG, P3ZX } from 'ts3dutils';
 import chroma from 'chroma-js';
 
-var __awaiter = (undefined && undefined.__awaiter) || function (thisArg, _arguments, P, generator) {
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : new P(function (resolve) { resolve(result.value); }).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
 const { cos, sin, PI, min, max } = Math;
 const WGL = WebGLRenderingContext;
 /**
  * @example new Mesh()
  *        .addIndexBuffer('TRIANGLES')
  *        .addIndexBuffer('LINES')
- *        .addVertexBuffer('normals', 'LGL_Normal')
+ *        .addVertexBuffer('normals', 'ts_Normal')
  */
 class Mesh extends Transformable {
     constructor() {
@@ -23,10 +16,7 @@ class Mesh extends Transformable {
         this.hasBeenCompiled = false;
         this.vertexBuffers = {};
         this.indexBuffers = {};
-        this.addVertexBuffer('vertices', 'LGL_Vertex');
-        //if (options.coords) this.addVertexBuffer('coords', 'LGL_TexCoord')
-        //if (options.normals) this.addVertexBuffer('normals', 'LGL_Normal')
-        //if (options.colors) this.addVertexBuffer('colors', 'LGL_Color')
+        this.addVertexBuffer('vertices', 'ts_Vertex');
     }
     calcVolume() {
         let totalVolume = 0, totalCentroid = V3.O, totalAreaX2 = 0;
@@ -51,7 +41,7 @@ class Mesh extends Transformable {
     /**
      * Add a new vertex buffer with a list as a property called `name` on this object and map it to
      * the attribute called `attribute` in all shaders that draw this mesh.
-     * @example new Mesh().addVertexBuffer('coords', 'LGL_TexCoord')
+     * @example new Mesh().addVertexBuffer('coords', 'ts_TexCoord')
      */
     addVertexBuffer(name, attribute) {
         assert(!this.vertexBuffers[attribute], 'Buffer ' + attribute + ' already exists.');
@@ -104,12 +94,13 @@ class Mesh extends Transformable {
      */
     compile(gl = currentGL()) {
         // figure out shortest vertex buffer to make sure indexBuffers are in bounds
-        let minVertexBufferLength = Infinity;
+        let minVertexBufferLength = Infinity; // TODO, _minBufferName
         Object.getOwnPropertyNames(this.vertexBuffers).forEach(attribute => {
             const buffer = this.vertexBuffers[attribute];
             buffer.data = this[buffer.name];
             buffer.compile(undefined, gl);
             if (this[buffer.name].length < minVertexBufferLength) {
+                // _minBufferName = attribute
                 minVertexBufferLength = this[buffer.name].length;
             }
         });
@@ -129,7 +120,7 @@ class Mesh extends Transformable {
         return __awaiter(this, void 0, void 0, function* () {
             return new Promise((resolve, reject) => {
                 const mesh = new Mesh()
-                    .addVertexBuffer('normals', 'LGL_Normal');
+                    .addVertexBuffer('normals', 'ts_Normal');
                 const fileReader = new FileReader();
                 fileReader.onerror = reject;
                 fileReader.onload = function (_progressEvent) {
@@ -203,7 +194,7 @@ class Mesh extends Transformable {
         const mesh = new Mesh();
         mesh.vertices = m4.transformedPoints(this.vertices);
         if (this.normals) {
-            mesh.addVertexBuffer('normals', 'LGL_Normal');
+            mesh.addVertexBuffer('normals', 'ts_Normal');
             const invTrans = m4.as3x3().inversed().transposed().normalized();
             mesh.normals = this.normals.map(n => invTrans.transformVector(n).unit());
             // mesh.normals.forEach(n => assert(n.hasLength(1)))
@@ -213,7 +204,7 @@ class Mesh extends Transformable {
             mesh[name] = this[name];
         }
         for (const attribute in this.vertexBuffers) {
-            if ('LGL_Vertex' !== attribute && 'LGL_Normal' !== attribute) {
+            if ('ts_Vertex' !== attribute && 'ts_Normal' !== attribute) {
                 const name = this.vertexBuffers[attribute].name;
                 mesh.addVertexBuffer(name, attribute);
                 mesh[name] = this[name];
@@ -228,9 +219,9 @@ class Mesh extends Transformable {
      */
     computeNormalsFromFlatTriangles() {
         if (!this.normals)
-            this.addVertexBuffer('normals', 'LGL_Normal');
+            this.addVertexBuffer('normals', 'ts_Normal');
         // tslint:disable:no-string-literal
-        //this.vertexBuffers['LGL_Normal'].data = arrayFromFunction(this.vertices.length, i => V3.O)
+        //this.vertexBuffers['ts_Normal'].data = arrayFromFunction(this.vertices.length, i => V3.O)
         const TRIANGLES = this.TRIANGLES, vertices = this.vertices, normals = this.normals;
         normals.length = vertices.length;
         for (let i = 0; i < TRIANGLES.length; i += 3) {
@@ -355,8 +346,8 @@ class Mesh extends Transformable {
         const mesh = new Mesh()
             .addIndexBuffer('LINES')
             .addIndexBuffer('TRIANGLES')
-            .addVertexBuffer('normals', 'LGL_Normal')
-            .addVertexBuffer('coords', 'LGL_TexCoord');
+            .addVertexBuffer('normals', 'ts_Normal')
+            .addVertexBuffer('coords', 'ts_TexCoord');
         for (let j = 0; j <= detailY; j++) {
             const t = j / detailY;
             for (let i = 0; i <= detailX; i++) {
@@ -388,7 +379,7 @@ class Mesh extends Transformable {
      */
     static cube() {
         const mesh = new Mesh()
-            .addVertexBuffer('normals', 'LGL_Normal')
+            .addVertexBuffer('normals', 'ts_Normal')
             .addIndexBuffer('TRIANGLES')
             .addIndexBuffer('LINES');
         // basically indexes for faces of the cube. vertices each need to be added 3 times,
@@ -518,7 +509,7 @@ class Mesh extends Transformable {
             }
         }
         const mesh = new Mesh()
-            .addVertexBuffer('normals', 'LGL_Normal')
+            .addVertexBuffer('normals', 'ts_Normal')
             .addIndexBuffer('TRIANGLES')
             .addIndexBuffer('LINES');
         mesh.vertices.push(...vertices);
@@ -544,8 +535,8 @@ class Mesh extends Transformable {
         assertVectors(offset);
         const mesh = new Mesh()
             .addIndexBuffer('TRIANGLES')
-            .addVertexBuffer('coords', 'LGL_TexCoord');
-        normals && mesh.addVertexBuffer('normals', 'LGL_Normal');
+            .addVertexBuffer('coords', 'ts_TexCoord');
+        normals && mesh.addVertexBuffer('normals', 'ts_Normal');
         mesh.vertices = vertices.concat(vertices.map(v => v.plus(offset)));
         const vl = vertices.length;
         mesh.coords = arrayFromFunction(vl * 2, (i) => [(i % vl) / vl, (i / vl) | 0]);
@@ -569,7 +560,7 @@ class Mesh extends Transformable {
     // @example const precious = Mesh.rotation([V(10, 0, -2), V(10, 0, 2), V(11, 0, 2), V(11, 0, -2)], , L3.Z, 512)
     static rotation(vertices, lineAxis, totalRads, steps, close = true, normals) {
         const mesh = new Mesh().addIndexBuffer('TRIANGLES');
-        normals && mesh.addVertexBuffer('normals', 'LGL_Normal');
+        normals && mesh.addVertexBuffer('normals', 'ts_Normal');
         const vc = vertices.length, vTotal = vc * steps;
         const rotMat = new M4();
         const triangles = mesh.TRIANGLES;
@@ -590,7 +581,7 @@ class Mesh extends Transformable {
     }
     static parametric(pF, pN, sMin, sMax, tMin, tMax, sRes, tRes) {
         const mesh = new Mesh()
-            .addVertexBuffer('normals', 'LGL_Normal')
+            .addVertexBuffer('normals', 'ts_Normal')
             .addIndexBuffer('TRIANGLES');
         for (let si = 0; si <= sRes; si++) {
             const s = lerp(sMin, sMax, si / sRes);
@@ -620,7 +611,7 @@ class Mesh extends Transformable {
             mesh.TRIANGLES = json.triangles;
         }
         if (json.normals) {
-            mesh.addVertexBuffer('normals', 'LGL_Normal');
+            mesh.addVertexBuffer('normals', 'ts_Normal');
             mesh.normals = json.normals;
         }
         mesh.compile();
@@ -689,19 +680,19 @@ class Shader {
      * are also automatically passed to the shader when drawing.
      *
      * For vertex and fragment shaders:
-     uniform mat3 LGL_NormalMatrix;
-     uniform mat4 LGL_ModelViewMatrix;
-     uniform mat4 LGL_ProjectionMatrix;
-     uniform mat4 LGL_ModelViewProjectionMatrix;
-     uniform mat4 LGL_ModelViewMatrixInverse;
-     uniform mat4 LGL_ProjectionMatrixInverse;
-     uniform mat4 LGL_ModelViewProjectionMatrixInverse;
+     uniform mat3 ts_NormalMatrix;
+     uniform mat4 ts_ModelViewMatrix;
+     uniform mat4 ts_ProjectionMatrix;
+     uniform mat4 ts_ModelViewProjectionMatrix;
+     uniform mat4 ts_ModelViewMatrixInverse;
+     uniform mat4 ts_ProjectionMatrixInverse;
+     uniform mat4 ts_ModelViewProjectionMatrixInverse;
      *
      *
      * Example usage:
      *
      *  const shader = new GL.Shader(
-     *      `void main() { gl_Position = LGL_ModelViewProjectionMatrix * LGL_Vertex; }`,
+     *      `void main() { gl_Position = ts_ModelViewProjectionMatrix * ts_Vertex; }`,
      *      `uniform vec4 color; void main() { gl_FragColor = color; }`)
      *
      *  shader.uniforms({ color: [1, 0, 0, 1] }).draw(mesh)
@@ -714,15 +705,15 @@ class Shader {
         // const versionRegex = /^(?:\s+|\/\/[\s\S]*?[\r\n]+|\/\*[\s\S]*?\*\/)+(#version\s+(\d+)\s+es)/
         // Headers are prepended to the sources to provide some automatic functionality.
         const header = `
-		uniform mat3 LGL_NormalMatrix;
-		uniform mat4 LGL_ModelViewMatrix;
-		uniform mat4 LGL_ProjectionMatrix;
-		uniform mat4 LGL_ModelViewProjectionMatrix;
-		uniform mat4 LGL_ModelViewMatrixInverse;
-		uniform mat4 LGL_ProjectionMatrixInverse;
-		uniform mat4 LGL_ModelViewProjectionMatrixInverse;
+		uniform mat3 ts_NormalMatrix;
+		uniform mat4 ts_ModelViewMatrix;
+		uniform mat4 ts_ProjectionMatrix;
+		uniform mat4 ts_ModelViewProjectionMatrix;
+		uniform mat4 ts_ModelViewMatrixInverse;
+		uniform mat4 ts_ProjectionMatrixInverse;
+		uniform mat4 ts_ModelViewProjectionMatrixInverse;
 	`;
-        const matrixNames = header.match(/\bLGL_\w+/g);
+        const matrixNames = header.match(/\bts_\w+/g);
         // Compile and link errors are thrown as strings.
         function compileSource(type, source) {
             const shader = gl.createShader(type);
@@ -929,31 +920,31 @@ class Shader {
         Object.keys(vertexBuffers).forEach(key => assertInst(Buffer, vertexBuffers[key]));
         // Only varruct up the built-in matrices that are active in the shader
         const on = this.activeMatrices;
-        const modelViewMatrixInverse = (on['LGL_ModelViewMatrixInverse'] || on['LGL_NormalMatrix'])
+        const modelViewMatrixInverse = (on['ts_ModelViewMatrixInverse'] || on['ts_NormalMatrix'])
             //&& this.modelViewMatrixVersion != gl.modelViewMatrixVersion
             && gl.modelViewMatrix.inversed();
-        const projectionMatrixInverse = on['LGL_ProjectionMatrixInverse']
+        const projectionMatrixInverse = on['ts_ProjectionMatrixInverse']
             //&& this.projectionMatrixVersion != gl.projectionMatrixVersion
             && gl.projectionMatrix.inversed();
-        const modelViewProjectionMatrix = (on['LGL_ModelViewProjectionMatrix'] || on['LGL_ModelViewProjectionMatrixInverse'])
+        const modelViewProjectionMatrix = (on['ts_ModelViewProjectionMatrix'] || on['ts_ModelViewProjectionMatrixInverse'])
             //&& (this.projectionMatrixVersion != gl.projectionMatrixVersion || this.modelViewMatrixVersion !=
             // gl.modelViewMatrixVersion)
             && gl.projectionMatrix.times(gl.modelViewMatrix);
         const uni = {}; // Uniform Matrices
-        on['LGL_ModelViewMatrix']
+        on['ts_ModelViewMatrix']
             && this.modelViewMatrixVersion != gl.modelViewMatrixVersion
-            && (uni['LGL_ModelViewMatrix'] = gl.modelViewMatrix);
-        on['LGL_ModelViewMatrixInverse'] && (uni['LGL_ModelViewMatrixInverse'] = modelViewMatrixInverse);
-        on['LGL_ProjectionMatrix']
+            && (uni['ts_ModelViewMatrix'] = gl.modelViewMatrix);
+        on['ts_ModelViewMatrixInverse'] && (uni['ts_ModelViewMatrixInverse'] = modelViewMatrixInverse);
+        on['ts_ProjectionMatrix']
             && this.projectionMatrixVersion != gl.projectionMatrixVersion
-            && (uni['LGL_ProjectionMatrix'] = gl.projectionMatrix);
-        projectionMatrixInverse && (uni['LGL_ProjectionMatrixInverse'] = projectionMatrixInverse);
-        modelViewProjectionMatrix && (uni['LGL_ModelViewProjectionMatrix'] = modelViewProjectionMatrix);
-        modelViewProjectionMatrix && on['LGL_ModelViewProjectionMatrixInverse']
-            && (uni['LGL_ModelViewProjectionMatrixInverse'] = modelViewProjectionMatrix.inversed());
-        on['LGL_NormalMatrix']
+            && (uni['ts_ProjectionMatrix'] = gl.projectionMatrix);
+        projectionMatrixInverse && (uni['ts_ProjectionMatrixInverse'] = projectionMatrixInverse);
+        modelViewProjectionMatrix && (uni['ts_ModelViewProjectionMatrix'] = modelViewProjectionMatrix);
+        modelViewProjectionMatrix && on['ts_ModelViewProjectionMatrixInverse']
+            && (uni['ts_ModelViewProjectionMatrixInverse'] = modelViewProjectionMatrix.inversed());
+        on['ts_NormalMatrix']
             && this.modelViewMatrixVersion != gl.modelViewMatrixVersion
-            && (uni['LGL_NormalMatrix'] = modelViewMatrixInverse.transposed());
+            && (uni['ts_NormalMatrix'] = modelViewMatrixInverse.transposed());
         this.uniforms(uni);
         this.projectionMatrixVersion = gl.projectionMatrixVersion;
         this.modelViewMatrixVersion = gl.modelViewMatrixVersion;
@@ -965,7 +956,7 @@ class Shader {
             const location = this.attributes[attribute] || gl.getAttribLocation(this.program, attribute);
             gl.handleError();
             if (location == -1 || !buffer.buffer) {
-                if (!attribute.startsWith('LGL_')) {
+                if (!attribute.startsWith('ts_')) {
                     console.warn(`Vertex buffer ${attribute} was not bound because the attribute is not active.`);
                 }
                 continue;
@@ -1034,34 +1025,34 @@ class Shader {
  */
 const GL_COLOR_BLACK = [0, 0, 0, 1];
 function currentGL() {
-    return LightGLContext.gl;
+    return TSGLContext.gl;
 }
 const WGL$2 = WebGLRenderingContext;
 function isNumber(obj) {
     const str = Object.prototype.toString.call(obj);
     return str == '[object Number]' || str == '[object Boolean]';
 }
-class LightGLContext {
+class TSGLContext {
     constructor(gl, immediate = {
-            mesh: new Mesh()
-                .addVertexBuffer('coords', 'LGL_TexCoord')
-                .addVertexBuffer('colors', 'LGL_Color'),
-            mode: -1,
-            coord: [0, 0],
-            color: [1, 1, 1, 1],
-            pointSize: 1,
-            shader: Shader.create(`
-			attribute vec4 LGL_Color;
-			attribute vec4 LGL_Vertex;
-			uniform mat4 LGL_ModelViewProjectionMatrix;
-			attribute vec2 LGL_TexCoord;
+        mesh: new Mesh()
+            .addVertexBuffer('coords', 'ts_TexCoord')
+            .addVertexBuffer('colors', 'ts_Color'),
+        mode: -1,
+        coord: [0, 0],
+        color: [1, 1, 1, 1],
+        pointSize: 1,
+        shader: Shader.create(`
+			attribute vec4 ts_Color;
+			attribute vec4 ts_Vertex;
+			uniform mat4 ts_ModelViewProjectionMatrix;
+			attribute vec2 ts_TexCoord;
             uniform float pointSize;
             varying vec4 color;
             varying vec2 coord;
             void main() {
-                color = LGL_Color;
-                coord = LGL_TexCoord;
-                gl_Position = LGL_ModelViewProjectionMatrix * LGL_Vertex;
+                color = ts_Color;
+                coord = ts_TexCoord;
+                gl_Position = ts_ModelViewProjectionMatrix * ts_Vertex;
                 gl_PointSize = pointSize;
             }
 		`, `
@@ -1076,7 +1067,7 @@ class LightGLContext {
                 // if (useTexture) gl_FragColor *= texture2D(texture, coord.xy);
             }
         `, gl),
-        }) {
+    }) {
         this.immediate = immediate;
         this.modelViewMatrix = M4.identity();
         this.projectionMatrix = M4.identity();
@@ -1087,7 +1078,7 @@ class LightGLContext {
         this.drawCallCount = 0;
         this.projectionMatrixVersion = 0;
         this.modelViewMatrixVersion = 0;
-        this.matrixMode(LightGLContext.MODELVIEW);
+        this.matrixMode(TSGLContext.MODELVIEW);
     }
     /// Implement the OpenGL modelview and projection matrix stacks, along with some other useful GLU matrix functions.
     matrixMode(mode) {
@@ -1218,12 +1209,12 @@ class LightGLContext {
             throw new Error('mismatched viewerGL.begin() and viewerGL.end() calls');
         this.immediate.mesh.compile();
         this.immediate.shader.uniforms({
-            useTexture: !!LightGLContext.gl.getParameter(WGL$2.TEXTURE_BINDING_2D),
+            useTexture: !!TSGLContext.gl.getParameter(WGL$2.TEXTURE_BINDING_2D),
         }).drawBuffers(this.immediate.mesh.vertexBuffers, undefined, this.immediate.mode);
         this.immediate.mode = -1;
     }
     makeCurrent() {
-        LightGLContext.gl = this;
+        TSGLContext.gl = this;
     }
     /**
      * Starts an animation loop.
@@ -1285,10 +1276,10 @@ class LightGLContext {
             gl.canvas.height = (window.innerHeight - top - bottom) * window.devicePixelRatio;
             gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
             if (options.camera) {
-                gl.matrixMode(LightGLContext.PROJECTION);
+                gl.matrixMode(TSGLContext.PROJECTION);
                 gl.loadIdentity();
                 gl.perspective(options.fov || 45, gl.canvas.width / gl.canvas.height, options.near || 0.1, options.far || 1000);
-                gl.matrixMode(LightGLContext.MODELVIEW);
+                gl.matrixMode(TSGLContext.MODELVIEW);
             }
         }
         window.addEventListener('resize', windowOnResize);
@@ -1331,16 +1322,16 @@ class LightGLContext {
         }
         if (!newGL)
             throw new Error('WebGL not supported');
-        LightGLContext.gl = newGL;
-        addOwnProperties(newGL, LightGLContext.prototype);
-        addOwnProperties(newGL, new LightGLContext(newGL));
+        TSGLContext.gl = newGL;
+        addOwnProperties(newGL, TSGLContext.prototype);
+        addOwnProperties(newGL, new TSGLContext(newGL));
         //addEventListeners(newGL)
         return newGL;
     }
 }
-LightGLContext.MODELVIEW = 0;
-LightGLContext.PROJECTION = 1;
-LightGLContext.HALF_FLOAT_OES = 0x8D61;
+TSGLContext.MODELVIEW = 0;
+TSGLContext.PROJECTION = 1;
+TSGLContext.HALF_FLOAT_OES = 0x8D61;
 // enum WGL_ERROR {
 // 	NO_ERROR = WGL.NO_ERROR,
 // 	INVALID_ENUM = WGL.INVALID_ENUM,
@@ -1350,9 +1341,9 @@ LightGLContext.HALF_FLOAT_OES = 0x8D61;
 // 	OUT_OF_MEMORY = WGL.OUT_OF_MEMORY,
 // 	CONTEXT_LOST_WEBGL = WGL.CONTEXT_LOST_WEBGL,
 // }
-LightGLContext.prototype.MODELVIEW = LightGLContext.MODELVIEW;
-LightGLContext.prototype.PROJECTION = LightGLContext.PROJECTION;
-LightGLContext.prototype.HALF_FLOAT_OES = LightGLContext.HALF_FLOAT_OES;
+TSGLContext.prototype.MODELVIEW = TSGLContext.MODELVIEW;
+TSGLContext.prototype.PROJECTION = TSGLContext.PROJECTION;
+TSGLContext.prototype.HALF_FLOAT_OES = TSGLContext.HALF_FLOAT_OES;
 /**
  *
  * Push two triangles:
@@ -1511,7 +1502,7 @@ class Texture {
                 throw new Error('OES_texture_float_linear is required but not supported');
             }
         }
-        else if (this.type === LightGLContext.HALF_FLOAT_OES) {
+        else if (this.type === gl.HALF_FLOAT_OES) {
             if (!gl.getExtension('OES_texture_half_float')) {
                 throw new Error('OES_texture_half_float is required but not supported');
             }
@@ -1520,7 +1511,7 @@ class Texture {
             }
         }
         gl.bindTexture(gl.TEXTURE_2D, this.texture);
-        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1);
+        // gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1)
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, magFilter);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, minFilter);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, options.wrap || options.wrapS || gl.CLAMP_TO_EDGE);
@@ -1633,5 +1624,5 @@ class Texture {
     }
 }
 
-export { Buffer, Mesh, DRAW_MODES, SHADER_VAR_TYPES, isArray, Shader, Texture, GL_COLOR_BLACK, currentGL, isNumber, LightGLContext, pushQuad };
+export { Buffer, Mesh, DRAW_MODES, SHADER_VAR_TYPES, isArray, Shader, Texture, GL_COLOR_BLACK, currentGL, isNumber, TSGLContext, pushQuad };
 //# sourceMappingURL=bundle.module.js.map
