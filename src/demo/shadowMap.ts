@@ -3,7 +3,7 @@
 import chroma from 'chroma-js'
 import { AABB, arrayFromFunction, clamp, DEG, int, lerp, M4, TAU, time, Tuple4, V, V3 } from 'ts3dutils'
 
-import { DRAW_MODES, LightGLContext, Mesh, pushQuad, Shader, Texture } from 'tsgl'
+import { DRAW_MODES, TSGLContext, Mesh, pushQuad, Shader, Texture } from 'tsgl'
 
 const { sin, PI } = Math
 
@@ -13,7 +13,7 @@ import cessnaJSON from '../../cessna.json'
 /**
  * Draw shadow of a mesh using a shadow map.
  */
-export function shadowMap(gl: LightGLContext) {
+export function shadowMap(gl: TSGLContext) {
 
 	//const mesh = await fetch('dodecahedron.stl')
 	//    .then(r => r.blob())
@@ -33,10 +33,10 @@ export function shadowMap(gl: LightGLContext) {
 	const boundingBox = mesh.getAABB()
 	const frustrumCube = Mesh.cube().scale(2).translate(V3.XYZ.negated())
 	const colorShader = Shader.create(`
-	uniform mat4 LGL_ModelViewProjectionMatrix;
-	attribute vec4 LGL_Vertex;
+	uniform mat4 ts_ModelViewProjectionMatrix;
+	attribute vec4 ts_Vertex;
   void main() {
-    gl_Position = LGL_ModelViewProjectionMatrix * LGL_Vertex;
+    gl_Position = ts_ModelViewProjectionMatrix * ts_Vertex;
   }
 `, `
 	precision highp float;
@@ -46,11 +46,11 @@ export function shadowMap(gl: LightGLContext) {
   }
 `)
 	const depthShader = Shader.create(`
-	uniform mat4 LGL_ModelViewProjectionMatrix;
-	attribute vec4 LGL_Vertex;
+	uniform mat4 ts_ModelViewProjectionMatrix;
+	attribute vec4 ts_Vertex;
   varying vec4 pos;
   void main() {
-    gl_Position = pos = LGL_ModelViewProjectionMatrix * LGL_Vertex;
+    gl_Position = pos = ts_ModelViewProjectionMatrix * ts_Vertex;
   }
 `, `
 	precision highp float;
@@ -61,20 +61,20 @@ export function shadowMap(gl: LightGLContext) {
   }
 `)
 	const displayShader = Shader.create(`
-	uniform mat4 LGL_ModelViewMatrix;
-	uniform mat3 LGL_NormalMatrix;
-	uniform mat4 LGL_ModelViewProjectionMatrix;
-	attribute vec4 LGL_Vertex;
-	attribute vec3 LGL_Normal;
+	uniform mat4 ts_ModelViewMatrix;
+	uniform mat3 ts_NormalMatrix;
+	uniform mat4 ts_ModelViewProjectionMatrix;
+	attribute vec4 ts_Vertex;
+	attribute vec3 ts_Normal;
   uniform mat4 shadowMapMatrix;
   uniform vec3 light;
   varying vec4 coord;
   varying vec3 normal;
   varying vec3 toLight;
   void main() {
-    toLight = light - (LGL_ModelViewMatrix * LGL_Vertex).xyz;
-    normal = LGL_NormalMatrix * LGL_Normal;
-    gl_Position = LGL_ModelViewProjectionMatrix * LGL_Vertex;
+    toLight = light - (ts_ModelViewMatrix * ts_Vertex).xyz;
+    normal = ts_NormalMatrix * ts_Normal;
+    gl_Position = ts_ModelViewProjectionMatrix * ts_Vertex;
     coord = shadowMapMatrix * gl_Position;
   }
 `, `
@@ -104,9 +104,9 @@ export function shadowMap(gl: LightGLContext) {
 `)
 	const textureShader = Shader.create(`
   varying vec2 coord;
-  attribute vec2 LGL_TexCoord;
+  attribute vec2 ts_TexCoord;
   void main() {
-    coord = LGL_TexCoord;
+    coord = ts_TexCoord;
     gl_Position = vec4(coord * 2.0 - 1.0, 0.0, 1.0);
   }
 `, `

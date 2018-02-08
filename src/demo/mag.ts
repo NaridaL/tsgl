@@ -1,5 +1,5 @@
 /// <reference path="../types.d.ts" />
-import { LightGLContext, Mesh, Shader, DRAW_MODES } from 'tsgl'
+import { TSGLContext, Mesh, Shader, DRAW_MODES } from 'tsgl'
 import chroma from 'chroma-js'
 import colorFS from '../shaders/colorFS.glslx'
 import posVS from '../shaders/posVS.glslx'
@@ -10,7 +10,7 @@ import { Tuple4, V3, arrayFromFunction, AABB, V, M4, DEG, time } from 'ts3dutils
 /**
  * Calculate and render magnetic field lines.
  */
-export function mag(gl: LightGLContext) {
+export function mag(gl: TSGLContext) {
 	const cubeMesh = Mesh.cube()
 	// simple pos/color
 	const shader = Shader.create(posVS, colorFS)

@@ -53,8 +53,9 @@
     "builddemo": "rollup -c rollup.demo.config.js"
   },
   "pre-commit": [
+    "lint",
     "build",
-    "lint"
+    "builddemo"
   ],
   "types": "index.d.ts",
   "umdGlobal": "tsgl",

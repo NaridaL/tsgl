@@ -1,16 +1,16 @@
-import { Mesh, LightGLContext, Shader } from 'tsgl'
+import { Mesh, TSGLContext, Shader } from 'tsgl'
 import { V3, V } from 'ts3dutils'
 
 /**
  * Draw a rotating cube.
  */
-export async function setupDemo(gl: LightGLContext) {
+export async function setupDemo(gl: TSGLContext) {
 	const mesh = Mesh.cube()
 	const shader = Shader.create<{ color: 'FLOAT_VEC4' }, {}>(`
-uniform mat4 LGL_ModelViewProjectionMatrix;
-attribute vec4 LGL_Vertex;
+uniform mat4 ts_ModelViewProjectionMatrix;
+attribute vec4 ts_Vertex;
 void main() {
-    gl_Position = LGL_ModelViewProjectionMatrix * LGL_Vertex;
+    gl_Position = ts_ModelViewProjectionMatrix * ts_Vertex;
 }`, `
 precision highp float;
 uniform vec4 color;

@@ -2,7 +2,7 @@
 import {assert, assertf, assertInst, assertVectors, int, M4, NLA_DEBUG, V3} from 'ts3dutils'
 
 import {Buffer} from './Buffer'
-import {currentGL, GL_COLOR, LightGLContext} from './LightGLContext'
+import {currentGL, GL_COLOR, TSGLContext} from './TSGLContext'
 import {Mesh} from './Mesh'
 
 const WGL = WebGLRenderingContext
@@ -74,11 +74,11 @@ export class Shader<UniformTypes extends { [uniformName: string]: keyof UniformT
 	uniformInfos: { [uniformName: string ]: WebGLActiveInfo }
 	projectionMatrixVersion = -1
 	modelViewMatrixVersion = -1
-	gl: LightGLContext
+	gl: TSGLContext
 
 	static create<S extends { [uniformName: string]: keyof UniformTypesMap },
 		T extends { [uniformName: string]: keyof UniformTypesMap }>
-	(vertexSource: ShaderType<S>, fragmentSource: ShaderType<T>, gl?: LightGLContext): Shader<S & T> {
+	(vertexSource: ShaderType<S>, fragmentSource: ShaderType<T>, gl?: TSGLContext): Shader<S & T> {
 		return new Shader(vertexSource, fragmentSource, gl) as any
 	}
 
@@ -90,19 +90,19 @@ export class Shader<UniformTypes extends { [uniformName: string]: keyof UniformT
 	 * are also automatically passed to the shader when drawing.
 	 *
 	 * For vertex and fragment shaders:
-	 uniform mat3 LGL_NormalMatrix;
-	 uniform mat4 LGL_ModelViewMatrix;
-	 uniform mat4 LGL_ProjectionMatrix;
-	 uniform mat4 LGL_ModelViewProjectionMatrix;
-	 uniform mat4 LGL_ModelViewMatrixInverse;
-	 uniform mat4 LGL_ProjectionMatrixInverse;
-	 uniform mat4 LGL_ModelViewProjectionMatrixInverse;
+	 uniform mat3 ts_NormalMatrix;
+	 uniform mat4 ts_ModelViewMatrix;
+	 uniform mat4 ts_ProjectionMatrix;
+	 uniform mat4 ts_ModelViewProjectionMatrix;
+	 uniform mat4 ts_ModelViewMatrixInverse;
+	 uniform mat4 ts_ProjectionMatrixInverse;
+	 uniform mat4 ts_ModelViewProjectionMatrixInverse;
 	 *
 	 *
 	 * Example usage:
 	 *
 	 *  const shader = new GL.Shader(
-	 *      `void main() { gl_Position = LGL_ModelViewProjectionMatrix * LGL_Vertex; }`,
+	 *      `void main() { gl_Position = ts_ModelViewProjectionMatrix * ts_Vertex; }`,
 	 *      `uniform vec4 color; void main() { gl_FragColor = color; }`)
 	 *
 	 *  shader.uniforms({ color: [1, 0, 0, 1] }).draw(mesh)
@@ -113,15 +113,15 @@ export class Shader<UniformTypes extends { [uniformName: string]: keyof UniformT
 		// const versionRegex = /^(?:\s+|\/\/[\s\S]*?[\r\n]+|\/\*[\s\S]*?\*\/)+(#version\s+(\d+)\s+es)/
 		// Headers are prepended to the sources to provide some automatic functionality.
 		const header = `
-		uniform mat3 LGL_NormalMatrix;
-		uniform mat4 LGL_ModelViewMatrix;
-		uniform mat4 LGL_ProjectionMatrix;
-		uniform mat4 LGL_ModelViewProjectionMatrix;
-		uniform mat4 LGL_ModelViewMatrixInverse;
-		uniform mat4 LGL_ProjectionMatrixInverse;
-		uniform mat4 LGL_ModelViewProjectionMatrixInverse;
+		uniform mat3 ts_NormalMatrix;
+		uniform mat4 ts_ModelViewMatrix;
+		uniform mat4 ts_ProjectionMatrix;
+		uniform mat4 ts_ModelViewProjectionMatrix;
+		uniform mat4 ts_ModelViewMatrixInverse;
+		uniform mat4 ts_ProjectionMatrixInverse;
+		uniform mat4 ts_ModelViewProjectionMatrixInverse;
 	`
-		const matrixNames = header.match(/\bLGL_\w+/g)
+		const matrixNames = header.match(/\bts_\w+/g)
 
 		// Compile and link errors are thrown as strings.
 		function compileSource(type: number, source: string) {
@@ -324,32 +324,32 @@ export class Shader<UniformTypes extends { [uniformName: string]: keyof UniformT
 
 		// Only varruct up the built-in matrices that are active in the shader
 		const on = this.activeMatrices
-		const modelViewMatrixInverse = (on['LGL_ModelViewMatrixInverse'] || on['LGL_NormalMatrix'])
+		const modelViewMatrixInverse = (on['ts_ModelViewMatrixInverse'] || on['ts_NormalMatrix'])
 			//&& this.modelViewMatrixVersion != gl.modelViewMatrixVersion
 			&& gl.modelViewMatrix.inversed()
-		const projectionMatrixInverse = on['LGL_ProjectionMatrixInverse']
+		const projectionMatrixInverse = on['ts_ProjectionMatrixInverse']
 			//&& this.projectionMatrixVersion != gl.projectionMatrixVersion
 			&& gl.projectionMatrix.inversed()
-		const modelViewProjectionMatrix = (on['LGL_ModelViewProjectionMatrix'] || on['LGL_ModelViewProjectionMatrixInverse'])
+		const modelViewProjectionMatrix = (on['ts_ModelViewProjectionMatrix'] || on['ts_ModelViewProjectionMatrixInverse'])
 			//&& (this.projectionMatrixVersion != gl.projectionMatrixVersion || this.modelViewMatrixVersion !=
 			// gl.modelViewMatrixVersion)
 			&& gl.projectionMatrix.times(gl.modelViewMatrix)
 
 		const uni: { [matrixName: string ]: M4 } = {} // Uniform Matrices
-		on['LGL_ModelViewMatrix']
+		on['ts_ModelViewMatrix']
 		&& this.modelViewMatrixVersion != gl.modelViewMatrixVersion
-		&& (uni['LGL_ModelViewMatrix'] = gl.modelViewMatrix)
-		on['LGL_ModelViewMatrixInverse'] && (uni['LGL_ModelViewMatrixInverse'] = modelViewMatrixInverse as M4)
-		on['LGL_ProjectionMatrix']
+		&& (uni['ts_ModelViewMatrix'] = gl.modelViewMatrix)
+		on['ts_ModelViewMatrixInverse'] && (uni['ts_ModelViewMatrixInverse'] = modelViewMatrixInverse as M4)
+		on['ts_ProjectionMatrix']
 		&& this.projectionMatrixVersion != gl.projectionMatrixVersion
-		&& (uni['LGL_ProjectionMatrix'] = gl.projectionMatrix)
-		projectionMatrixInverse && (uni['LGL_ProjectionMatrixInverse'] = projectionMatrixInverse)
-		modelViewProjectionMatrix && (uni['LGL_ModelViewProjectionMatrix'] = modelViewProjectionMatrix)
-		modelViewProjectionMatrix && on['LGL_ModelViewProjectionMatrixInverse']
-		&& (uni['LGL_ModelViewProjectionMatrixInverse'] = modelViewProjectionMatrix.inversed())
-		on['LGL_NormalMatrix']
+		&& (uni['ts_ProjectionMatrix'] = gl.projectionMatrix)
+		projectionMatrixInverse && (uni['ts_ProjectionMatrixInverse'] = projectionMatrixInverse)
+		modelViewProjectionMatrix && (uni['ts_ModelViewProjectionMatrix'] = modelViewProjectionMatrix)
+		modelViewProjectionMatrix && on['ts_ModelViewProjectionMatrixInverse']
+		&& (uni['ts_ModelViewProjectionMatrixInverse'] = modelViewProjectionMatrix.inversed())
+		on['ts_NormalMatrix']
 		&& this.modelViewMatrixVersion != gl.modelViewMatrixVersion
-		&& (uni['LGL_NormalMatrix'] = (modelViewMatrixInverse as M4).transposed())
+		&& (uni['ts_NormalMatrix'] = (modelViewMatrixInverse as M4).transposed())
 		this.uniforms(uni as any)
 		this.projectionMatrixVersion = gl.projectionMatrixVersion
 		this.modelViewMatrixVersion = gl.modelViewMatrixVersion
@@ -362,7 +362,7 @@ export class Shader<UniformTypes extends { [uniformName: string]: keyof UniformT
 			const location = this.attributes[attribute] || gl.getAttribLocation(this.program, attribute)
 			gl.handleError()
 			if (location == -1 || !buffer.buffer) {
-				if (!attribute.startsWith('LGL_')) {
+				if (!attribute.startsWith('ts_')) {
 					console.warn(`Vertex buffer ${attribute} was not bound because the attribute is not active.`)
 				}
 				continue

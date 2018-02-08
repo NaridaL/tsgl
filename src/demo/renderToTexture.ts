@@ -3,7 +3,7 @@
 import chroma from 'chroma-js'
 import { AABB, arrayFromFunction, clamp, DEG, int, lerp, M4, TAU, time, Tuple4, V, V3 } from 'ts3dutils'
 
-import { DRAW_MODES, LightGLContext, Mesh, pushQuad, Shader, Texture } from 'tsgl'
+import { DRAW_MODES, TSGLContext, Mesh, pushQuad, Shader, Texture } from 'tsgl'
 
 const { sin, PI } = Math
 
@@ -12,7 +12,7 @@ import gazeboJSON from '../../gazebo.json'
 /**
  * Render mesh to texture, then render that texture to another mesh.
  */
-export function renderToTexture(gl: LightGLContext) {
+export function renderToTexture(gl: TSGLContext) {
 	const mesh = Mesh.load(gazeboJSON)
 	const sinVertices = arrayFromFunction(32, i => {
 		const x = lerp(-PI, PI, i / 31)
@@ -24,13 +24,13 @@ export function renderToTexture(gl: LightGLContext) {
 	const texture = Texture.fromURL('texture.png')
 	const overlay = new Texture(1024, 1024)
 	const meshShader = Shader.create(`
-	attribute vec3 LGL_Normal;
-	attribute vec4 LGL_Vertex;
-	uniform mat4 LGL_ModelViewProjectionMatrix;
+	attribute vec3 ts_Normal;
+	attribute vec4 ts_Vertex;
+	uniform mat4 ts_ModelViewProjectionMatrix;
   varying vec3 normal;
   void main() {
-    normal = LGL_Normal;
-    gl_Position = LGL_ModelViewProjectionMatrix * LGL_Vertex;
+    normal = ts_Normal;
+    gl_Position = ts_ModelViewProjectionMatrix * ts_Vertex;
   }
 `, `
 	precision highp float;
@@ -40,13 +40,13 @@ export function renderToTexture(gl: LightGLContext) {
   }
 `)
 	const planeShader = Shader.create(`
-	attribute vec2 LGL_TexCoord;
-	attribute vec4 LGL_Vertex;
-	uniform mat4 LGL_ModelViewProjectionMatrix;
+	attribute vec2 ts_TexCoord;
+	attribute vec4 ts_Vertex;
+	uniform mat4 ts_ModelViewProjectionMatrix;
   varying vec2 coord;
   void main() {
-    coord = LGL_TexCoord.xy;
-    gl_Position = LGL_ModelViewProjectionMatrix * LGL_Vertex;
+    coord = ts_TexCoord.xy;
+    gl_Position = ts_ModelViewProjectionMatrix * ts_Vertex;
   }
 `, `
 	precision highp float;
@@ -66,7 +66,7 @@ export function renderToTexture(gl: LightGLContext) {
 		const angleDeg = abs / 1000 * 20
 
 		gl.pushMatrix()
-		overlay.drawTo(function (gl: LightGLContext) {
+		overlay.drawTo(function (gl: TSGLContext) {
 			gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 			gl.matrixMode(gl.PROJECTION)
 			gl.loadIdentity()

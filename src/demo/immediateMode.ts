@@ -1,11 +1,11 @@
 /// <reference path="../types.d.ts" />
-import { LightGLContext, Mesh, Shader } from 'tsgl'
+import { TSGLContext, Mesh, Shader } from 'tsgl'
 import { V3, V } from 'ts3dutils'
 
 /**
  * OpenGL-style immediate mode.
  */
-export function immediateMode(gl: LightGLContext) {
+export function immediateMode(gl: TSGLContext) {
 
 	// setup camera
 	gl.disable(gl.CULL_FACE)

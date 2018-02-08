@@ -10,8 +10,8 @@ export type GL_COLOR = [number, number, number, number]
  */
 export const GL_COLOR_BLACK: GL_COLOR = [0, 0, 0, 1]
 
-export function currentGL(): LightGLContext {
-	return LightGLContext.gl
+export function currentGL(): TSGLContext {
+	return TSGLContext.gl
 }
 
 const WGL = WebGLRenderingContext
@@ -23,14 +23,14 @@ export function isNumber(obj: any) {
 
 export type UniformType = V3 | M4 | number[] | boolean | number
 
-export interface LightGLContext extends WebGLRenderingContext {}
-export class LightGLContext {
+export interface TSGLContext extends WebGLRenderingContext {}
+export class TSGLContext {
 	modelViewMatrix: M4 = M4.identity()
 	projectionMatrix: M4 = M4.identity()
 	static readonly MODELVIEW: { __MATRIX_MODE_CONSTANT: any } = 0 as any
 	static readonly PROJECTION: { __MATRIX_MODE_CONSTANT: any } = 1 as any
-	MODELVIEW: typeof LightGLContext.MODELVIEW
-	PROJECTION: typeof LightGLContext.PROJECTION
+	MODELVIEW: typeof TSGLContext.MODELVIEW
+	PROJECTION: typeof TSGLContext.PROJECTION
 
 	readonly version: 1 | 2
 
@@ -50,26 +50,26 @@ export class LightGLContext {
 	public projectionMatrixVersion: int = 0
 	public modelViewMatrixVersion: int = 0
 
-	protected constructor(gl: LightGLContext, private immediate = {
+	protected constructor(gl: TSGLContext, private immediate = {
 		mesh: new Mesh()
-			.addVertexBuffer('coords', 'LGL_TexCoord')
-			.addVertexBuffer('colors', 'LGL_Color'),
+			.addVertexBuffer('coords', 'ts_TexCoord')
+			.addVertexBuffer('colors', 'ts_Color'),
 		mode: -1 as DRAW_MODES | -1,
 		coord: [0, 0] as [number, number],
 		color: [1, 1, 1, 1] as GL_COLOR,
 		pointSize: 1,
 		shader: Shader.create(`
-			attribute vec4 LGL_Color;
-			attribute vec4 LGL_Vertex;
-			uniform mat4 LGL_ModelViewProjectionMatrix;
-			attribute vec2 LGL_TexCoord;
+			attribute vec4 ts_Color;
+			attribute vec4 ts_Vertex;
+			uniform mat4 ts_ModelViewProjectionMatrix;
+			attribute vec2 ts_TexCoord;
             uniform float pointSize;
             varying vec4 color;
             varying vec2 coord;
             void main() {
-                color = LGL_Color;
-                coord = LGL_TexCoord;
-                gl_Position = LGL_ModelViewProjectionMatrix * LGL_Vertex;
+                color = ts_Color;
+                coord = ts_TexCoord;
+                gl_Position = ts_ModelViewProjectionMatrix * ts_Vertex;
                 gl_PointSize = pointSize;
             }
 		`, `
@@ -85,7 +85,7 @@ export class LightGLContext {
             }
         `, gl),
 	}) {
-		this.matrixMode(LightGLContext.MODELVIEW)
+		this.matrixMode(TSGLContext.MODELVIEW)
 	}
 
 	/// Implement the OpenGL modelview and projection matrix stacks, along with some other useful GLU matrix functions.
@@ -251,23 +251,23 @@ export class LightGLContext {
 		if (this.immediate.mode == -1) throw new Error('mismatched viewerGL.begin() and viewerGL.end() calls')
 		this.immediate.mesh.compile()
 		this.immediate.shader.uniforms({
-			useTexture: !!LightGLContext.gl.getParameter(WGL.TEXTURE_BINDING_2D),
+			useTexture: !!TSGLContext.gl.getParameter(WGL.TEXTURE_BINDING_2D),
 		}).drawBuffers(this.immediate.mesh.vertexBuffers, undefined, this.immediate.mode)
 		this.immediate.mode = -1
 	}
 
 
 	////////// MISCELLANEOUS METHODS
-	static gl: LightGLContext
+	static gl: TSGLContext
 
 	makeCurrent() {
-		LightGLContext.gl = this
+		TSGLContext.gl = this
 	}
 
 	/**
 	 * Starts an animation loop.
 	 */
-	animate(callback: (this: LightGLContext, domHighResTimeStamp: number, timeSinceLast: number) => void): () => void {
+	animate(callback: (this: TSGLContext, domHighResTimeStamp: number, timeSinceLast: number) => void): () => void {
 		const requestAnimationFrame: typeof window.requestAnimationFrame =
 			window.requestAnimationFrame ||
 			(window as any).mozRequestAnimationFrame ||
@@ -339,11 +339,11 @@ export class LightGLContext {
 			gl.canvas.height = (window.innerHeight - top - bottom) * window.devicePixelRatio
 			gl.viewport(0, 0, gl.canvas.width, gl.canvas.height)
 			if (options.camera) {
-				gl.matrixMode(LightGLContext.PROJECTION)
+				gl.matrixMode(TSGLContext.PROJECTION)
 				gl.loadIdentity()
 				gl.perspective(options.fov || 45, gl.canvas.width / gl.canvas.height,
 					options.near || 0.1, options.far || 1000)
-				gl.matrixMode(LightGLContext.MODELVIEW)
+				gl.matrixMode(TSGLContext.MODELVIEW)
 			}
 		}
 
@@ -368,19 +368,19 @@ export class LightGLContext {
 	 * `create()` creates a new WebGL context and augments it with more methods. The alpha channel is disabled
 	 * by default because it usually causes unintended transparencies in the canvas.
 	 */
-	static create(options: { canvas?: HTMLCanvasElement, alpha?: boolean } = {}): LightGLContext {
+	static create(options: { canvas?: HTMLCanvasElement, alpha?: boolean } = {}): TSGLContext {
 		const canvas = options.canvas || document.createElement('canvas')
 		if (!options.canvas) {
 			canvas.width = 800
 			canvas.height = 600
 		}
 		if (!('alpha' in options)) options.alpha = false
-		let newGL: LightGLContext | undefined = undefined
+		let newGL: TSGLContext | undefined = undefined
 		try {
-			newGL = canvas.getContext('webgl2', options) as LightGLContext
+			newGL = canvas.getContext('webgl2', options) as TSGLContext
 			newGL && ((newGL as any).version = 2)
 			if (!newGL) {
-				newGL = (canvas.getContext('webgl', options) || canvas.getContext('experimental-webgl', options)) as LightGLContext
+				newGL = (canvas.getContext('webgl', options) || canvas.getContext('experimental-webgl', options)) as TSGLContext
 				newGL && ((newGL as any).version = 1)
 			}
 			console.log('getting context')
@@ -389,9 +389,9 @@ export class LightGLContext {
 		}
 		if (!newGL) throw new Error('WebGL not supported')
 
-		LightGLContext.gl = newGL
-		addOwnProperties(newGL, LightGLContext.prototype)
-		addOwnProperties(newGL, new LightGLContext(newGL))
+		TSGLContext.gl = newGL
+		addOwnProperties(newGL, TSGLContext.prototype)
+		addOwnProperties(newGL, new TSGLContext(newGL))
 		//addEventListeners(newGL)
 		return newGL
 	}
@@ -407,9 +407,9 @@ export class LightGLContext {
 // 	CONTEXT_LOST_WEBGL = WGL.CONTEXT_LOST_WEBGL,
 // }
 
-LightGLContext.prototype.MODELVIEW = LightGLContext.MODELVIEW
-LightGLContext.prototype.PROJECTION = LightGLContext.PROJECTION
-LightGLContext.prototype.HALF_FLOAT_OES = LightGLContext.HALF_FLOAT_OES
+TSGLContext.prototype.MODELVIEW = TSGLContext.MODELVIEW
+TSGLContext.prototype.PROJECTION = TSGLContext.PROJECTION
+TSGLContext.prototype.HALF_FLOAT_OES = TSGLContext.HALF_FLOAT_OES
 
 
 /**

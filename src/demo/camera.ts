@@ -1,24 +1,24 @@
 /// <reference path="../types.d.ts" />
 import { V3, DEG, V, clamp } from 'ts3dutils'
-import { LightGLContext, Mesh, Shader } from 'tsgl'
+import { TSGLContext, Mesh, Shader } from 'tsgl'
 
 /**
  * Move camera using mouse.
  */
-export function camera(gl: LightGLContext) {
+export function camera(gl: TSGLContext) {
 	let yRot = -10 * DEG
 	let zRot = 90 * DEG
 	let camera = new V3(0, -5, 1)
 	const mesh = Mesh.sphere().computeWireframeFromFlatTriangles().compile()
 	const shader = Shader.create(`
 precision mediump float;
-attribute vec3 LGL_Normal;
-attribute vec4 LGL_Vertex;
-uniform mat4 LGL_ModelViewProjectionMatrix;
+attribute vec3 ts_Normal;
+attribute vec4 ts_Vertex;
+uniform mat4 ts_ModelViewProjectionMatrix;
 varying vec3 normal;
 void main() {
-	normal = LGL_Normal;
-	gl_Position = LGL_ModelViewProjectionMatrix * LGL_Vertex;
+	normal = ts_Normal;
+	gl_Position = ts_ModelViewProjectionMatrix * ts_Vertex;
 }
 `, `
 precision mediump float;

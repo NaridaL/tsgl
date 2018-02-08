@@ -3,7 +3,7 @@
 import chroma from 'chroma-js'
 import { AABB, arrayFromFunction, clamp, DEG, int, lerp, M4, TAU, time, Tuple4, V, V3 } from 'ts3dutils'
 
-import { DRAW_MODES, LightGLContext, Mesh, pushQuad, Shader, Texture } from 'tsgl'
+import { DRAW_MODES, Mesh, pushQuad, Shader, Texture, TSGLContext } from 'tsgl'
 
 const { sin, PI } = Math
 
@@ -12,7 +12,7 @@ import rayTracerFS from '../shaders/rayTracerFS.glslx'
 /**
  * Realtime GPU ray tracing including reflection.
  */
-export async function rayTracing(gl: LightGLContext) {
+export async function rayTracing(gl: TSGLContext) {
 	let angleX = 30
 	let angleY = 10
 
@@ -30,7 +30,7 @@ export async function rayTracing(gl: LightGLContext) {
 	const cube = Mesh.cube().rotateX(20 * DEG).rotateY(30 * DEG).translate(2, 1, -2)
 	const dodecahedron = Mesh.sphere(0)
 		.addVertexBuffer('specular', 'specular')
-		.addVertexBuffer('coords', 'LGL_TexCoord')
+		.addVertexBuffer('coords', 'ts_TexCoord')
 		.translate(3, 1)
 	// d20 reflects most of the light
 	dodecahedron.specular = dodecahedron.vertices.map(_ => 0.8)
@@ -41,11 +41,11 @@ export async function rayTracing(gl: LightGLContext) {
 	// out/in pos so we get the world position of the fragments
 	const shader = Shader.create(`#version 300 es
 		precision mediump float;
-		in vec4 LGL_Vertex;
+		in vec4 ts_Vertex;
 		out vec4 pos;
 		void main() {
-			gl_Position = LGL_Vertex;
-			pos = LGL_Vertex;
+			gl_Position = ts_Vertex;
+			pos = ts_Vertex;
 		}`, rayTracerFS)
 
 	// define spheres which we will have the shader ray-trace

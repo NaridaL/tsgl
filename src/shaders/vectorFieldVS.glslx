@@ -1,5 +1,5 @@
 precision mediump float;
-attribute vec4 LGL_Vertex;
+attribute vec4 ts_Vertex;
 const int NUM_PS = 64;
 float q = 0.01;
 uniform vec4 ps[NUM_PS];
@@ -19,7 +19,7 @@ vec3 forceAtPos(vec3 coord) {
 }
 void main() {
     //gl_FragColor = vec4(coord.x, coord.y, 0, 1);
-    vec4 pos = LGL_Vertex;
+    vec4 pos = ts_Vertex;
     vec3 fieldPos = pos.xyz;
     vec3 fieldForce = forceAtPos(fieldPos);
     color = vec4(1,0,0,1) * sqrt(length(fieldForce)) / 1.0;

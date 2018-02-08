@@ -37,8 +37,8 @@
 	const fName = hash && hash.substr(1) || 'setupDemo'
 	let gl, cancel
 	window.onload = () => {
-		gl = demo.LightGLContext.create({antialias: true}).fullscreen()
-		Object.keys(demo).filter(k => 'LightGLContext' !== k).map(k => {
+		gl = demo.TSGLContext.create({antialias: true}).fullscreen()
+		Object.keys(demo).filter(k => 'TSGLContext' !== k).map(k => {
 			const a = document.createElement('a')
 			a.innerText = k
 			a.href = '#' + k

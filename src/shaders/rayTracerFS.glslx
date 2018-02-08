@@ -3,7 +3,7 @@ precision highp float;
 const float INFINITY = 1.0e9;
 in vec4 pos;
 uniform vec3 sphereCenters[8];
-uniform mat4 LGL_ModelViewProjectionMatrixInverse;
+uniform mat4 ts_ModelViewProjectionMatrixInverse;
 uniform float sphereRadii[8];
 const int TRIANGLE_COUNT = 1024;
 out vec4 fragColor;
@@ -76,9 +76,9 @@ vec3 textcoordi(int i) {
 void main() {
 	// pos.xy is the pixel we are drawing in normalized device coordinates (NDC, from -1 to +1)
 	// the starting ray in NDC is (origin=pos.xy, dir=Z)
-	// with LGL_ModelViewProjectionMatrixInverse we transform the start and end point into world coordinates
-	vec3 rayStart = (LGL_ModelViewProjectionMatrixInverse * vec4(pos.xy, 1.0, 1.0)).xyz;
-	vec3 rayEnd = (LGL_ModelViewProjectionMatrixInverse * vec4(pos.xy, -1.0, 1.0)).xyz;
+	// with ts_ModelViewProjectionMatrixInverse we transform the start and end point into world coordinates
+	vec3 rayStart = (ts_ModelViewProjectionMatrixInverse * vec4(pos.xy, 1.0, 1.0)).xyz;
+	vec3 rayEnd = (ts_ModelViewProjectionMatrixInverse * vec4(pos.xy, -1.0, 1.0)).xyz;
 	vec3 rayDir = rayEnd - rayStart;
 
 	// start with a black fragment

@@ -2,18 +2,18 @@
 import chroma from 'chroma-js'
 import { AABB, arrayFromFunction, clamp, DEG, int, lerp, M4, TAU, time, Tuple4, V, V3 } from 'ts3dutils'
 
-import { DRAW_MODES, LightGLContext, Mesh, pushQuad, Shader, Texture } from 'tsgl'
+import { DRAW_MODES, TSGLContext, Mesh, pushQuad, Shader, Texture } from 'tsgl'
 
 const { sin, PI } = Math
 
-export { LightGLContext }
+export { TSGLContext }
 
 import gazeboJSON from '../../gazebo.json'
 
 /**
  * Draw soft shadows by calculating a light map in multiple passes.
  */
-export function gpuLightMap(gl: LightGLContext) {
+export function gpuLightMap(gl: TSGLContext) {
 	gl.getExtension('EXT_color_buffer_float')
 	// modified version of https://evanw.github.io/lightgl.js/tests/gpulightmap.html
 
@@ -27,10 +27,10 @@ export function gpuLightMap(gl: LightGLContext) {
 	}
 	const texturePlane = Mesh.plane()
 	const textureShader = Shader.create(`
-  attribute vec2 LGL_TexCoord;
+  attribute vec2 ts_TexCoord;
   varying vec2 coord;
   void main() {
-    coord = LGL_TexCoord;
+    coord = ts_TexCoord;
     gl_Position = vec4(coord * 2.0 - 1.0, 0.0, 1.0);
   }
 `, `
@@ -45,11 +45,11 @@ precision highp float;
 	const texture = Texture.fromURL('texture.png')
 	const depthMap = new Texture(1024, 1024, { format: gl.RGBA })
 	const depthShader = Shader.create(`
-	uniform mat4 LGL_ModelViewProjectionMatrix;
-	attribute vec4 LGL_Vertex;
+	uniform mat4 ts_ModelViewProjectionMatrix;
+	attribute vec4 ts_Vertex;
   varying vec4 pos;
   void main() {
-    gl_Position = pos = LGL_ModelViewProjectionMatrix * LGL_Vertex;
+    gl_Position = pos = ts_ModelViewProjectionMatrix * ts_Vertex;
   }
 `, `
 precision highp float;
@@ -64,15 +64,15 @@ precision highp float;
   uniform mat4 shadowMapMatrix;
   uniform vec3 light;
   attribute vec4 offsetPosition;
-  attribute vec3 LGL_Normal;
-  attribute vec2 LGL_TexCoord;
+  attribute vec3 ts_Normal;
+  attribute vec2 ts_TexCoord;
   varying vec4 shadowMapPos; // position inside the shadow map frustrum
   varying vec3 normal;
 
   void main() {
-    normal = LGL_Normal;
+    normal = ts_Normal;
     shadowMapPos = shadowMapMatrix * offsetPosition;
-    gl_Position = vec4(LGL_TexCoord * 2.0 - 1.0, 0.0, 1.0);
+    gl_Position = vec4(ts_TexCoord * 2.0 - 1.0, 0.0, 1.0);
   }
 `, `
 	precision highp float;
@@ -101,9 +101,9 @@ precision highp float;
 	 */
 	class QuadMesh {
 		mesh = new Mesh()
-			.addVertexBuffer('normals', 'LGL_Normal')
+			.addVertexBuffer('normals', 'ts_Normal')
 			.addIndexBuffer('TRIANGLES')
-			.addVertexBuffer('coords', 'LGL_TexCoord')
+			.addVertexBuffer('coords', 'ts_TexCoord')
 			.addVertexBuffer('offsetCoords', 'offsetCoord')
 			.addVertexBuffer('offsetPositions', 'offsetPosition')
 		index: int = 0
@@ -302,13 +302,13 @@ precision highp float;
 	// The mesh will be drawn with texture mapping
 	const mesh = quadMesh.mesh
 	const textureMapShader = Shader.create(`
-		attribute vec4 LGL_Vertex;
-		uniform mat4 LGL_ModelViewProjectionMatrix;
+		attribute vec4 ts_Vertex;
+		uniform mat4 ts_ModelViewProjectionMatrix;
         attribute vec2 offsetCoord;
         varying vec2 coord;
         void main() {
             coord = offsetCoord;
-            gl_Position = LGL_ModelViewProjectionMatrix * LGL_Vertex;
+            gl_Position = ts_ModelViewProjectionMatrix * ts_Vertex;
         }
 `, `
 		precision highp float;

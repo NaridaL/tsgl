@@ -1,6 +1,6 @@
 import {assert, int} from 'ts3dutils'
 
-import {currentGL, LightGLContext} from './LightGLContext'
+import {currentGL, TSGLContext} from './TSGLContext'
 
 export interface TextureOptions {
 	wrap?: number // defaults to WGL.CLAMP_TO_EDGE, or set wrapS and wrapT individually.
@@ -10,7 +10,9 @@ export interface TextureOptions {
 	minFilter?: number
 	magFilter?: number
 	format?: number // defaults to WGL.RGBA.
+	internalFormat?: number
 	type?: number // defaults to WGL.UNSIGNED_BYTE.
+	data?: any
 }
 
 export class Texture {
@@ -18,6 +20,7 @@ export class Texture {
 	width: int
 	texture: WebGLTexture
 	// e.g. viewerGL.UNSIGNED_BYTE, viewerGL.FLOAT
+		internalFormat: int
 	format: int
 	// e.g. viewerGL.RGBA
 	type: int
@@ -62,7 +65,7 @@ export class Texture {
 			if ((minFilter !== gl.NEAREST || magFilter !== gl.NEAREST) && !gl.getExtension('OES_texture_float_linear')) {
 				throw new Error('OES_texture_float_linear is required but not supported')
 			}
-		} else if (this.type === LightGLContext.HALF_FLOAT_OES) {
+		} else if (this.type === gl.HALF_FLOAT_OES) {
 			if (!gl.getExtension('OES_texture_half_float')) {
 				throw new Error('OES_texture_half_float is required but not supported')
 			}
@@ -71,7 +74,7 @@ export class Texture {
 			}
 		}
 		gl.bindTexture(gl.TEXTURE_2D, this.texture)
-		gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1)
+		// gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1)
 		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, magFilter)
 		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, minFilter)
 		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, options.wrap || options.wrapS || gl.CLAMP_TO_EDGE)
@@ -108,7 +111,7 @@ export class Texture {
 		return result
 	}
 
-	drawTo(callback: (gl: LightGLContext) => void): void {
+	drawTo(callback: (gl: TSGLContext) => void): void {
 		const gl = this.gl
 		this.framebuffer = this.framebuffer || gl.createFramebuffer()
 		this.renderbuffer = this.renderbuffer || gl.createRenderbuffer() as any
@@ -153,7 +156,7 @@ export class Texture {
 	/**
 	 * Return a new texture created from `imgElement`, an `<img>` tag.
 	 */
-	static fromImage(imgElement: HTMLImageElement | HTMLCanvasElement, options: TextureOptions, gl: LightGLContext = currentGL()): Texture {
+	static fromImage(imgElement: HTMLImageElement | HTMLCanvasElement, options: TextureOptions, gl: TSGLContext = currentGL()): Texture {
 		options = options || {}
 		const texture = new Texture(imgElement.width, imgElement.height, options, gl)
 		try {

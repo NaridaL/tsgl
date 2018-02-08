@@ -3,7 +3,7 @@ import {
 } from 'ts3dutils'
 
 import {Buffer} from './Buffer'
-import {currentGL, GL_COLOR, LightGLContext, pushQuad} from './LightGLContext'
+import {currentGL, GL_COLOR, pushQuad, TSGLContext} from './TSGLContext'
 
 const {cos, sin, PI, min, max} = Math
 const WGL = WebGLRenderingContext
@@ -12,7 +12,7 @@ const WGL = WebGLRenderingContext
  * @example new Mesh()
  *        .addIndexBuffer('TRIANGLES')
  *        .addIndexBuffer('LINES')
- *        .addVertexBuffer('normals', 'LGL_Normal')
+ *        .addVertexBuffer('normals', 'ts_Normal')
  */
 export class Mesh extends Transformable {
 	hasBeenCompiled: boolean = false
@@ -29,10 +29,7 @@ export class Mesh extends Transformable {
 
 	constructor() {
 		super()
-		this.addVertexBuffer('vertices', 'LGL_Vertex')
-		//if (options.coords) this.addVertexBuffer('coords', 'LGL_TexCoord')
-		//if (options.normals) this.addVertexBuffer('normals', 'LGL_Normal')
-		//if (options.colors) this.addVertexBuffer('colors', 'LGL_Color')
+		this.addVertexBuffer('vertices', 'ts_Vertex')
 	}
 
 	calcVolume(this: Mesh & { TRIANGLES: int[] }): { volume: number, centroid: V3, area: number } {
@@ -59,7 +56,7 @@ export class Mesh extends Transformable {
 	/**
 	 * Add a new vertex buffer with a list as a property called `name` on this object and map it to
 	 * the attribute called `attribute` in all shaders that draw this mesh.
-	 * @example new Mesh().addVertexBuffer('coords', 'LGL_TexCoord')
+	 * @example new Mesh().addVertexBuffer('coords', 'ts_TexCoord')
 	 */
 
 	addVertexBuffer<K extends string>(name: K, attribute: string): this & { [k in K]: any[] } {
@@ -114,15 +111,15 @@ export class Mesh extends Transformable {
 	 *
 	 * Sets `this.hasBeenCompiled` to true.
 	 */
-	compile(gl: LightGLContext = currentGL()) {
+	compile(gl: TSGLContext = currentGL()) {
 		// figure out shortest vertex buffer to make sure indexBuffers are in bounds
-		let minVertexBufferLength = Infinity, _minBufferName
+		let minVertexBufferLength = Infinity// TODO, _minBufferName
 		Object.getOwnPropertyNames(this.vertexBuffers).forEach(attribute => {
 			const buffer = this.vertexBuffers[attribute]
 			buffer.data = (this as any)[buffer.name!]
 			buffer.compile(undefined, gl)
 			if ((this as any)[buffer.name!].length < minVertexBufferLength) {
-				_minBufferName = attribute
+				// _minBufferName = attribute
 				minVertexBufferLength = (this as any)[buffer.name!].length
 			}
 		})
@@ -143,7 +140,7 @@ export class Mesh extends Transformable {
 	static async fromBinarySTL(stl: Blob) {
 		return new Promise<Mesh & { normals: V3[] }>((resolve, reject) => {
 			const mesh = new Mesh()
-				.addVertexBuffer('normals', 'LGL_Normal')
+				.addVertexBuffer('normals', 'ts_Normal')
 			const fileReader = new FileReader()
 			fileReader.onerror = reject
 			fileReader.onload = function (_progressEvent) {
@@ -223,7 +220,7 @@ export class Mesh extends Transformable {
 		const mesh = new Mesh()
 		mesh.vertices = m4.transformedPoints(this.vertices)
 		if (this.normals) {
-			mesh.addVertexBuffer('normals', 'LGL_Normal')
+			mesh.addVertexBuffer('normals', 'ts_Normal')
 			const invTrans = m4.as3x3().inversed().transposed().normalized()
 			mesh.normals = this.normals.map(n => invTrans.transformVector(n).unit())
 			// mesh.normals.forEach(n => assert(n.hasLength(1)))
@@ -233,7 +230,7 @@ export class Mesh extends Transformable {
 			;(mesh as any)[name] = (this as any)[name]
 		}
 		for (const attribute in this.vertexBuffers) {
-			if ('LGL_Vertex' !== attribute && 'LGL_Normal' !== attribute) {
+			if ('ts_Vertex' !== attribute && 'ts_Normal' !== attribute) {
 				const name = this.vertexBuffers[attribute].name!
 				mesh.addVertexBuffer(name, attribute)
 				;(mesh as any)[name] = (this as any)[name]
@@ -248,9 +245,9 @@ export class Mesh extends Transformable {
 	 * adjacent triangles must share vertices for the resulting normals to be smooth.
 	 */
 	computeNormalsFromFlatTriangles(this: Mesh & { TRIANGLES: int[] }): this & { normals: V3[] } {
-		if (!this.normals) this.addVertexBuffer('normals', 'LGL_Normal')
+		if (!this.normals) this.addVertexBuffer('normals', 'ts_Normal')
 		// tslint:disable:no-string-literal
-		//this.vertexBuffers['LGL_Normal'].data = arrayFromFunction(this.vertices.length, i => V3.O)
+		//this.vertexBuffers['ts_Normal'].data = arrayFromFunction(this.vertices.length, i => V3.O)
 
 		const TRIANGLES = this.TRIANGLES, vertices = this.vertices, normals = this.normals!
 		normals.length = vertices.length
@@ -398,8 +395,8 @@ export class Mesh extends Transformable {
 		const mesh = new Mesh()
 			.addIndexBuffer('LINES')
 			.addIndexBuffer('TRIANGLES')
-			.addVertexBuffer('normals', 'LGL_Normal')
-			.addVertexBuffer('coords', 'LGL_TexCoord')
+			.addVertexBuffer('normals', 'ts_Normal')
+			.addVertexBuffer('coords', 'ts_TexCoord')
 
 		for (let j = 0; j <= detailY; j++) {
 			const t = j / detailY
@@ -450,7 +447,7 @@ export class Mesh extends Transformable {
 	 */
 	static cube() {
 		const mesh = new Mesh()
-			.addVertexBuffer('normals', 'LGL_Normal')
+			.addVertexBuffer('normals', 'ts_Normal')
 			.addIndexBuffer('TRIANGLES')
 			.addIndexBuffer('LINES')
 
@@ -593,7 +590,7 @@ export class Mesh extends Transformable {
 		}
 
 		const mesh = new Mesh()
-			.addVertexBuffer('normals', 'LGL_Normal')
+			.addVertexBuffer('normals', 'ts_Normal')
 			.addIndexBuffer('TRIANGLES')
 			.addIndexBuffer('LINES')
 		mesh.vertices.push(...vertices)
@@ -629,8 +626,8 @@ export class Mesh extends Transformable {
 
 		const mesh = new Mesh()
 			.addIndexBuffer('TRIANGLES')
-			.addVertexBuffer('coords', 'LGL_TexCoord')
-		normals && mesh.addVertexBuffer('normals', 'LGL_Normal')
+			.addVertexBuffer('coords', 'ts_TexCoord')
+		normals && mesh.addVertexBuffer('normals', 'ts_Normal')
 		mesh.vertices = vertices.concat(vertices.map(v => v.plus(offset)))
 		const vl = vertices.length
 		mesh.coords = arrayFromFunction(vl * 2, (i): [number, number] => [(i % vl) / vl, (i / vl) | 0])
@@ -658,7 +655,7 @@ export class Mesh extends Transformable {
 	// @example const precious = Mesh.rotation([V(10, 0, -2), V(10, 0, 2), V(11, 0, 2), V(11, 0, -2)], , L3.Z, 512)
 	static rotation(vertices: V3[], lineAxis: { anchor: V3, dir1: V3 }, totalRads: raddd, steps: int, close = true, normals?: V3[]) {
 		const mesh = new Mesh().addIndexBuffer('TRIANGLES')
-		normals && mesh.addVertexBuffer('normals', 'LGL_Normal')
+		normals && mesh.addVertexBuffer('normals', 'ts_Normal')
 		const vc = vertices.length, vTotal = vc * steps
 
 		const rotMat = new M4()
@@ -686,7 +683,7 @@ export class Mesh extends Transformable {
 	static parametric(pF: (d: number, z: number) => V3, pN: (d: number, z: number) => V3,
 					  sMin: number, sMax: number, tMin: number, tMax: number, sRes: number, tRes: number) {
 		const mesh = new Mesh()
-			.addVertexBuffer('normals', 'LGL_Normal')
+			.addVertexBuffer('normals', 'ts_Normal')
 			.addIndexBuffer('TRIANGLES')
 		for (let si = 0; si <= sRes; si++) {
 			const s = lerp(sMin, sMax, si / sRes)
@@ -717,7 +714,7 @@ export class Mesh extends Transformable {
 			;(mesh as any).TRIANGLES = json.triangles
 		}
 		if (json.normals) {
-			mesh.addVertexBuffer('normals', 'LGL_Normal')
+			mesh.addVertexBuffer('normals', 'ts_Normal')
 			;(mesh as any).normals = json.normals
 		}
 		mesh.compile()
