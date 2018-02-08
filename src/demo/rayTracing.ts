@@ -74,7 +74,7 @@ export async function rayTracing(gl: TSGLContext) {
 	})
 
 	// texture for ray-traced mesh
-	const floorTexture = Texture.fromURL('../../mandelbrot.jpg')
+	const floorTexture = Texture.fromURL('./mandelbrot.jpg')
 
 	const showMesh = floor.concat(dodecahedron)
 	const textureWidth = 1024
