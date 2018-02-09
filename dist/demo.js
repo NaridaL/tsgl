@@ -5394,7 +5394,7 @@ class Texture {
     /**
      * Returns a checkerboard texture that will switch to the correct texture when it loads.
      */
-    static fromURL(url, options = {}, gl = currentGL()) {
+    static fromURLSwitch(url, options = {}, gl = currentGL()) {
         Texture.checkerBoardCanvas = Texture.checkerBoardCanvas || (function () {
             const c = document.createElement('canvas').getContext('2d');
             if (!c)
@@ -5412,8 +5412,18 @@ class Texture {
         const texture = Texture.fromImage(Texture.checkerBoardCanvas, options);
         const image = new Image();
         image.onload = () => Texture.fromImage(image, options, gl).swapWith(texture);
+        // error event doesn't return a reason. Most likely a 404.
+        image.onerror = () => { throw new Error('Could not load image ' + image.src + '. 404?'); };
         image.src = url;
         return texture;
+    }
+    static fromURL(url, options, gl = currentGL()) {
+        return new Promise((resolve, reject) => {
+            const image = new Image();
+            image.onload = () => resolve(Texture.fromImage(image, options, gl));
+            image.onerror = () => reject('Could not load image ' + image.src + '. 404?');
+            image.src = url;
+        });
     }
 }
 
@@ -5536,7 +5546,6 @@ precision highp float;
     gl_FragColor = texture2D(texture, coord);
   }
 `);
-    const texture = Texture.fromURL('texture.png');
     const depthMap = new Texture(1024, 1024, { format: gl.RGBA });
     const depthShader = Shader.create(`
 	uniform mat4 ts_ModelViewProjectionMatrix;
@@ -5811,6 +5820,7 @@ precision highp float;
         gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
     });
 }
+gpuLightMap.info = 'LMB-drag to rotate camera.';
 
 /// <reference path="../types.d.ts" />
 /**
@@ -6067,8 +6077,8 @@ mag.info = 'Press keys 1-5 to toggle magnets, +/- to change to number of field l
  */
 function multiTexture(gl) {
     const mesh = Mesh.plane();
-    const texture = Texture.fromURL('texture.png');
-    const texture2 = Texture.fromURL('texture2.png');
+    const texture = Texture.fromURLSwitch('texture.png');
+    const texture2 = Texture.fromURLSwitch('texture2.png');
     const shader = Shader.create(`
 	attribute vec2 ts_TexCoord;
 	attribute vec4 ts_Vertex;
@@ -6165,7 +6175,7 @@ function rayTracing(gl) {
             return Mesh.cube().transform(M4.multiplyMultiple(M4.translate(center), M4.forSys(a, b), M4.scale(r, r, r), M4.translate(-0.5, -0.5, -0.5)));
         });
         // texture for ray-traced mesh
-        const floorTexture = Texture.fromURL('./mandelbrot.jpg');
+        const floorTexture = yield Texture.fromURL('./mandelbrot.jpg');
         const showMesh = floor.concat(dodecahedron);
         const textureWidth = 1024;
         const textureHeight = 1;
@@ -6197,17 +6207,17 @@ function rayTracing(gl) {
         };
         gl.matrixMode(gl.PROJECTION);
         gl.loadIdentity();
+        verticesTexture.bind(0);
+        floorTexture.bind(1);
+        uvTexture.bind(2);
+        shader.uniforms({
+            'sphereCenters[0]': sphereCenters,
+            'sphereRadii[0]': sphereRadii,
+            'vertices': 0,
+            'triangleTexture': 1,
+            'texCoords': 2
+        });
         return gl.animate(function (abs, diff) {
-            verticesTexture.bind(0);
-            floorTexture.bind(1);
-            uvTexture.bind(2);
-            shader.uniforms({
-                'sphereCenters[0]': sphereCenters,
-                'sphereRadii[0]': sphereRadii,
-                'vertices': 0,
-                'triangleTexture': 1,
-                'texCoords': 2
-            });
             // Camera setup
             gl.matrixMode(gl.MODELVIEW);
             gl.loadIdentity();
@@ -6251,7 +6261,7 @@ function renderToTexture(gl) {
     });
     const cyl = Mesh.offsetVertices(sinVertices, V3.Z, false);
     const plane = Mesh.plane();
-    const texture = Texture.fromURL('texture.png');
+    const texture = Texture.fromURLSwitch('texture.png');
     const overlay = new Texture(1024, 1024);
     const meshShader = Shader.create(`
 	attribute vec3 ts_Normal;

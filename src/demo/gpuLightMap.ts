@@ -42,7 +42,6 @@ precision highp float;
   }
 `)
 
-	const texture = Texture.fromURL('texture.png')
 	const depthMap = new Texture(1024, 1024, { format: gl.RGBA })
 	const depthShader = Shader.create(`
 	uniform mat4 ts_ModelViewProjectionMatrix;
@@ -383,5 +382,5 @@ precision highp float;
 		gl.viewport(0, 0, gl.canvas.width, gl.canvas.height)
 
 	})
-
 }
+(gpuLightMap as any).info = 'LMB-drag to rotate camera.'

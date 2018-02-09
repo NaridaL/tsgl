@@ -7,8 +7,8 @@ import { V3, V } from 'ts3dutils'
  */
 export function multiTexture(gl: TSGLContext) {
 	const mesh = Mesh.plane()
-	const texture = Texture.fromURL('texture.png')
-	const texture2 = Texture.fromURL('texture2.png')
+	const texture = Texture.fromURLSwitch('texture.png')
+	const texture2 = Texture.fromURLSwitch('texture2.png')
 	const shader = Shader.create<{ texture: 'SAMPLER_2D', texture2: 'SAMPLER_2D' }, {}>(`
 	attribute vec2 ts_TexCoord;
 	attribute vec4 ts_Vertex;

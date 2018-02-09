@@ -178,7 +178,7 @@ export class Texture {
 	/**
 	 * Returns a checkerboard texture that will switch to the correct texture when it loads.
 	 */
-	static fromURL(url: string, options: TextureOptions = {}, gl = currentGL()): Texture {
+	static fromURLSwitch(url: string, options: TextureOptions = {}, gl = currentGL()): Texture {
 		Texture.checkerBoardCanvas = Texture.checkerBoardCanvas || (function () {
 			const c = document.createElement('canvas').getContext('2d')
 			if (!c) throw new Error('Could not create 2d canvas.')
@@ -195,7 +195,18 @@ export class Texture {
 		const texture = Texture.fromImage(Texture.checkerBoardCanvas, options)
 		const image = new Image()
 		image.onload = () => Texture.fromImage(image, options, gl).swapWith(texture)
+		// error event doesn't return a reason. Most likely a 404.
+		image.onerror = () => { throw new Error('Could not load image ' + image.src + '. 404?') }
 		image.src = url
 		return texture
+	}
+
+	static fromURL(url: string, options: TextureOptions, gl = currentGL()): Promise<Texture> {
+		return new Promise((resolve, reject) => {
+			const image = new Image()
+			image.onload = () => resolve(Texture.fromImage(image, options, gl))
+			image.onerror = () => reject('Could not load image ' + image.src + '. 404?')
+			image.src = url
+		})
 	}
 }

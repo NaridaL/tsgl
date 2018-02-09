@@ -21,7 +21,7 @@ export function renderToTexture(gl: TSGLContext) {
 	})
 	const cyl = Mesh.offsetVertices(sinVertices, V3.Z, false)
 	const plane = Mesh.plane()
-	const texture = Texture.fromURL('texture.png')
+	const texture = Texture.fromURLSwitch('texture.png')
 	const overlay = new Texture(1024, 1024)
 	const meshShader = Shader.create(`
 	attribute vec3 ts_Normal;

@@ -74,7 +74,7 @@ export async function rayTracing(gl: TSGLContext) {
 	})
 
 	// texture for ray-traced mesh
-	const floorTexture = Texture.fromURL('./mandelbrot.jpg')
+	const floorTexture = await Texture.fromURL('./mandelbrot.jpg')
 
 	const showMesh = floor.concat(dodecahedron)
 	const textureWidth = 1024
@@ -112,18 +112,18 @@ export async function rayTracing(gl: TSGLContext) {
 	gl.matrixMode(gl.PROJECTION)
 	gl.loadIdentity()
 
+	verticesTexture.bind(0)
+	floorTexture.bind(1)
+	uvTexture.bind(2)
+	shader.uniforms({
+		'sphereCenters[0]': sphereCenters,
+		'sphereRadii[0]': sphereRadii,
+		'vertices': 0,
+		'triangleTexture': 1,
+		'texCoords': 2
+	})
 
 	return gl.animate(function (abs, diff) {
-		verticesTexture.bind(0)
-		floorTexture.bind(1)
-		uvTexture.bind(2)
-		shader.uniforms({
-			'sphereCenters[0]': sphereCenters,
-			'sphereRadii[0]': sphereRadii,
-			'vertices': 0,
-			'triangleTexture': 1,
-			'texCoords': 2
-		})
 
 		// Camera setup
 		gl.matrixMode(gl.MODELVIEW)
