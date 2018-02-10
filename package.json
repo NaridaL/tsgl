@@ -50,13 +50,10 @@
     "test": "(cd tests && mocha --ui tdd --require ts-node/register ./**/*.test.ts)",
     "test:ci": "npm run build && npm run lint && npm test",
     "watchdemo": "rollup -c rollup.demo.config.js -w",
-    "builddemo": "rollup -c rollup.demo.config.js"
+    "builddemo": "rollup -c rollup.demo.config.js",
+    "pre-commit": "npm run lint && npm run build && npm run builddemo && git add dist/*"
   },
-  "pre-commit": [
-    "lint",
-    "build",
-    "builddemo"
-  ],
+  "pre-commit": ["pre-commit"],
   "types": "index.d.ts",
   "umdGlobal": "tsgl",
   "version": "1.0.0"
