@@ -1,9 +1,6 @@
-/// <reference path="../types.d.ts" />
+import { arrayFromFunction, lerp, V, V3 } from 'ts3dutils'
 
-import chroma from 'chroma-js'
-import { AABB, arrayFromFunction, clamp, DEG, int, lerp, M4, TAU, time, Tuple4, V, V3 } from 'ts3dutils'
-
-import { DRAW_MODES, TSGLContext, Mesh, pushQuad, Shader, Texture } from 'tsgl'
+import { TSGLContext, Mesh, Shader, Texture } from 'tsgl'
 
 const { sin, PI } = Math
 
@@ -62,7 +59,7 @@ export function renderToTexture(gl: TSGLContext) {
 	gl.enable(gl.DEPTH_TEST)
 
 
-	return gl.animate(function (abs, diff) {
+	return gl.animate(function (abs) {
 		const angleDeg = abs / 1000 * 20
 
 		gl.pushMatrix()

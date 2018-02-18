@@ -1,9 +1,10 @@
 import chroma from 'chroma-js'
-import {addOwnProperties, assert, DEG, int, M4, P3ZX, V, V3,} from 'ts3dutils'
+import { addOwnProperties, assert, DEG, int, M4, P3ZX, V, V3, } from 'ts3dutils'
+import { glEnumToString } from './KhronosGroupWebGLDebug'
 
-import {Mesh} from './Mesh'
-import {DRAW_MODES, Shader} from './Shader'
+import { makeDebugContext, Mesh, Shader } from './index'
 
+import GL = WebGLRenderingContextStrict
 export type GL_COLOR = [number, number, number, number]
 /**
  * There's only one constant, use it for default values. Use chroma-js or similar for actual colors.
@@ -11,10 +12,8 @@ export type GL_COLOR = [number, number, number, number]
 export const GL_COLOR_BLACK: GL_COLOR = [0, 0, 0, 1]
 
 export function currentGL(): TSGLContext {
-	return TSGLContext.gl
+	return TSGLContextBase.gl
 }
-
-const WGL = WebGLRenderingContext
 
 export function isNumber(obj: any) {
 	const str = Object.prototype.toString.call(obj)
@@ -22,15 +21,15 @@ export function isNumber(obj: any) {
 }
 
 export type UniformType = V3 | M4 | number[] | boolean | number
-
-export interface TSGLContext extends WebGLRenderingContext {}
-export class TSGLContext {
+export type TSGLContext = TSGLContextBase & (WebGLRenderingContextStrict | WebGL2RenderingContext)
+export interface TSGLContextBase extends WebGLRenderingContextStrict {}
+export class TSGLContextBase {
 	modelViewMatrix: M4 = M4.identity()
 	projectionMatrix: M4 = M4.identity()
 	static readonly MODELVIEW: { __MATRIX_MODE_CONSTANT: any } = 0 as any
 	static readonly PROJECTION: { __MATRIX_MODE_CONSTANT: any } = 1 as any
-	MODELVIEW: typeof TSGLContext.MODELVIEW
-	PROJECTION: typeof TSGLContext.PROJECTION
+	MODELVIEW: typeof TSGLContextBase.MODELVIEW
+	PROJECTION: typeof TSGLContextBase.PROJECTION
 
 	readonly version: 1 | 2
 
@@ -50,11 +49,11 @@ export class TSGLContext {
 	public projectionMatrixVersion: int = 0
 	public modelViewMatrixVersion: int = 0
 
-	protected constructor(gl: TSGLContext, private immediate = {
+	protected constructor(gl: TSGLContextBase, private immediate = {
 		mesh: new Mesh()
 			.addVertexBuffer('coords', 'ts_TexCoord')
 			.addVertexBuffer('colors', 'ts_Color'),
-		mode: -1 as DRAW_MODES | -1,
+		mode: -1 as GL.DrawMode | -1,
 		coord: [0, 0] as [number, number],
 		color: [1, 1, 1, 1] as GL_COLOR,
 		pointSize: 1,
@@ -85,7 +84,7 @@ export class TSGLContext {
             }
         `, gl),
 	}) {
-		this.matrixMode(TSGLContext.MODELVIEW)
+		this.matrixMode(TSGLContextBase.MODELVIEW)
 	}
 
 	/// Implement the OpenGL modelview and projection matrix stacks, along with some other useful GLU matrix functions.
@@ -209,7 +208,7 @@ export class TSGLContext {
 		this.immediate.shader.uniforms({pointSize: pointSize})
 	}
 
-	begin(mode: DRAW_MODES | -1) {
+	begin(mode: GL.DrawMode) {
 		if (this.immediate.mode != -1) throw new Error('mismatched viewerGL.begin() and viewerGL.end() calls')
 		this.immediate.mode = mode
 		this.immediate.mesh.colors = []
@@ -251,23 +250,23 @@ export class TSGLContext {
 		if (this.immediate.mode == -1) throw new Error('mismatched viewerGL.begin() and viewerGL.end() calls')
 		this.immediate.mesh.compile()
 		this.immediate.shader.uniforms({
-			useTexture: !!TSGLContext.gl.getParameter(WGL.TEXTURE_BINDING_2D),
+			useTexture: !!TSGLContextBase.gl.getParameter(this.TEXTURE_BINDING_2D),
 		}).drawBuffers(this.immediate.mesh.vertexBuffers, undefined, this.immediate.mode)
 		this.immediate.mode = -1
 	}
 
 
 	////////// MISCELLANEOUS METHODS
-	static gl: TSGLContext
+	static gl: TSGLContextBase
 
 	makeCurrent() {
-		TSGLContext.gl = this
+		TSGLContextBase.gl = this
 	}
 
 	/**
 	 * Starts an animation loop.
 	 */
-	animate(callback: (this: TSGLContext, domHighResTimeStamp: number, timeSinceLast: number) => void): () => void {
+	animate(callback: (this: TSGLContextBase, domHighResTimeStamp: number, timeSinceLast: number) => void): () => void {
 		const requestAnimationFrame: typeof window.requestAnimationFrame =
 			window.requestAnimationFrame ||
 			(window as any).mozRequestAnimationFrame ||
@@ -339,11 +338,11 @@ export class TSGLContext {
 			gl.canvas.height = (window.innerHeight - top - bottom) * window.devicePixelRatio
 			gl.viewport(0, 0, gl.canvas.width, gl.canvas.height)
 			if (options.camera) {
-				gl.matrixMode(TSGLContext.PROJECTION)
+				gl.matrixMode(TSGLContextBase.PROJECTION)
 				gl.loadIdentity()
 				gl.perspective(options.fov || 45, gl.canvas.width / gl.canvas.height,
 					options.near || 0.1, options.far || 1000)
-				gl.matrixMode(TSGLContext.MODELVIEW)
+				gl.matrixMode(TSGLContextBase.MODELVIEW)
 			}
 		}
 
@@ -356,45 +355,45 @@ export class TSGLContext {
 		this.viewport(0, 0, this.canvas.width, this.canvas.height)
 	}
 
-	handleError(): void {
-		// const errorCode = this.getError()
-		// if (0 !== errorCode) {
-		//     throw new Error('' + errorCode + WGL_ERROR[errorCode])
-		// }
-	}
-
-
-	/**
-	 * `create()` creates a new WebGL context and augments it with more methods. The alpha channel is disabled
-	 * by default because it usually causes unintended transparencies in the canvas.
-	 */
-	static create(options: { canvas?: HTMLCanvasElement, alpha?: boolean } = {}): TSGLContext {
+	static create(options: Partial<GL.WebGLContextAttributes & {canvas: HTMLCanvasElement, throwOnError: boolean}> = {}): TSGLContext {
 		const canvas = options.canvas || document.createElement('canvas')
 		if (!options.canvas) {
 			canvas.width = 800
 			canvas.height = 600
 		}
 		if (!('alpha' in options)) options.alpha = false
-		let newGL: TSGLContext | undefined = undefined
+		let newGL: any = undefined
 		try {
-			newGL = canvas.getContext('webgl2', options) as TSGLContext
-			newGL && ((newGL as any).version = 2)
+			newGL = canvas.getContext('webgl2', options)
+			newGL && (newGL.version = 2)
 			if (!newGL) {
-				newGL = (canvas.getContext('webgl', options) || canvas.getContext('experimental-webgl', options)) as TSGLContext
-				newGL && ((newGL as any).version = 1)
+				newGL = (canvas.getContext('webgl', options) || canvas.getContext('experimental-webgl', options))
+				newGL && (newGL.version = 1)
 			}
 			console.log('getting context')
 		} catch (e) {
 			console.log(e, 'Failed to get context')
 		}
 		if (!newGL) throw new Error('WebGL not supported')
+		if (options.throwOnError) {
+			newGL = makeDebugContext(newGL, (err, funcName) => {
+				throw new Error(glEnumToString(err) + ' was caused by ' + funcName)
+			})
+		}
 
-		TSGLContext.gl = newGL
-		addOwnProperties(newGL, TSGLContext.prototype)
-		addOwnProperties(newGL, new TSGLContext(newGL))
+		TSGLContextBase.gl = newGL
+		addOwnProperties(newGL, TSGLContextBase.prototype)
+		addOwnProperties(newGL, new TSGLContextBase(newGL))
 		//addEventListeners(newGL)
 		return newGL
 	}
+}
+export namespace TSGLContext {
+	/**
+	 * `create()` creates a new WebGL context and augments it with more methods. The alpha channel is disabled
+	 * by default because it usually causes unintended transparencies in the canvas.
+	 */
+	export const create = TSGLContextBase.create
 }
 
 // enum WGL_ERROR {
@@ -407,9 +406,9 @@ export class TSGLContext {
 // 	CONTEXT_LOST_WEBGL = WGL.CONTEXT_LOST_WEBGL,
 // }
 
-TSGLContext.prototype.MODELVIEW = TSGLContext.MODELVIEW
-TSGLContext.prototype.PROJECTION = TSGLContext.PROJECTION
-TSGLContext.prototype.HALF_FLOAT_OES = TSGLContext.HALF_FLOAT_OES
+TSGLContextBase.prototype.MODELVIEW = TSGLContextBase.MODELVIEW
+TSGLContextBase.prototype.PROJECTION = TSGLContextBase.PROJECTION
+TSGLContextBase.prototype.HALF_FLOAT_OES = TSGLContextBase.HALF_FLOAT_OES
 
 
 /**

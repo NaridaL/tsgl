@@ -23,9 +23,16 @@
     "sourceMap": true,
     "strictNullChecks": true,
     "target": "es6",
-    "importHelpers": true
+    "importHelpers": true,
+    "noImplicitReturns": true,
+    "baseUrl": ".",
+    "paths": {
+      "tsgl": ["src/index.ts"]
+    }
   },
   "include": [
-    "src/index.ts"
+    "node_modules/webgl-strict-types/index.d.ts",
+    "src/index.ts",
+    "src/shaders/*.glslx.d.ts"
   ]
 }

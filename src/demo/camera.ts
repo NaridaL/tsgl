@@ -2,6 +2,9 @@
 import { V3, DEG, V, clamp } from 'ts3dutils'
 import { TSGLContext, Mesh, Shader } from 'tsgl'
 
+import posNormalColorVS from '../shaders/posNormalColorVS.glslx'
+import chroma from 'chroma-js'
+
 /**
  * Move camera using mouse.
  */
@@ -10,17 +13,7 @@ export function camera(gl: TSGLContext) {
 	let zRot = 90 * DEG
 	let camera = new V3(0, -5, 1)
 	const mesh = Mesh.sphere().computeWireframeFromFlatTriangles().compile()
-	const shader = Shader.create(`
-precision mediump float;
-attribute vec3 ts_Normal;
-attribute vec4 ts_Vertex;
-uniform mat4 ts_ModelViewProjectionMatrix;
-varying vec3 normal;
-void main() {
-	normal = ts_Normal;
-	gl_Position = ts_ModelViewProjectionMatrix * ts_Vertex;
-}
-`, `
+	const shader = Shader.create(posNormalColorVS, `
 precision mediump float;
 uniform float brightness;
 varying vec3 normal;
@@ -59,8 +52,23 @@ void main() {
 	gl.clearColor(0.8, 0.8, 0.8, 1)
 	gl.enable(gl.DEPTH_TEST)
 
-	return gl.animate(function (abs, diff) {
-		const angleDeg = abs / 1000 * 45
+	gl.vertexAttrib1f(0, 42)
+	gl.enableVertexAttribArray(0)
+	console.log(gl.getVertexAttrib(0, gl.CURRENT_VERTEX_ATTRIB))
+	console.log(gl.getVertexAttrib(0, gl.VERTEX_ATTRIB_ARRAY_ENABLED))
+
+	const gl2 = gl as any as WebGL2RenderingContext
+	const vao = gl2.createVertexArray()
+	gl2.bindVertexArray(vao)
+	gl2.vertexAttrib1f(0, 31)
+	console.log(gl.getVertexAttrib(0, gl.CURRENT_VERTEX_ATTRIB))
+	console.log(gl.getVertexAttrib(0, gl.VERTEX_ATTRIB_ARRAY_ENABLED))
+
+	gl2.bindVertexArray(null)
+	console.log(gl.getVertexAttrib(0, gl.CURRENT_VERTEX_ATTRIB))
+	console.log(gl.getVertexAttrib(0, gl.VERTEX_ATTRIB_ARRAY_ENABLED))
+
+	return gl.animate(function (_abs, diff) {
 		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 		gl.loadIdentity()
 		const speed = diff / 1000 * 4
@@ -89,7 +97,7 @@ void main() {
 		gl.rotate(-yRot, 0, 1, 0)
 		gl.translate(-camera.x, -camera.y, -camera.z)
 
-		shader.uniforms({ brightness: 1 }).draw(mesh, gl.TRIANGLES)
+		shader.uniforms({ brightness: 1 }).attributes({ts_Color: chroma('red').gl()}).draw(mesh, gl.TRIANGLES)
 		shader.uniforms({ brightness: 0 }).draw(mesh, gl.LINES)
 	})
 }

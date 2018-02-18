@@ -1,12 +1,11 @@
 /// <reference path="../types.d.ts" />
-import { TSGLContext, Mesh, Shader } from 'tsgl'
+import { TSGLContext,  } from 'tsgl'
 import { V3, V } from 'ts3dutils'
 
 /**
  * OpenGL-style immediate mode.
  */
 export function immediateMode(gl: TSGLContext) {
-
 	// setup camera
 	gl.disable(gl.CULL_FACE)
 	gl.matrixMode(gl.PROJECTION)
@@ -15,15 +14,10 @@ export function immediateMode(gl: TSGLContext) {
 	gl.lookAt(V(0, -3, 2), V3.O, V3.Z)
 	gl.matrixMode(gl.MODELVIEW)
 
-	const mesh = Mesh.cube()
-
-
 	gl.enable(gl.DEPTH_TEST)
 	gl.clearColor(1, 1, 1, 0)
 
-	return gl.animate(function (abs, diff) {
-
-
+	return gl.animate(function (abs, _diff) {
 		const angleDeg = abs / 1000 * 45
 		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 		gl.loadIdentity()

@@ -21,9 +21,6 @@ export default {
 	},
 	external: ['chroma-js'],
 	plugins: [
-		alias({
-			tsgl: __dirname + '/dist/bundle.module.js'
-		}),
 		multiEntry(),
 		nodeResolve({
 			// use "module" field for ES6 module if possible
@@ -68,6 +65,9 @@ export default {
 		sourcemaps(),
 		typescriptPlugin({
 			typescript
+		}),
+		alias({
+			tsgl: __dirname + '/src/index'
 		}),
 		glsl({
 			// By default, everything gets included

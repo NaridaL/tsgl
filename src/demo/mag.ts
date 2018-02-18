@@ -1,11 +1,10 @@
 /// <reference path="../types.d.ts" />
-import { TSGLContext, Mesh, Shader, DRAW_MODES } from 'tsgl'
+import { TSGLContext, Mesh, Shader } from 'tsgl'
 import chroma from 'chroma-js'
-import colorFS from '../shaders/colorFS.glslx'
-import posVS from '../shaders/posVS.glslx'
+// import colorFS from '../shaders/colorFS.glslx'
+import posNormalColorVS from '../shaders/posNormalColorVS.glslx'
 import varyingColorFS from '../shaders/varyingColorFS.glslx'
-import vectorFieldVS from '../shaders/vectorFieldVS.glslx'
-import { Tuple4, V3, arrayFromFunction, AABB, V, M4, DEG, time } from 'ts3dutils'
+import { V3, arrayFromFunction, AABB, V, M4, DEG, time } from 'ts3dutils'
 
 /**
  * Calculate and render magnetic field lines.
@@ -13,19 +12,10 @@ import { Tuple4, V3, arrayFromFunction, AABB, V, M4, DEG, time } from 'ts3dutils
 export function mag(gl: TSGLContext) {
 	const cubeMesh = Mesh.cube()
 	// simple pos/color
-	const shader = Shader.create(posVS, colorFS)
-	const vectorFieldShader = Shader.create(vectorFieldVS, varyingColorFS)
+	const shader = Shader.create(posNormalColorVS, varyingColorFS)
 	gl.clearColor(1, 1, 1, 1)
 
 	type PointCharge = { pos: V3, charge: number }
-
-	const vec4 = (...args: number[]) => [...args] as Tuple4<number>
-	// ps.push(
-	//     vec4(0.2, 0.5, 0, 1),
-	//     vec4(0.2, 0.8, 0, 1),
-	//     vec4(0.8, 0.5, 0, -1),
-	// )
-
 
 	// given a magnetic field created by fieldCharges, calculate the field strength/dir at pos
 	function fieldAtPos(fieldCharges: PointCharge[], pos: V3) {
@@ -136,7 +126,7 @@ export function mag(gl: TSGLContext) {
 	gl.perspective(45, gl.canvas.width / gl.canvas.height, 0.1, 1000)
 	gl.lookAt(V(0.5, 2, 1), V(0.5, 0.5), V3.Z)
 	gl.matrixMode(gl.MODELVIEW)
-	gl.clearColor(...chroma('white').gl())
+	gl.clearColor(1, 1, 1, 0)
 
 	gl.enable(gl.DEPTH_TEST)
 
@@ -166,27 +156,27 @@ export function mag(gl: TSGLContext) {
 		}
 	})
 
-	return gl.animate(function (abs, diff) {
+	return gl.animate(function (abs, _diff) {
 		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 		gl.loadIdentity()
 		gl.multMatrix(M4.rotateLine(V(0.5, 0.5), V3.Z, abs / 5000))
 		// gl.translate(-1, -1, -1)
 		// gl.scale(2)
 
-		shader.uniforms({ color: chroma('black').gl() }).draw(linesMesh, DRAW_MODES.LINES)
+		shader.attributes({ ts_Color: chroma('black').gl() }).draw(linesMesh, gl.LINES)
 		barMagnetMatrices.forEach((mat, index) => {
 			if (enabledBarMagnets[index]) {
 				gl.pushMatrix()
 				gl.multMatrix(mat)
 				gl.scale(0.5, 1, 1)
-				shader.uniforms({ color: chroma('red').gl() }).draw(cubeMesh, DRAW_MODES.LINES)
+				shader.attributes({ ts_Color: chroma('red').gl() }).draw(cubeMesh, gl.LINES)
 				gl.translate(1, 0)
-				shader.uniforms({ color: chroma('blue').gl() }).draw(cubeMesh, DRAW_MODES.LINES)
+				shader.attributes({ ts_Color: chroma('blue').gl() }).draw(cubeMesh, gl.LINES)
 				gl.popMatrix()
 			}
 		})
 		gl.scale(bounds.max)
-		shader.uniforms({ color: chroma('grey').gl() }).draw(cubeMesh, DRAW_MODES.LINES)
+		shader.attributes({ ts_Color: chroma('grey').gl() }).draw(cubeMesh, gl.LINES)
 		// vectorFieldShader.drawBuffers(vectorFieldMesh.vertexBuffers, undefined, DRAW_MODES.LINES)
 	})
 }

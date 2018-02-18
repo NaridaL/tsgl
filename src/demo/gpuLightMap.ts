@@ -1,23 +1,17 @@
 /// <reference path="../types.d.ts" />
-import chroma from 'chroma-js'
-import { AABB, arrayFromFunction, clamp, DEG, int, lerp, M4, TAU, time, Tuple4, V, V3 } from 'ts3dutils'
+import { clamp, int, M4, TAU, V, V3 } from 'ts3dutils'
 
-import { DRAW_MODES, TSGLContext, Mesh, pushQuad, Shader, Texture } from 'tsgl'
-
-const { sin, PI } = Math
+import { TSGLContext, Mesh, pushQuad, Shader, Texture, isWebGL2RenderingContext } from 'tsgl'
 
 export { TSGLContext }
-
-import gazeboJSON from '../../gazebo.json'
 
 /**
  * Draw soft shadows by calculating a light map in multiple passes.
  */
-export function gpuLightMap(gl: TSGLContext) {
+export function gpuLightMap(gl: TSGLContext & WebGL2RenderingContext) {
+	if (!isWebGL2RenderingContext(gl)) throw new Error('needs WebGL2')
 	gl.getExtension('EXT_color_buffer_float')
 	// modified version of https://evanw.github.io/lightgl.js/tests/gpulightmap.html
-
-	const gazebo = Mesh.load(gazeboJSON)
 
 	let angleX = 0
 	let angleY = 0
@@ -46,6 +40,8 @@ precision highp float;
 	const depthShader = Shader.create(`
 	uniform mat4 ts_ModelViewProjectionMatrix;
 	attribute vec4 ts_Vertex;
+	// GL does not make the fragment position in NDC available, (gl_FragCoord is in window coords)
+	// so we have an addition varying pos to calculate it ourselves.
   varying vec4 pos;
   void main() {
     gl_Position = pos = ts_ModelViewProjectionMatrix * ts_Vertex;
@@ -275,12 +271,6 @@ precision highp float;
 			M4.forSys(a, b),
 			M4.scale(r, r, r),
 			M4.translate(-0.5, -0.5, -0.5)))
-		// quadMesh.addDoubleQuad(
-		//     center.minus(a).minus(b),
-		//     center.minus(a).plus(b),
-		//     center.plus(a).minus(b),
-		//     center.plus(a).plus(b)
-		// )
 	}
 
 	// Plane of quads
@@ -339,10 +329,7 @@ precision highp float;
 	const lightDir = V3.XYZ
 	const ambientFraction = 0.4
 
-	let frame = 0
-	return gl.animate(function (abs, diff) {
-		frame++
-		//if (frame % 60 != 0) return
+	return gl.animate(function (_abs, _diff) {
 		const gl = this
 
 		gl.enable(gl.CULL_FACE)

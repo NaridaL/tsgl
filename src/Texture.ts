@@ -1,17 +1,19 @@
 import {assert, int} from 'ts3dutils'
 
-import {currentGL, TSGLContext} from './TSGLContext'
+import {currentGL, TSGLContext} from './index'
+import GL = WebGLRenderingContextStrict
+import GL2 = WebGL2RenderingContext
 
 export interface TextureOptions {
-	wrap?: number // defaults to WGL.CLAMP_TO_EDGE, or set wrapS and wrapT individually.
-	wrapS?: number
-	wrapT?: number
-	filter?: number // defaults to WGL.LINEAR, or set minFilter and magFilter individually.
-	minFilter?: number
-	magFilter?: number
-	format?: number // defaults to WGL.RGBA.
-	internalFormat?: number
-	type?: number // defaults to WGL.UNSIGNED_BYTE.
+	wrap?: GL.TextureWrap // defaults to WGL.CLAMP_TO_EDGE, or set wrapS and wrapT individually.
+	wrapS?: GL.TextureWrap
+	wrapT?: GL.TextureWrap
+	filter?: GL.TextureMagFilter // defaults to WGL.LINEAR, or set minFilter and magFilter individually.
+	minFilter?: GL.TextureMinFilter
+	magFilter?: GL.TextureMagFilter
+	format?: GL2.TextureFormat // defaults to WGL.RGBA.
+	internalFormat?: GL2.TextureInternalFormat
+	type?: GL.ReadPixelsType // defaults to WGL.UNSIGNED_BYTE.
 	data?: any
 }
 
@@ -20,10 +22,10 @@ export class Texture {
 	width: int
 	texture: WebGLTexture
 	// e.g. viewerGL.UNSIGNED_BYTE, viewerGL.FLOAT
-		internalFormat: int
-	format: int
+	internalFormat: GL2.TextureInternalFormat
+	format: GL2.TextureFormat
 	// e.g. viewerGL.RGBA
-	type: int
+	type: GL.ReadPixelsType
 
 	/**
 	 * Provides a simple wrapper around WebGL textures that supports render-to-texture.
@@ -49,8 +51,6 @@ export class Texture {
 	 *
 	 */
 	constructor(width: int, height: int, options: TextureOptions = {}, readonly gl = currentGL()) {
-		this.texture = gl.createTexture()!
-		gl.handleError() // in case createTexture returns null & fails
 		this.width = width
 		this.height = height
 		this.format = options.format || gl.RGBA
@@ -73,68 +73,66 @@ export class Texture {
 				throw new Error('OES_texture_half_float_linear is required but not supported')
 			}
 		}
+
+		this.texture = gl.createTexture()!
 		gl.bindTexture(gl.TEXTURE_2D, this.texture)
-		// gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1)
 		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, magFilter)
 		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, minFilter)
 		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, options.wrap || options.wrapS || gl.CLAMP_TO_EDGE)
 		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, options.wrap || options.wrapT || gl.CLAMP_TO_EDGE)
-		gl.texImage2D(gl.TEXTURE_2D, 0, this.internalFormat, width, height, 0, this.format, this.type, options.data)
+		gl.texImage2D(gl.TEXTURE_2D, 0, this.internalFormat as any, width, height, 0, this.format as any, this.type as any, options.data)
 	}
 
 	setData(data: ArrayBufferView) {
 		this.gl.bindTexture(this.gl.TEXTURE_2D, this.texture)
-		this.gl.texImage2D(this.gl.TEXTURE_2D, 0, this.format, this.width, this.height, 0, this.format, this.type, data)
+		this.gl.texImage2D(this.gl.TEXTURE_2D, 0, this.format as any, this.width, this.height, 0, this.format as any, this.type as any, data as any)
 	}
 
 	bind(unit: int) {
-		this.gl.activeTexture(this.gl.TEXTURE0 + unit)
+		this.gl.activeTexture((this.gl.TEXTURE0 + unit) as GL.TextureUnit)
 		this.gl.bindTexture(this.gl.TEXTURE_2D, this.texture)
 	}
 
 	unbind(unit: int) {
-		this.gl.activeTexture(this.gl.TEXTURE0 + unit)
+		this.gl.activeTexture((this.gl.TEXTURE0 + unit) as GL.TextureUnit)
 		this.gl.bindTexture(this.gl.TEXTURE_2D, null)
 	}
 
-	private framebuffer: WebGLFramebuffer
-	private renderbuffer: WebGLRenderbuffer & { width: number, height: number }
+	private framebuffer: WebGLFramebuffer | undefined
 	static checkerBoardCanvas: HTMLCanvasElement
 
-	canDrawTo() {
+	drawTo(render: (gl: TSGLContext) => void): void {
 		const gl = this.gl
-		this.framebuffer = this.framebuffer || gl.createFramebuffer()
-		gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebuffer)
-		gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.texture, 0)
-		const result = gl.checkFramebufferStatus(gl.FRAMEBUFFER) == gl.FRAMEBUFFER_COMPLETE
-		gl.bindFramebuffer(gl.FRAMEBUFFER, null)
-		return result
-	}
-
-	drawTo(callback: (gl: TSGLContext) => void): void {
-		const gl = this.gl
-		this.framebuffer = this.framebuffer || gl.createFramebuffer()
-		this.renderbuffer = this.renderbuffer || gl.createRenderbuffer() as any
-		gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebuffer)
-		gl.bindRenderbuffer(gl.RENDERBUFFER, this.renderbuffer)
-		if (this.width != this.renderbuffer.width || this.height != this.renderbuffer.height) {
-			this.renderbuffer.width = this.width
-			this.renderbuffer.height = this.height
+		const prevFramebuffer = gl.getParameter(gl.FRAMEBUFFER_BINDING)
+		if (!this.framebuffer) {
+			// create a renderbuffer for the depth component
+			const prevRenderbuffer = gl.getParameter(gl.RENDERBUFFER_BINDING)
+			const depthRenderbuffer = gl.createRenderbuffer()
+			gl.bindRenderbuffer(gl.RENDERBUFFER, depthRenderbuffer)
+			// DEPTH_COMPONENT16 is the only depth format
 			gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, this.width, this.height)
+			gl.bindRenderbuffer(gl.RENDERBUFFER, prevRenderbuffer)
+
+			// create a framebuffer to render to
+			this.framebuffer = gl.createFramebuffer()!
+			gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebuffer)
+			gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.texture, 0)
+			gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, depthRenderbuffer)
+			if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) {
+				throw new Error('Rendering to this texture is not supported (incomplete this.framebuffer)')
+			}
+		} else if (prevFramebuffer !== this.framebuffer) {
+			gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebuffer)
 		}
-		gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.texture, 0)
-		gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, this.renderbuffer)
-		// if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) != gl.FRAMEBUFFER_COMPLETE) {
-		// 	throw new Error('Rendering to this texture is not supported (incomplete this.framebuffer)')
-		// }
-		const viewport = gl.getParameter(gl.VIEWPORT)
+
+		const prevViewport = gl.getParameter(gl.VIEWPORT)
+
 		gl.viewport(0, 0, this.width, this.height)
+		render(gl)
 
-		callback(gl)
-
-		gl.bindFramebuffer(gl.FRAMEBUFFER, null)
-		gl.bindRenderbuffer(gl.RENDERBUFFER, null)
-		gl.viewport(viewport[0], viewport[1], viewport[2], viewport[3])
+		// restore previous state
+		prevFramebuffer !== this.framebuffer && gl.bindFramebuffer(gl.FRAMEBUFFER, prevFramebuffer)
+		gl.viewport(prevViewport[0], prevViewport[1], prevViewport[2], prevViewport[3])
 	}
 
 	swapWith(other: Texture): void {
@@ -156,11 +154,10 @@ export class Texture {
 	/**
 	 * Return a new texture created from `imgElement`, an `<img>` tag.
 	 */
-	static fromImage(imgElement: HTMLImageElement | HTMLCanvasElement, options: TextureOptions, gl: TSGLContext = currentGL()): Texture {
-		options = options || {}
+	static fromImage(imgElement: HTMLImageElement | HTMLCanvasElement, options: TextureOptions = {}, gl: TSGLContext = currentGL()): Texture {
 		const texture = new Texture(imgElement.width, imgElement.height, options, gl)
 		try {
-			gl.texImage2D(gl.TEXTURE_2D, 0, texture.format, texture.format, texture.type, imgElement)
+			gl.texImage2D(gl.TEXTURE_2D, 0, texture.format as any, texture.format as any, texture.type as any, imgElement)
 		} catch (e) {
 			if (location.protocol == 'file:') {
 				throw new Error('imgElement not loaded for security reasons (serve this page over "http://" instead)')
@@ -178,7 +175,7 @@ export class Texture {
 	/**
 	 * Returns a checkerboard texture that will switch to the correct texture when it loads.
 	 */
-	static fromURLSwitch(url: string, options: TextureOptions = {}, gl = currentGL()): Texture {
+	static fromURLSwitch(url: string, options?: TextureOptions, gl = currentGL()): Texture {
 		Texture.checkerBoardCanvas = Texture.checkerBoardCanvas || (function () {
 			const c = document.createElement('canvas').getContext('2d')
 			if (!c) throw new Error('Could not create 2d canvas.')
@@ -201,7 +198,7 @@ export class Texture {
 		return texture
 	}
 
-	static fromURL(url: string, options: TextureOptions, gl = currentGL()): Promise<Texture> {
+	static fromURL(url: string, options?: TextureOptions, gl = currentGL()): Promise<Texture> {
 		return new Promise((resolve, reject) => {
 			const image = new Image()
 			image.onload = () => resolve(Texture.fromImage(image, options, gl))

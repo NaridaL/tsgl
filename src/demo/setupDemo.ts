@@ -7,16 +7,21 @@ import { V3, V } from 'ts3dutils'
 export async function setupDemo(gl: TSGLContext) {
 	const mesh = Mesh.cube()
 	const shader = Shader.create<{ color: 'FLOAT_VEC4' }, {}>(`
-uniform mat4 ts_ModelViewProjectionMatrix;
-attribute vec4 ts_Vertex;
-void main() {
-    gl_Position = ts_ModelViewProjectionMatrix * ts_Vertex;
-}`, `
-precision highp float;
-uniform vec4 color;
-void main() {
-    gl_FragColor = color;
-}`)
+		uniform mat4 ts_ModelViewProjectionMatrix;
+		attribute vec4 ts_Vertex;
+		varying vec4 foo;
+		void main() {
+			foo = vec4(1.0, 1.0, 1.0, 1.0);
+			gl_Position = ts_ModelViewProjectionMatrix * ts_Vertex;
+		}
+	`, `
+		precision highp float;
+		uniform vec4 color;
+		varying vec4 bar;
+		void main() {
+			gl_FragColor = color;
+		}
+	`)
 
 	// setup camera
 	gl.matrixMode(gl.PROJECTION)
@@ -27,7 +32,7 @@ void main() {
 
 	gl.enable(gl.DEPTH_TEST)
 
-	return gl.animate(function (abs, diff) {
+	return gl.animate(function (abs, _diff) {
 		const angleDeg = abs / 1000 * 45
 		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 		gl.loadIdentity()

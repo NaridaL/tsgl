@@ -1,17 +1,18 @@
 #version 300 es
 precision highp float;
+
 const float INFINITY = 1.0e9;
-in vec4 pos;
+const int TRIANGLE_COUNT = 1024;
 uniform vec3 sphereCenters[8];
 uniform mat4 ts_ModelViewProjectionMatrixInverse;
 uniform float sphereRadii[8];
-const int TRIANGLE_COUNT = 1024;
-out vec4 fragColor;
-
-
 uniform sampler2D vertices;
 uniform sampler2D texCoords;
 uniform sampler2D triangleTexture;
+
+in vec4 pos;
+
+out vec4 fragColor;
 
 float intersectSphere(vec3 origin, vec3 ray, vec3 sphereCenter, float sphereRadius) {
 	vec3 toSphere = origin - sphereCenter;

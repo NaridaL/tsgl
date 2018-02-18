@@ -4,12 +4,104 @@ Object.defineProperty(exports, '__esModule', { value: true });
 
 function _interopDefault (ex) { return (ex && (typeof ex === 'object') && 'default' in ex) ? ex['default'] : ex; }
 
-var tslib_1 = require('tslib');
 var ts3dutils = require('ts3dutils');
+var tslib_1 = require('tslib');
 var chroma = _interopDefault(require('chroma-js'));
 
-const { cos, sin, PI, min, max } = Math;
 const WGL = WebGLRenderingContext;
+class Buffer {
+    /**
+     * Provides a simple method of uploading data to a GPU buffer. Example usage:
+     *
+     *     const vertices = new Buffer(WGL.ARRAY_BUFFER, Float32Array)
+     *     vertices.data = [[0, 0, 0], [1, 0, 0], [0, 1, 0], [1, 1, 0]]
+     *     vertices.compile()
+     *
+     *     const indices = new Buffer(WGL.ELEMENT_ARRAY_BUFFER, Uint16Array)
+     *     indices.data = [[0, 1, 2], [2, 1, 3]]
+     *     indices.compile()
+     *
+     * Specifies the target to which the buffer object is bound.
+     * The symbolic constant must be GL_ARRAY_BUFFER or GL_ELEMENT_ARRAY_BUFFER.
+     */
+    constructor(target, type) {
+        this.target = target;
+        this.type = type;
+        ts3dutils.assert(target == WGL.ARRAY_BUFFER || target == WGL.ELEMENT_ARRAY_BUFFER, 'target == WGL.ARRAY_BUFFER || target == WGL.ELEMENT_ARRAY_BUFFER');
+        ts3dutils.assert(type == Float32Array || type == Uint16Array, 'type == Float32Array || type == Uint16Array');
+        this.buffer = undefined;
+        this.type = type;
+        this.data = [];
+        this.count = 0;
+        this.spacing = 1;
+        this.hasBeenCompiled = false;
+    }
+    /**
+     * Upload the contents of `data` to the GPU in preparation for rendering. The data must be a list of lists
+     * where each inner list has the same length. For example, each element of data for vertex normals would be a
+     * list of length three. This will remember the data length and element length for later use by shaders.
+     *
+     * This could have used `[].concat.apply([], this.data)` to flatten the array but Google
+     * Chrome has a maximum number of arguments so the concatenations are chunked to avoid that limit.
+     *
+     * @param usage Either `WGL.STATIC_DRAW` or `WGL.DYNAMIC_DRAW`. Defaults to `WGL.STATIC_DRAW`
+     */
+    compile(usage = WGL.STATIC_DRAW, gl = currentGL()) {
+        ts3dutils.assert(WGL.STATIC_DRAW == usage || WGL.DYNAMIC_DRAW == usage, 'WGL.STATIC_DRAW == type || WGL.DYNAMIC_DRAW == type');
+        this.buffer = this.buffer || gl.createBuffer();
+        let buffer;
+        if (this.data.length == 0) {
+            console.warn('empty buffer ' + this.name);
+            //console.trace()
+        }
+        if (this.data.length == 0 || this.data[0] instanceof ts3dutils.V3) {
+            ts3dutils.assert(!(this.data[0] instanceof ts3dutils.V3) || this.type == Float32Array);
+            ts3dutils.V3.pack(this.data, buffer = new this.type(this.data.length * 3)); // asserts that all
+            // elements are V3s
+            this.spacing = 3;
+            this.count = this.data.length;
+            this.maxValue = 0;
+        }
+        else {
+            //assert(Array != this.data[0].constructor, this.name + this.data[0])
+            if (Array.isArray(this.data[0])) {
+                const bufferLength = this.data.length * this.data[0].length;
+                buffer = new this.type(bufferLength);
+                let i = this.data.length, destPtr = bufferLength;
+                while (i--) {
+                    const subArray = this.data[i];
+                    let j = subArray.length;
+                    while (j--) {
+                        buffer[--destPtr] = subArray[j];
+                    }
+                }
+                ts3dutils.assert(0 == destPtr);
+            }
+            else {
+                buffer = new this.type(this.data);
+            }
+            const spacing = this.data.length ? buffer.length / this.data.length : 0;
+            ts3dutils.assert(spacing % 1 == 0, `buffer ${this.name} elements not of consistent size, average size is ` + spacing);
+            if (ts3dutils.NLA_DEBUG) {
+                if (10000 <= buffer.length) {
+                    this.maxValue = 0;
+                }
+                else {
+                    this.maxValue = Math.max.apply(undefined, buffer);
+                }
+            }
+            ts3dutils.assert([1, 2, 3, 4].includes(spacing));
+            this.spacing = spacing;
+            this.count = this.data.length;
+        }
+        gl.bindBuffer(this.target, this.buffer);
+        gl.bufferData(this.target, buffer, usage);
+        this.hasBeenCompiled = true;
+    }
+}
+
+const { cos, sin, PI, min, max } = Math;
+const WGL$1 = WebGLRenderingContext;
 /**
  * @example new Mesh()
  *        .addIndexBuffer('TRIANGLES')
@@ -55,7 +147,7 @@ class Mesh extends ts3dutils.Transformable {
         this.hasBeenCompiled = false;
         ts3dutils.assert('string' == typeof name);
         ts3dutils.assert('string' == typeof attribute);
-        const buffer = this.vertexBuffers[attribute] = new Buffer(WGL.ARRAY_BUFFER, Float32Array);
+        const buffer = this.vertexBuffers[attribute] = new Buffer(WGL$1.ARRAY_BUFFER, Float32Array);
         buffer.name = name;
         this[name] = [];
         return this;
@@ -67,7 +159,7 @@ class Mesh extends ts3dutils.Transformable {
      */
     addIndexBuffer(name) {
         this.hasBeenCompiled = false;
-        const buffer = this.indexBuffers[name] = new Buffer(WGL.ELEMENT_ARRAY_BUFFER, Uint16Array);
+        const buffer = this.indexBuffers[name] = new Buffer(WGL$1.ELEMENT_ARRAY_BUFFER, Uint16Array);
         buffer.name = name;
         this[name] = [];
         return this;
@@ -637,30 +729,29 @@ Mesh.UNIT_CUBE_CORNERS = [
 ];
 
 /* tslint:disable:no-string-literal */
-const WGL$1 = WebGLRenderingContext;
+const WGL$2 = WebGLRenderingContext;
 /**
  * These are all the draw modes usable in OpenGL ES
  */
-
-(function (DRAW_MODES) {
-    DRAW_MODES[DRAW_MODES["POINTS"] = WGL$1.POINTS] = "POINTS";
-    DRAW_MODES[DRAW_MODES["LINES"] = WGL$1.LINES] = "LINES";
-    DRAW_MODES[DRAW_MODES["LINE_STRIP"] = WGL$1.LINE_STRIP] = "LINE_STRIP";
-    DRAW_MODES[DRAW_MODES["LINE_LOOP"] = WGL$1.LINE_LOOP] = "LINE_LOOP";
-    DRAW_MODES[DRAW_MODES["TRIANGLES"] = WGL$1.TRIANGLES] = "TRIANGLES";
-    DRAW_MODES[DRAW_MODES["TRIANGLE_STRIP"] = WGL$1.TRIANGLE_STRIP] = "TRIANGLE_STRIP";
-    DRAW_MODES[DRAW_MODES["TRIANGLE_FAN"] = WGL$1.TRIANGLE_FAN] = "TRIANGLE_FAN";
-})(exports.DRAW_MODES || (exports.DRAW_MODES = {}));
-const SHADER_VAR_TYPES = ['FLOAT', 'FLOAT_MAT2', 'FLOAT_MAT3', 'FLOAT_MAT4', 'FLOAT_VEC2', 'FLOAT_VEC3', 'FLOAT_VEC4', 'INT', 'INT_VEC2', 'INT_VEC3', 'INT_VEC4', 'UNSIGNED_INT'];
-const DRAW_MODE_CHECKS = {
-    [exports.DRAW_MODES.POINTS]: _ => true,
-    [exports.DRAW_MODES.LINES]: x => 0 == x % 2,
-    [exports.DRAW_MODES.LINE_STRIP]: x => x > 2,
-    [exports.DRAW_MODES.LINE_LOOP]: x => x > 2,
-    [exports.DRAW_MODES.TRIANGLES]: x => 0 == x % 3,
-    [exports.DRAW_MODES.TRIANGLE_STRIP]: x => x > 3,
-    [exports.DRAW_MODES.TRIANGLE_FAN]: x => x > 3,
+const DRAW_MODE_NAMES = {
+    [WGL$2.POINTS]: 'POINTS',
+    [WGL$2.LINES]: 'LINES',
+    [WGL$2.LINE_STRIP]: 'LINE_STRIP',
+    [WGL$2.LINE_LOOP]: 'LINE_LOOP',
+    [WGL$2.TRIANGLES]: 'TRIANGLES',
+    [WGL$2.TRIANGLE_STRIP]: 'TRIANGLE_STRIP',
+    [WGL$2.TRIANGLE_FAN]: 'TRIANGLE_FAN',
 };
+const DRAW_MODE_CHECKS = {
+    [WGL$2.POINTS]: _ => true,
+    [WGL$2.LINES]: x => 0 == x % 2,
+    [WGL$2.LINE_STRIP]: x => x > 2,
+    [WGL$2.LINE_LOOP]: x => x > 2,
+    [WGL$2.TRIANGLES]: x => 0 == x % 3,
+    [WGL$2.TRIANGLE_STRIP]: x => x > 3,
+    [WGL$2.TRIANGLE_FAN]: x => x > 3,
+};
+const SHADER_VAR_TYPES = ['FLOAT', 'FLOAT_MAT2', 'FLOAT_MAT3', 'FLOAT_MAT4', 'FLOAT_VEC2', 'FLOAT_VEC3', 'FLOAT_VEC4', 'INT', 'INT_VEC2', 'INT_VEC3', 'INT_VEC4', 'UNSIGNED_INT'];
 function isArray(obj) {
     return Array == obj.constructor || Float32Array == obj.constructor || Float64Array == obj.constructor;
 }
@@ -676,7 +767,7 @@ function isIntArray(x) {
     return (x instanceof Float32Array || x instanceof Float64Array || Array.isArray(x)) &&
         x.every(x => Number.isInteger(x));
 }
-//const x:keyof UniformTypesMap = undefined as 'FLOAT_VEC4' | 'FLOAT_VEC3'
+//const x:UniformTypes = undefined as 'FLOAT_VEC4' | 'FLOAT_VEC3'
 class Shader {
     /**
      * Provides a convenient wrapper for WebGL shaders. A few uniforms and attributes,
@@ -725,25 +816,22 @@ class Shader {
             const shader = gl.createShader(type);
             gl.shaderSource(shader, source);
             gl.compileShader(shader);
-            if (!gl.getShaderParameter(shader, WGL$1.COMPILE_STATUS)) {
+            if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
                 throw new Error('compile error: ' + gl.getShaderInfoLog(shader));
             }
             return shader;
         }
         this.gl = gl;
-        const program = gl.createProgram();
-        if (!program) {
-            gl.handleError();
-        }
-        this.program = program;
-        gl.attachShader(this.program, compileSource(WGL$1.VERTEX_SHADER, vertexSource));
-        gl.attachShader(this.program, compileSource(WGL$1.FRAGMENT_SHADER, fragmentSource));
+        this.program = gl.createProgram();
+        gl.attachShader(this.program, compileSource(gl.VERTEX_SHADER, vertexSource));
+        gl.attachShader(this.program, compileSource(gl.FRAGMENT_SHADER, fragmentSource));
         gl.linkProgram(this.program);
-        if (!gl.getProgramParameter(this.program, WGL$1.LINK_STATUS)) {
+        if (!gl.getProgramParameter(this.program, gl.LINK_STATUS)) {
             throw new Error('link error: ' + gl.getProgramInfoLog(this.program));
         }
-        this.attributes = {};
+        this.attributeLocations = {};
         this.uniformLocations = {};
+        this.constantAttributes = {};
         // Check for the use of built-in matrices that require expensive matrix
         // multiplications to compute, and record these in `activeMatrices`.
         this.activeMatrices = {};
@@ -753,14 +841,13 @@ class Shader {
             }
         });
         this.uniformInfos = {};
-        for (let i = gl.getProgramParameter(this.program, WGL$1.ACTIVE_UNIFORMS); i-- > 0;) {
+        for (let i = gl.getProgramParameter(this.program, gl.ACTIVE_UNIFORMS); i-- > 0;) {
             // see https://www.khronos.org/registry/OpenGL-Refpages/es2.0/xhtml/glGetActiveUniform.xml
             // this.program has already been checked
             // i is in bounds
             const info = gl.getActiveUniform(this.program, i);
             this.uniformInfos[info.name] = info;
         }
-        gl.handleError();
     }
     static create(vertexSource, fragmentSource, gl) {
         return new Shader(vertexSource, fragmentSource, gl);
@@ -772,7 +859,6 @@ class Shader {
     uniforms(uniforms) {
         const gl = this.gl;
         gl.useProgram(this.program);
-        gl.handleError();
         for (const name in uniforms) {
             const location = this.uniformLocations[name] || gl.getUniformLocation(this.program, name);
             // !location && console.warn(name + ' uniform is not used in shader')
@@ -888,13 +974,52 @@ class Shader {
             else {
                 throw new Error('attempted to set uniform "' + name + '" to invalid value ' + value);
             }
-            gl.handleError();
+        }
+        return this;
+    }
+    attributes(attributes) {
+        const gl = this.gl;
+        gl.useProgram(this.program);
+        for (const name in attributes) {
+            const location = this.attributeLocations[name] || gl.getAttribLocation(this.program, name);
+            if (location == -1) {
+                if (!name.startsWith('ts_')) {
+                    console.warn(`Vertex buffer ${name} was not bound because the attribute is not active.`);
+                }
+                continue;
+            }
+            this.attributeLocations[name] = location;
+            gl.disableVertexAttribArray(location);
+            let value = attributes[name];
+            if (value instanceof ts3dutils.V3) {
+                value = value.toArray();
+            }
+            if ('number' === typeof value) {
+                gl.vertexAttrib1f(location, value);
+            }
+            else {
+                gl.vertexAttrib4fv(location, value);
+                // switch ((value as number[]).length) {
+                // 	case 1:
+                // 		gl.vertexAttrib1fv(location, value as number[])
+                // 		break
+                // 	case 2:
+                // 		gl.vertexAttrib2fv(location, value as number[])
+                // 		break
+                // 	case 3:
+                // 		gl.vertexAttrib3fv(location, value as number[])
+                // 		break
+                // 	case 4:
+                // 		break
+                // }
+            }
+            this.constantAttributes[name] = true;
         }
         return this;
     }
     /**
      * Sets all uniform matrix attributes, binds all relevant buffers, and draws the mesh geometry as indexed
-     * triangles or indexed LINES. Set `mode` to `WGL.LINES` (and either add indices to `LINES` or call
+     * triangles or indexed LINES. Set `mode` to `gl.LINES` (and either add indices to `LINES` or call
      * `computeWireframe()`) to draw the mesh in wireframe.
      *
      * @param mesh
@@ -903,12 +1028,12 @@ class Shader {
      * @param start int
      * @param count int
      */
-    draw(mesh, mode = exports.DRAW_MODES.TRIANGLES, start, count) {
+    draw(mesh, mode = WGL$2.TRIANGLES, start, count) {
         ts3dutils.assert(mesh.hasBeenCompiled, 'mesh.hasBeenCompiled');
-        ts3dutils.assert(undefined != exports.DRAW_MODES[mode]);
-        const modeStr = exports.DRAW_MODES[mode];
+        ts3dutils.assert(undefined != DRAW_MODE_NAMES[mode]);
+        const modeName = DRAW_MODE_NAMES[mode];
         // assert(mesh.indexBuffers[modeStr], `mesh.indexBuffers[${modeStr}] undefined`)
-        return this.drawBuffers(mesh.vertexBuffers, mesh.indexBuffers[modeStr], mode, start, count);
+        return this.drawBuffers(mesh.vertexBuffers, mesh.indexBuffers[modeName], mode, start, count);
     }
     /**
      * Sets all uniform matrix attributes, binds all relevant buffers, and draws the
@@ -918,10 +1043,9 @@ class Shader {
      * like `WGL.TRIANGLES` or `WGL.LINES`. This method automatically creates and caches
      * vertex attribute pointers for attributes as needed.
      */
-    drawBuffers(vertexBuffers, indexBuffer, mode = exports.DRAW_MODES.TRIANGLES, start = 0, count) {
+    drawBuffers(vertexBuffers, indexBuffer, mode = WGL$2.TRIANGLES, start = 0, count) {
         const gl = this.gl;
-        gl.handleError();
-        ts3dutils.assert(undefined != exports.DRAW_MODES[mode]);
+        ts3dutils.assert(undefined != DRAW_MODE_NAMES[mode]);
         ts3dutils.assertf(() => 1 <= Object.keys(vertexBuffers).length);
         Object.keys(vertexBuffers).forEach(key => ts3dutils.assertInst(Buffer, vertexBuffers[key]));
         // Only varruct up the built-in matrices that are active in the shader
@@ -959,28 +1083,23 @@ class Shader {
         for (const attribute in vertexBuffers) {
             const buffer = vertexBuffers[attribute];
             ts3dutils.assert(buffer.hasBeenCompiled);
-            const location = this.attributes[attribute] || gl.getAttribLocation(this.program, attribute);
-            gl.handleError();
+            const location = this.attributeLocations[attribute] || gl.getAttribLocation(this.program, attribute);
             if (location == -1 || !buffer.buffer) {
                 if (!attribute.startsWith('ts_')) {
                     console.warn(`Vertex buffer ${attribute} was not bound because the attribute is not active.`);
                 }
                 continue;
             }
-            this.attributes[attribute] = location;
-            gl.bindBuffer(WGL$1.ARRAY_BUFFER, buffer.buffer);
-            gl.handleError();
+            this.attributeLocations[attribute] = location;
+            gl.bindBuffer(WGL$2.ARRAY_BUFFER, buffer.buffer);
             gl.enableVertexAttribArray(location);
-            gl.handleError();
-            gl.vertexAttribPointer(location, buffer.spacing, WGL$1.FLOAT, false, 0, 0);
-            gl.handleError();
+            gl.vertexAttribPointer(location, buffer.spacing, WGL$2.FLOAT, false, 0, 0);
             minVertexBufferLength = Math.min(minVertexBufferLength, buffer.count);
         }
         // Disable unused attribute pointers.
-        for (const attribute in this.attributes) {
+        for (const attribute in this.attributeLocations) {
             if (!(attribute in vertexBuffers)) {
-                gl.disableVertexAttribArray(this.attributes[attribute]);
-                gl.handleError();
+                gl.disableVertexAttribArray(this.attributeLocations[attribute]);
             }
         }
         if (ts3dutils.NLA_DEBUG) {
@@ -989,7 +1108,9 @@ class Shader {
                 const buffer = gl.getVertexAttrib(i, gl.VERTEX_ATTRIB_ARRAY_BUFFER_BINDING);
                 if (!buffer) {
                     const info = gl.getActiveAttrib(this.program, i);
-                    throw new Error('No buffer is bound to attribute ' + info.name);
+                    if (!this.constantAttributes[info.name]) {
+                        console.warn('No buffer is bound to attribute ' + info.name + ' and it was not set with .attributes()');
+                    }
                 }
                 // console.log('name:', info.name, 'type:', info.type, 'size:', info.size)
             }
@@ -998,7 +1119,7 @@ class Shader {
         if (minVertexBufferLength) {
             count = count || (indexBuffer ? indexBuffer.count : minVertexBufferLength);
             ts3dutils.assert(DRAW_MODE_CHECKS[mode](count), 'count ' + count + ' doesn\'t fulfill requirement '
-                + DRAW_MODE_CHECKS[mode].toString() + ' for mode ' + exports.DRAW_MODES[mode]);
+                + DRAW_MODE_CHECKS[mode].toString() + ' for mode ' + DRAW_MODE_NAMES[mode]);
             if (indexBuffer) {
                 ts3dutils.assert(indexBuffer.hasBeenCompiled);
                 ts3dutils.assert(minVertexBufferLength > indexBuffer.maxValue);
@@ -1007,22 +1128,1160 @@ class Shader {
                 if (start + count > indexBuffer.count) {
                     throw new Error('Buffer not long enough for passed parameters start/length/buffer length' + ' ' + start + ' ' + count + ' ' + indexBuffer.count);
                 }
-                gl.bindBuffer(WGL$1.ELEMENT_ARRAY_BUFFER, indexBuffer.buffer);
-                gl.handleError();
+                gl.bindBuffer(WGL$2.ELEMENT_ARRAY_BUFFER, indexBuffer.buffer);
                 // start parameter has to be multiple of sizeof(WGL.UNSIGNED_SHORT)
-                gl.drawElements(mode, count, WGL$1.UNSIGNED_SHORT, 2 * start);
-                gl.handleError();
+                gl.drawElements(mode, count, WGL$2.UNSIGNED_SHORT, 2 * start);
             }
             else {
                 if (start + count > minVertexBufferLength) {
                     throw new Error('invalid');
                 }
                 gl.drawArrays(mode, start, count);
-                gl.handleError();
             }
             gl.drawCallCount++;
         }
         return this;
+    }
+}
+
+class Texture {
+    /**
+     * Provides a simple wrapper around WebGL textures that supports render-to-texture.
+     *
+     * The arguments `width` and `height` give the size of the texture in texels.
+     * WebGL texture dimensions must be powers of two unless `filter` is set to
+     * either `WGL.NEAREST` or `WGL.LINEAR` and `wrap` is set to `WGL.CLAMP_TO_EDGE`
+     * (which they are by default).
+     *
+     * Texture parameters can be passed in via the `options` argument.
+     * Example usage:
+     *
+     *      let tex = new GL.Texture(256, 256, {
+         *       magFilter: WGL.NEAREST,
+         *       minFilter: WGL.LINEAR,
+         *
+         *       wrapS: WGL.REPEAT,
+         *       wrapT: WGL.REPEAT,
+         *
+         *       format: WGL.RGB, // Defaults to WGL.RGBA
+         *       type: WGL.FLOAT // Defaults to WGL.UNSIGNED_BYTE
+         *     })
+     *
+     */
+    constructor(width, height, options = {}, gl = currentGL()) {
+        this.gl = gl;
+        this.width = width;
+        this.height = height;
+        this.format = options.format || gl.RGBA;
+        this.internalFormat = options.internalFormat || gl.RGBA;
+        this.type = options.type || gl.UNSIGNED_BYTE;
+        const magFilter = options.filter || options.magFilter || gl.LINEAR;
+        const minFilter = options.filter || options.minFilter || gl.LINEAR;
+        if (this.type === gl.FLOAT) {
+            if (gl.version != 2 && !gl.getExtension('OES_texture_float')) {
+                throw new Error('OES_texture_float is required but not supported');
+            }
+            if ((minFilter !== gl.NEAREST || magFilter !== gl.NEAREST) && !gl.getExtension('OES_texture_float_linear')) {
+                throw new Error('OES_texture_float_linear is required but not supported');
+            }
+        }
+        else if (this.type === gl.HALF_FLOAT_OES) {
+            if (!gl.getExtension('OES_texture_half_float')) {
+                throw new Error('OES_texture_half_float is required but not supported');
+            }
+            if ((minFilter !== gl.NEAREST || magFilter !== gl.NEAREST) && !gl.getExtension('OES_texture_half_float_linear')) {
+                throw new Error('OES_texture_half_float_linear is required but not supported');
+            }
+        }
+        this.texture = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, this.texture);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, magFilter);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, minFilter);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, options.wrap || options.wrapS || gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, options.wrap || options.wrapT || gl.CLAMP_TO_EDGE);
+        gl.texImage2D(gl.TEXTURE_2D, 0, this.internalFormat, width, height, 0, this.format, this.type, options.data);
+    }
+    setData(data) {
+        this.gl.bindTexture(this.gl.TEXTURE_2D, this.texture);
+        this.gl.texImage2D(this.gl.TEXTURE_2D, 0, this.format, this.width, this.height, 0, this.format, this.type, data);
+    }
+    bind(unit) {
+        this.gl.activeTexture((this.gl.TEXTURE0 + unit));
+        this.gl.bindTexture(this.gl.TEXTURE_2D, this.texture);
+    }
+    unbind(unit) {
+        this.gl.activeTexture((this.gl.TEXTURE0 + unit));
+        this.gl.bindTexture(this.gl.TEXTURE_2D, null);
+    }
+    drawTo(render) {
+        const gl = this.gl;
+        const prevFramebuffer = gl.getParameter(gl.FRAMEBUFFER_BINDING);
+        if (!this.framebuffer) {
+            // create a renderbuffer for the depth component
+            const prevRenderbuffer = gl.getParameter(gl.RENDERBUFFER_BINDING);
+            const depthRenderbuffer = gl.createRenderbuffer();
+            gl.bindRenderbuffer(gl.RENDERBUFFER, depthRenderbuffer);
+            // DEPTH_COMPONENT16 is the only depth format
+            gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, this.width, this.height);
+            gl.bindRenderbuffer(gl.RENDERBUFFER, prevRenderbuffer);
+            // create a framebuffer to render to
+            this.framebuffer = gl.createFramebuffer();
+            gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebuffer);
+            gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.texture, 0);
+            gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, depthRenderbuffer);
+            if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) {
+                throw new Error('Rendering to this texture is not supported (incomplete this.framebuffer)');
+            }
+        }
+        else if (prevFramebuffer !== this.framebuffer) {
+            gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebuffer);
+        }
+        const prevViewport = gl.getParameter(gl.VIEWPORT);
+        gl.viewport(0, 0, this.width, this.height);
+        render(gl);
+        // restore previous state
+        prevFramebuffer !== this.framebuffer && gl.bindFramebuffer(gl.FRAMEBUFFER, prevFramebuffer);
+        gl.viewport(prevViewport[0], prevViewport[1], prevViewport[2], prevViewport[3]);
+    }
+    swapWith(other) {
+        ts3dutils.assert(this.gl == other.gl);
+        let temp;
+        temp = other.texture;
+        other.texture = this.texture;
+        this.texture = temp;
+        temp = other.width;
+        other.width = this.width;
+        this.width = temp;
+        temp = other.height;
+        other.height = this.height;
+        this.height = temp;
+    }
+    /**
+     * Return a new texture created from `imgElement`, an `<img>` tag.
+     */
+    static fromImage(imgElement, options = {}, gl = currentGL()) {
+        const texture = new Texture(imgElement.width, imgElement.height, options, gl);
+        try {
+            gl.texImage2D(gl.TEXTURE_2D, 0, texture.format, texture.format, texture.type, imgElement);
+        }
+        catch (e) {
+            if (location.protocol == 'file:') {
+                throw new Error('imgElement not loaded for security reasons (serve this page over "http://" instead)');
+            }
+            else {
+                throw new Error('imgElement not loaded for security reasons (imgElement must originate from the same ' +
+                    'domain as this page or use Cross-Origin Resource Sharing)');
+            }
+        }
+        if (options.minFilter && options.minFilter != gl.NEAREST && options.minFilter != gl.LINEAR) {
+            gl.generateMipmap(gl.TEXTURE_2D);
+        }
+        return texture;
+    }
+    /**
+     * Returns a checkerboard texture that will switch to the correct texture when it loads.
+     */
+    static fromURLSwitch(url, options, gl = currentGL()) {
+        Texture.checkerBoardCanvas = Texture.checkerBoardCanvas || (function () {
+            const c = document.createElement('canvas').getContext('2d');
+            if (!c)
+                throw new Error('Could not create 2d canvas.');
+            c.canvas.width = c.canvas.height = 128;
+            for (let y = 0; y < c.canvas.height; y += 16) {
+                for (let x = 0; x < c.canvas.width; x += 16) {
+                    //noinspection JSBitwiseOperatorUsage
+                    c.fillStyle = (x ^ y) & 16 ? '#FFF' : '#DDD';
+                    c.fillRect(x, y, 16, 16);
+                }
+            }
+            return c.canvas;
+        })();
+        const texture = Texture.fromImage(Texture.checkerBoardCanvas, options);
+        const image = new Image();
+        image.onload = () => Texture.fromImage(image, options, gl).swapWith(texture);
+        // error event doesn't return a reason. Most likely a 404.
+        image.onerror = () => { throw new Error('Could not load image ' + image.src + '. 404?'); };
+        image.src = url;
+        return texture;
+    }
+    static fromURL(url, options, gl = currentGL()) {
+        return new Promise((resolve, reject) => {
+            const image = new Image();
+            image.onload = () => resolve(Texture.fromImage(image, options, gl));
+            image.onerror = () => reject('Could not load image ' + image.src + '. 404?');
+            image.src = url;
+        });
+    }
+}
+
+/*
+** Copyright (c) 2012 The Khronos Group Inc.
+**
+** Permission is hereby granted, free of charge, to any person obtaining a
+** copy of this software and/or associated documentation files (the
+** 'Materials'), to deal in the Materials without restriction, including
+** without limitation the rights to use, copy, modify, merge, publish,
+** distribute, sublicense, and/or sell copies of the Materials, and to
+** permit persons to whom the Materials are furnished to do so, subject to
+** the following conditions:
+**
+** The above copyright notice and this permission notice shall be included
+** in all copies or substantial portions of the Materials.
+**
+** THE MATERIALS ARE PROVIDED 'AS IS', WITHOUT WARRANTY OF ANY KIND,
+** EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+** MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+** IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+** CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+** TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+** MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
+*/
+// Various functions for helping debug WebGL apps.
+/**
+ * Wrapped logging function.
+ * @param msg Message to log.
+ */
+function log(msg) {
+    if (window.console && window.console.log) {
+        window.console.log(msg);
+    }
+}
+/**
+ * Wrapped error logging function.
+ * @param msg Message to log.
+ */
+function error(msg) {
+    if (window.console && window.console.error) {
+        window.console.error(msg);
+    }
+    else {
+        log(msg);
+    }
+}
+/**
+ * Which arguments are enums based on the number of arguments to the function.
+ * So
+ *    'texImage2D': {
+ *       9: { 0:true, 2:true, 6:true, 7:true },
+ *       6: { 0:true, 2:true, 3:true, 4:true },
+ *    },
+ *
+ * means if there are 9 arguments then 6 and 7 are enums, if there are 6
+ * arguments 3 and 4 are enums
+ *
+ * @type {!Object.<number, !Object.<number, string>}
+ */
+const glValidEnumContexts = {
+    // Generic setters and getters
+    'enable': { 1: { 0: true } },
+    'disable': { 1: { 0: true } },
+    'getParameter': { 1: { 0: true } },
+    // Rendering
+    'drawArrays': { 3: { 0: true } },
+    'drawElements': { 4: { 0: true, 2: true } },
+    // Shaders
+    'createShader': { 1: { 0: true } },
+    'getShaderParameter': { 2: { 1: true } },
+    'getProgramParameter': { 2: { 1: true } },
+    'getShaderPrecisionFormat': { 2: { 0: true, 1: true } },
+    // Vertex attributes
+    'getVertexAttrib': { 2: { 1: true } },
+    'vertexAttribPointer': { 6: { 2: true } },
+    // Textures
+    'bindTexture': { 2: { 0: true } },
+    'activeTexture': { 1: { 0: true } },
+    'getTexParameter': { 2: { 0: true, 1: true } },
+    'texParameterf': { 3: { 0: true, 1: true } },
+    'texParameteri': { 3: { 0: true, 1: true, 2: true } },
+    // texImage2D and texSubImage2D are defined below with WebGL 2 entrypoints
+    'copyTexImage2D': { 8: { 0: true, 2: true } },
+    'copyTexSubImage2D': { 8: { 0: true } },
+    'generateMipmap': { 1: { 0: true } },
+    // compressedTexImage2D and compressedTexSubImage2D are defined below with WebGL 2 entrypoints
+    // Buffer objects
+    'bindBuffer': { 2: { 0: true } },
+    // bufferData and bufferSubData are defined below with WebGL 2 entrypoints
+    'getBufferParameter': { 2: { 0: true, 1: true } },
+    // Renderbuffers and framebuffers
+    'pixelStorei': { 2: { 0: true, 1: true } },
+    // readPixels is defined below with WebGL 2 entrypoints
+    'bindRenderbuffer': { 2: { 0: true } },
+    'bindFramebuffer': { 2: { 0: true } },
+    'checkFramebufferStatus': { 1: { 0: true } },
+    'framebufferRenderbuffer': { 4: { 0: true, 1: true, 2: true } },
+    'framebufferTexture2D': { 5: { 0: true, 1: true, 2: true } },
+    'getFramebufferAttachmentParameter': { 3: { 0: true, 1: true, 2: true } },
+    'getRenderbufferParameter': { 2: { 0: true, 1: true } },
+    'renderbufferStorage': { 4: { 0: true, 1: true } },
+    // Frame buffer operations (clear, blend, depth test, stencil)
+    'clear': { 1: { 0: { 'enumBitwiseOr': ['COLOR_BUFFER_BIT', 'DEPTH_BUFFER_BIT', 'STENCIL_BUFFER_BIT'] } } },
+    'depthFunc': { 1: { 0: true } },
+    'blendFunc': { 2: { 0: true, 1: true } },
+    'blendFuncSeparate': { 4: { 0: true, 1: true, 2: true, 3: true } },
+    'blendEquation': { 1: { 0: true } },
+    'blendEquationSeparate': { 2: { 0: true, 1: true } },
+    'stencilFunc': { 3: { 0: true } },
+    'stencilFuncSeparate': { 4: { 0: true, 1: true } },
+    'stencilMaskSeparate': { 2: { 0: true } },
+    'stencilOp': { 3: { 0: true, 1: true, 2: true } },
+    'stencilOpSeparate': { 4: { 0: true, 1: true, 2: true, 3: true } },
+    // Culling
+    'cullFace': { 1: { 0: true } },
+    'frontFace': { 1: { 0: true } },
+    // ANGLE_instanced_arrays extension
+    'drawArraysInstancedANGLE': { 4: { 0: true } },
+    'drawElementsInstancedANGLE': { 5: { 0: true, 2: true } },
+    // EXT_blend_minmax extension
+    'blendEquationEXT': { 1: { 0: true } },
+    // WebGL 2 Buffer objects
+    'bufferData': {
+        3: { 0: true, 2: true },
+        4: { 0: true, 2: true },
+        5: { 0: true, 2: true } // WebGL 2
+    },
+    'bufferSubData': {
+        3: { 0: true },
+        4: { 0: true },
+        5: { 0: true } // WebGL 2
+    },
+    'copyBufferSubData': { 5: { 0: true, 1: true } },
+    'getBufferSubData': { 3: { 0: true }, 4: { 0: true }, 5: { 0: true } },
+    // WebGL 2 Framebuffer objects
+    'blitFramebuffer': { 10: { 8: { 'enumBitwiseOr': ['COLOR_BUFFER_BIT', 'DEPTH_BUFFER_BIT', 'STENCIL_BUFFER_BIT'] }, 9: true } },
+    'framebufferTextureLayer': { 5: { 0: true, 1: true } },
+    'invalidateFramebuffer': { 2: { 0: true } },
+    'invalidateSubFramebuffer': { 6: { 0: true } },
+    'readBuffer': { 1: { 0: true } },
+    // WebGL 2 Renderbuffer objects
+    'getInternalformatParameter': { 3: { 0: true, 1: true, 2: true } },
+    'renderbufferStorageMultisample': { 5: { 0: true, 2: true } },
+    // WebGL 2 Texture objects
+    'texStorage2D': { 5: { 0: true, 2: true } },
+    'texStorage3D': { 6: { 0: true, 2: true } },
+    'texImage2D': {
+        9: { 0: true, 2: true, 6: true, 7: true },
+        6: { 0: true, 2: true, 3: true, 4: true },
+        10: { 0: true, 2: true, 6: true, 7: true } // WebGL 2
+    },
+    'texImage3D': {
+        10: { 0: true, 2: true, 7: true, 8: true },
+        11: { 0: true, 2: true, 7: true, 8: true }
+    },
+    'texSubImage2D': {
+        9: { 0: true, 6: true, 7: true },
+        7: { 0: true, 4: true, 5: true },
+        10: { 0: true, 6: true, 7: true } // WebGL 2
+    },
+    'texSubImage3D': {
+        11: { 0: true, 8: true, 9: true },
+        12: { 0: true, 8: true, 9: true }
+    },
+    'copyTexSubImage3D': { 9: { 0: true } },
+    'compressedTexImage2D': {
+        7: { 0: true, 2: true },
+        8: { 0: true, 2: true },
+        9: { 0: true, 2: true } // WebGL 2
+    },
+    'compressedTexImage3D': {
+        8: { 0: true, 2: true },
+        9: { 0: true, 2: true },
+        10: { 0: true, 2: true }
+    },
+    'compressedTexSubImage2D': {
+        8: { 0: true, 6: true },
+        9: { 0: true, 6: true },
+        10: { 0: true, 6: true } // WebGL 2
+    },
+    'compressedTexSubImage3D': {
+        10: { 0: true, 8: true },
+        11: { 0: true, 8: true },
+        12: { 0: true, 8: true }
+    },
+    // WebGL 2 Vertex attribs
+    'vertexAttribIPointer': { 5: { 2: true } },
+    // WebGL 2 Writing to the drawing buffer
+    'drawArraysInstanced': { 4: { 0: true } },
+    'drawElementsInstanced': { 5: { 0: true, 2: true } },
+    'drawRangeElements': { 6: { 0: true, 4: true } },
+    // WebGL 2 Reading back pixels
+    'readPixels': {
+        7: { 4: true, 5: true },
+        8: { 4: true, 5: true } // WebGL 2
+    },
+    // WebGL 2 Multiple Render Targets
+    'clearBufferfv': { 3: { 0: true }, 4: { 0: true } },
+    'clearBufferiv': { 3: { 0: true }, 4: { 0: true } },
+    'clearBufferuiv': { 3: { 0: true }, 4: { 0: true } },
+    'clearBufferfi': { 4: { 0: true } },
+    // WebGL 2 Query objects
+    'beginQuery': { 2: { 0: true } },
+    'endQuery': { 1: { 0: true } },
+    'getQuery': { 2: { 0: true, 1: true } },
+    'getQueryParameter': { 2: { 1: true } },
+    // WebGL 2 Sampler objects
+    'samplerParameteri': { 3: { 1: true, 2: true } },
+    'samplerParameterf': { 3: { 1: true } },
+    'getSamplerParameter': { 2: { 1: true } },
+    // WebGL 2 Sync objects
+    'fenceSync': { 2: { 0: true, 1: { 'enumBitwiseOr': [] } } },
+    'clientWaitSync': { 3: { 1: { 'enumBitwiseOr': ['SYNC_FLUSH_COMMANDS_BIT'] } } },
+    'waitSync': { 3: { 1: { 'enumBitwiseOr': [] } } },
+    'getSyncParameter': { 2: { 1: true } },
+    // WebGL 2 Transform Feedback
+    'bindTransformFeedback': { 2: { 0: true } },
+    'beginTransformFeedback': { 1: { 0: true } },
+    'transformFeedbackVaryings': { 3: { 2: true } },
+    // WebGL2 Uniform Buffer Objects and Transform Feedback Buffers
+    'bindBufferBase': { 3: { 0: true } },
+    'bindBufferRange': { 5: { 0: true } },
+    'getIndexedParameter': { 2: { 0: true } },
+    'getActiveUniforms': { 3: { 2: true } },
+    'getActiveUniformBlockParameter': { 3: { 2: true } }
+};
+/**
+ * Map of numbers to names.
+ * @type {Object}
+ */
+let glEnums = null;
+/**
+ * Map of names to numbers.
+ * @type {Object}
+ */
+let enumStringToValue = null;
+/**
+ * Initializes this module. Safe to call more than once.
+ * @param ctx A WebGL context. If
+ *    you have more than one context it doesn't matter which one
+ *    you pass in, it is only used to pull out constants.
+ */
+function init() {
+    if (null === glEnums) {
+        glEnums = {};
+        enumStringToValue = {};
+        const c = window.WebGL2RenderingContext || window.WebGLRenderingContext;
+        if (!c)
+            throw new Error('Neither WebGL2RenderingContext nor WebGLRenderingContext exists on window.');
+        for (const propertyName in c) {
+            const prop = c[propertyName];
+            if ('number' === typeof prop) {
+                glEnums[prop] = propertyName;
+                enumStringToValue[propertyName] = prop;
+            }
+        }
+    }
+}
+/**
+ * Returns true or false if value matches any WebGL enum
+ * @param value Value to check if it might be an enum.
+ * @return True if value matches one of the WebGL defined enums
+ */
+function mightBeEnum(value) {
+    init();
+    return (glEnums[value] !== undefined);
+}
+/**
+ * Gets an string version of an WebGL enum.
+ *
+ * Example:
+ *   var str = WebGLDebugUtil.glEnumToString(ctx.getError())
+ *
+ * @param value Value to return an enum for
+ * @return The string version of the enum.
+ */
+function glEnumToString(value) {
+    init();
+    var name = glEnums[value];
+    return (name !== undefined) ? ('gl.' + name) :
+        ('/*UNKNOWN WebGL ENUM*/ 0x' + value.toString(16) + '');
+}
+/**
+ * Converts the argument of a WebGL function to a string.
+ * Attempts to convert enum arguments to strings.
+ *
+ * Example:
+ *   WebGLDebugUtil.init(ctx)
+ *   var str = WebGLDebugUtil.glFunctionArgToString('bindTexture', 2, 0, gl.TEXTURE_2D)
+ *
+ * would return 'TEXTURE_2D'
+ *
+ * @param functionName the name of the WebGL function.
+ * @param numArgs the number of arguments passed to the function.
+ * @param argumentIndex the index of the argument.
+ * @param value The value of the argument.
+ * @return The value as a string.
+ */
+function glFunctionArgToString(functionName, numArgs, argumentIndex, value) {
+    const funcInfo = glValidEnumContexts[functionName];
+    if (funcInfo !== undefined) {
+        const funcOverloadInfo = funcInfo[numArgs];
+        if (funcOverloadInfo !== undefined) {
+            const argInfo = funcOverloadInfo[argumentIndex];
+            if (argInfo) {
+                if (typeof argInfo === 'object') {
+                    const enums = argInfo.enumBitwiseOr;
+                    const orEnums = [];
+                    let orResult = 0;
+                    for (let i = 0; i < enums.length; ++i) {
+                        const enumValue = enumStringToValue[enums[i]];
+                        if ((value & enumValue) !== 0) {
+                            orResult |= enumValue;
+                            orEnums.push(glEnumToString(enumValue));
+                        }
+                    }
+                    if (orResult === value) {
+                        return orEnums.join(' | ');
+                    }
+                    else {
+                        return glEnumToString(value);
+                    }
+                }
+                else {
+                    return glEnumToString(value);
+                }
+            }
+        }
+    }
+    if (value === null) {
+        return 'null';
+    }
+    else if (value === undefined) {
+        return 'undefined';
+    }
+    else {
+        return value.toString();
+    }
+}
+/**
+ * Converts the arguments of a WebGL function to a string.
+ * Attempts to convert enum arguments to strings.
+ *
+ * @param functionName the name of the WebGL function.
+ * @param args The arguments.
+ * @return The arguments as a string.
+ */
+function glFunctionArgsToString(functionName, args) {
+    // apparently we can't do args.join(',')
+    var argStr = '';
+    var numArgs = args.length;
+    for (var ii = 0; ii < numArgs; ++ii) {
+        argStr += ((ii == 0) ? '' : ', ') +
+            glFunctionArgToString(functionName, numArgs, ii, args[ii]);
+    }
+    return argStr;
+}
+function makePropertyWrapper(wrapper, original, propertyName) {
+    //log('wrap prop: ' + propertyName)
+    wrapper.__defineGetter__(propertyName, function () {
+        return original[propertyName];
+    });
+    // TODO(gmane): this needs to handle properties that take more than
+    // one value?
+    wrapper.__defineSetter__(propertyName, function (value) {
+        //log('set: ' + propertyName)
+        original[propertyName] = value;
+    });
+}
+/**
+ * Given a WebGL context returns a wrapped context that calls
+ * gl.getError after every command and calls a function if the
+ * result is not NO_ERROR.
+ *
+ * You can supply your own function if you want. For example, if you'd like
+ * an exception thrown on any GL error you could do this
+ *
+ *    function throwOnGLError(err, funcName, args) {
+ *      throw new Error(WebGLDebugUtils.glEnumToString(err) +
+ *            ' was caused by call to ' + funcName)
+ *    }
+ *
+ *    ctx = WebGLDebugUtils.makeDebugContext(
+ *        canvas.getContext('webgl'), throwOnGLError)
+ *
+ * @param ctx The webgl context to wrap.
+ * @param opt_onErrorFunc The function
+ *     to call when gl.getError returns an error. If not specified the default
+ *     function calls console.log with a message.
+ * @param opt_onFunc The
+ *     function to call when each webgl function is called. You
+ *     can use this to log all calls for example.
+ * @param opt_err_ctx The webgl context
+ *        to call getError on if different than ctx.
+ */
+function makeDebugContext(ctx, opt_onErrorFunc, opt_onFunc, opt_err_ctx = ctx) {
+    init();
+    opt_onErrorFunc = opt_onErrorFunc || function (err, functionName, args) {
+        // apparently we can't do args.join(',')
+        var argStr = '';
+        var numArgs = args.length;
+        for (let i = 0; i < numArgs; ++i) {
+            argStr += ((i == 0) ? '' : ', ') +
+                glFunctionArgToString(functionName, numArgs, i, args[i]);
+        }
+        error('WebGL error ' + glEnumToString(err) + ' in ' + functionName +
+            '(' + argStr + ')');
+    };
+    // Holds booleans for each GL error so after we get the error ourselves
+    // we can still return it to the client app.
+    const glErrorShadow = {};
+    // Makes a function that calls a WebGL function and then calls getError.
+    function makeErrorWrapper(ctx, functionName) {
+        return function (...args) {
+            if (opt_onFunc) {
+                opt_onFunc(functionName, args);
+            }
+            const result = ctx[functionName].apply(ctx, args);
+            const err = opt_err_ctx.getError();
+            if (err != 0) {
+                glErrorShadow[err] = true;
+                opt_onErrorFunc(err, functionName, args);
+            }
+            return result;
+        };
+    }
+    // Make a an object that has a copy of every property of the WebGL context
+    // but wraps all functions.
+    const wrapper = {};
+    for (let propertyName in ctx) {
+        const prop = ctx[propertyName];
+        if ('function' === typeof prop) {
+            if (propertyName != 'getExtension') {
+                wrapper[propertyName] = makeErrorWrapper(ctx, propertyName);
+            }
+            else {
+                let wrapped = makeErrorWrapper(ctx, propertyName);
+                wrapper[propertyName] = function () {
+                    const result = wrapped.apply(ctx, arguments);
+                    if (!result) {
+                        return null;
+                    }
+                    return makeDebugContext(result, opt_onErrorFunc, opt_onFunc, opt_err_ctx);
+                };
+            }
+        }
+        else {
+            makePropertyWrapper(wrapper, ctx, propertyName);
+        }
+    }
+    // Override the getError function with one that returns our saved results.
+    wrapper.getError = function () {
+        for (const err in glErrorShadow) {
+            if (glErrorShadow.hasOwnProperty(err)) {
+                if (glErrorShadow[err]) {
+                    glErrorShadow[err] = false;
+                    return parseInt(err);
+                }
+            }
+        }
+        return ctx.NO_ERROR;
+    };
+    return wrapper;
+}
+function exports.isWebGL2RenderingContext(o) {
+    return !!o.createTransformFeedback;
+}
+/**
+ * Resets a context to the initial state.
+ * @param ctx The webgl context to
+ *     reset.
+ */
+function resetToInitialState(ctx2) {
+    if (exports.isWebGL2RenderingContext(ctx2)) {
+        ctx2.bindVertexArray(null);
+    }
+    const numAttribs = ctx2.getParameter(ctx2.MAX_VERTEX_ATTRIBS);
+    const tmp = ctx2.createBuffer();
+    ctx2.bindBuffer(ctx2.ARRAY_BUFFER, tmp);
+    for (let ii = 0; ii < numAttribs; ++ii) {
+        ctx2.disableVertexAttribArray(ii);
+        ctx2.vertexAttribPointer(ii, 4, ctx2.FLOAT, false, 0, 0);
+        ctx2.vertexAttrib1f(ii, 0);
+        if (exports.isWebGL2RenderingContext(ctx2)) {
+            ctx2.vertexAttribDivisor(ii, 0);
+        }
+    }
+    ctx2.deleteBuffer(tmp);
+    const numTextureUnits = ctx2.getParameter(ctx2.MAX_TEXTURE_IMAGE_UNITS);
+    for (let ii = 0; ii < numTextureUnits; ++ii) {
+        ctx2.activeTexture((ctx2.TEXTURE0 + ii));
+        ctx2.bindTexture(ctx2.TEXTURE_CUBE_MAP, null);
+        ctx2.bindTexture(ctx2.TEXTURE_2D, null);
+        if (exports.isWebGL2RenderingContext(ctx2)) {
+            ctx2.bindTexture(ctx2.TEXTURE_2D_ARRAY, null);
+            ctx2.bindTexture(ctx2.TEXTURE_3D, null);
+            ctx2.bindSampler(ii, null);
+        }
+    }
+    ctx2.activeTexture(ctx2.TEXTURE0);
+    ctx2.useProgram(null);
+    ctx2.bindBuffer(ctx2.ARRAY_BUFFER, null);
+    ctx2.bindBuffer(ctx2.ELEMENT_ARRAY_BUFFER, null);
+    ctx2.bindFramebuffer(ctx2.FRAMEBUFFER, null);
+    ctx2.bindRenderbuffer(ctx2.RENDERBUFFER, null);
+    ctx2.disable(ctx2.BLEND);
+    ctx2.disable(ctx2.CULL_FACE);
+    ctx2.disable(ctx2.DEPTH_TEST);
+    ctx2.disable(ctx2.DITHER);
+    ctx2.disable(ctx2.SCISSOR_TEST);
+    ctx2.blendColor(0, 0, 0, 0);
+    ctx2.blendEquation(ctx2.FUNC_ADD);
+    ctx2.blendFunc(ctx2.ONE, ctx2.ZERO);
+    ctx2.clearColor(0, 0, 0, 0);
+    ctx2.clearDepth(1);
+    ctx2.clearStencil(-1);
+    ctx2.colorMask(true, true, true, true);
+    ctx2.cullFace(ctx2.BACK);
+    ctx2.depthFunc(ctx2.LESS);
+    ctx2.depthMask(true);
+    ctx2.depthRange(0, 1);
+    ctx2.frontFace(ctx2.CCW);
+    ctx2.hint(ctx2.GENERATE_MIPMAP_HINT, ctx2.DONT_CARE);
+    ctx2.lineWidth(1);
+    ctx2.pixelStorei(ctx2.PACK_ALIGNMENT, 4);
+    ctx2.pixelStorei(ctx2.UNPACK_ALIGNMENT, 4);
+    ctx2.pixelStorei(ctx2.UNPACK_FLIP_Y_WEBGL, false);
+    ctx2.pixelStorei(ctx2.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+    ctx2.pixelStorei(ctx2.UNPACK_COLORSPACE_CONVERSION_WEBGL, ctx2.BROWSER_DEFAULT_WEBGL);
+    ctx2.polygonOffset(0, 0);
+    ctx2.sampleCoverage(1, false);
+    ctx2.scissor(0, 0, ctx2.canvas.width, ctx2.canvas.height);
+    ctx2.stencilFunc(ctx2.ALWAYS, 0, 0xFFFFFFFF);
+    ctx2.stencilMask(0xFFFFFFFF);
+    ctx2.stencilOp(ctx2.KEEP, ctx2.KEEP, ctx2.KEEP);
+    ctx2.viewport(0, 0, ctx2.canvas.width, ctx2.canvas.height);
+    ctx2.clear(ctx2.COLOR_BUFFER_BIT | ctx2.DEPTH_BUFFER_BIT | ctx2.STENCIL_BUFFER_BIT);
+    if (exports.isWebGL2RenderingContext(ctx2)) {
+        ctx2.drawBuffers([ctx2.BACK]);
+        ctx2.readBuffer(ctx2.BACK);
+        ctx2.bindBuffer(ctx2.COPY_READ_BUFFER, null);
+        ctx2.bindBuffer(ctx2.COPY_WRITE_BUFFER, null);
+        ctx2.bindBuffer(ctx2.PIXEL_PACK_BUFFER, null);
+        ctx2.bindBuffer(ctx2.PIXEL_UNPACK_BUFFER, null);
+        const numTransformFeedbacks = ctx2.getParameter(ctx2.MAX_TRANSFORM_FEEDBACK_SEPARATE_ATTRIBS);
+        for (let ii = 0; ii < numTransformFeedbacks; ++ii) {
+            ctx2.bindBufferBase(ctx2.TRANSFORM_FEEDBACK_BUFFER, ii, null);
+        }
+        const numUBOs = ctx2.getParameter(ctx2.MAX_UNIFORM_BUFFER_BINDINGS);
+        for (let ii = 0; ii < numUBOs; ++ii) {
+            ctx2.bindBufferBase(ctx2.UNIFORM_BUFFER, ii, null);
+        }
+        ctx2.disable(ctx2.RASTERIZER_DISCARD);
+        ctx2.pixelStorei(ctx2.UNPACK_IMAGE_HEIGHT, 0);
+        ctx2.pixelStorei(ctx2.UNPACK_SKIP_IMAGES, 0);
+        ctx2.pixelStorei(ctx2.UNPACK_ROW_LENGTH, 0);
+        ctx2.pixelStorei(ctx2.UNPACK_SKIP_ROWS, 0);
+        ctx2.pixelStorei(ctx2.UNPACK_SKIP_PIXELS, 0);
+        ctx2.pixelStorei(ctx2.PACK_ROW_LENGTH, 0);
+        ctx2.pixelStorei(ctx2.PACK_SKIP_ROWS, 0);
+        ctx2.pixelStorei(ctx2.PACK_SKIP_PIXELS, 0);
+        ctx2.hint(ctx2.FRAGMENT_SHADER_DERIVATIVE_HINT, ctx2.DONT_CARE);
+    }
+    // TODO: This should NOT be needed but Firefox fails with 'hint'
+    while (ctx2.getError()) { }
+}
+/**
+ * Given a canvas element returns a wrapped canvas element that will
+ * simulate lost context. The canvas returned adds the following functions.
+ *
+ * loseContext:
+ *   simulates a lost context event.
+ *
+ * restoreContext:
+ *   simulates the context being restored.
+ *
+ * lostContextInNCalls:
+ *   loses the context after N gl calls.
+ *
+ * getNumCalls:
+ *   tells you how many gl calls there have been so far.
+ *
+ * setRestoreTimeout:
+ *   sets the number of milliseconds until the context is restored
+ *   after it has been lost. Defaults to 0. Pass -1 to prevent
+ *   automatic restoring.
+ *
+ * @param canvas The canvas element to wrap.
+ */
+function makeLostContextSimulatingCanvas(canvas) {
+    const canvas2 = canvas;
+    let unwrappedContext_;
+    const onLost_ = [];
+    const onRestored_ = [];
+    let wrappedContext_ = {};
+    let contextId_ = 1;
+    let contextLost_ = false;
+    // const resourceId_ = 0
+    const resourceDb_ = [];
+    let numCallsToLoseContext_ = 0;
+    let numCalls_ = 0;
+    let canRestore_ = false;
+    let restoreTimeout_ = 0;
+    // Holds booleans for each GL error so can simulate errors.
+    const glErrorShadow_ = {};
+    canvas2.getContext = function (f) {
+        return function () {
+            const ctx = f.apply(canvas2, arguments);
+            // Did we get a context and is it a WebGL context?
+            // @ts-ignore
+            if ((ctx instanceof WebGLRenderingContext) || (window.WebGL2RenderingContext && (ctx instanceof WebGL2RenderingContext))) {
+                if (ctx != unwrappedContext_) {
+                    if (unwrappedContext_) {
+                        throw new Error('got different context');
+                    }
+                    // @ts-ignore
+                    exports.isWebGL2RenderingContext = window.WebGL2RenderingContext && (ctx instanceof WebGL2RenderingContext);
+                    unwrappedContext_ = ctx;
+                    wrappedContext_ = makeLostContextSimulatingContext(unwrappedContext_);
+                }
+                return wrappedContext_;
+            }
+            return ctx;
+        };
+    }(canvas2.getContext);
+    function wrapEvent(listener) {
+        if (typeof (listener) == 'function') {
+            return listener;
+        }
+        else {
+            return function (e) {
+                listener.handleEvent(e);
+            };
+        }
+    }
+    function addOnContextLostListener(listener) {
+        onLost_.push(wrapEvent(listener));
+    }
+    function addOnContextRestoredListener(listener) {
+        onRestored_.push(wrapEvent(listener));
+    }
+    function wrapAddEventListener(canvas) {
+        const f = canvas.addEventListener;
+        canvas.addEventListener = function (type, listener) {
+            switch (type) {
+                case 'webglcontextlost':
+                    addOnContextLostListener(listener);
+                    break;
+                case 'webglcontextrestored':
+                    addOnContextRestoredListener(listener);
+                    break;
+                default:
+                    f.apply(canvas, arguments);
+            }
+        };
+    }
+    wrapAddEventListener(canvas2);
+    canvas2.loseContext = function () {
+        if (!contextLost_) {
+            contextLost_ = true;
+            numCallsToLoseContext_ = 0;
+            ++contextId_;
+            while (unwrappedContext_.getError())
+                clearErrors();
+            glErrorShadow_[unwrappedContext_.CONTEXT_LOST_WEBGL] = true;
+            const event = makeWebGLContextEvent('context lost');
+            const callbacks = onLost_.slice();
+            setTimeout(function () {
+                //log('numCallbacks:' + callbacks.length)
+                for (let ii = 0; ii < callbacks.length; ++ii) {
+                    //log('calling callback:' + ii)
+                    callbacks[ii](event);
+                }
+                if (restoreTimeout_ >= 0) {
+                    setTimeout(function () {
+                        canvas2.restoreContext();
+                    }, restoreTimeout_);
+                }
+            }, 0);
+        }
+    };
+    canvas2.restoreContext = function () {
+        if (contextLost_) {
+            if (onRestored_.length) {
+                setTimeout(function () {
+                    if (!canRestore_) {
+                        throw new Error('can not restore. webglcontestlost listener did not call event.preventDefault');
+                    }
+                    freeResources();
+                    resetToInitialState(unwrappedContext_);
+                    contextLost_ = false;
+                    numCalls_ = 0;
+                    canRestore_ = false;
+                    const callbacks = onRestored_.slice();
+                    const event = makeWebGLContextEvent('context restored');
+                    for (let ii = 0; ii < callbacks.length; ++ii) {
+                        callbacks[ii](event);
+                    }
+                }, 0);
+            }
+        }
+    };
+    canvas2.loseContextInNCalls = function (numCalls) {
+        if (contextLost_) {
+            throw new Error('You can not ask a lost context to be lost');
+        }
+        numCallsToLoseContext_ = numCalls_ + numCalls;
+    };
+    canvas2.getNumCalls = function () {
+        return numCalls_;
+    };
+    canvas2.setRestoreTimeout = function (timeout) {
+        restoreTimeout_ = timeout;
+    };
+    function clearErrors() {
+        const k = Object.keys(glErrorShadow_);
+        for (let i = 0; i < k.length; ++i) {
+            delete glErrorShadow_[k[i]];
+        }
+    }
+    function loseContextIfTime() {
+        ++numCalls_;
+        if (!contextLost_) {
+            if (numCallsToLoseContext_ == numCalls_) {
+                canvas2.loseContext();
+            }
+        }
+    }
+    // Makes a function that simulates WebGL when out of context.
+    function makeLostContextFunctionWrapper(ctx, functionName) {
+        const f = ctx[functionName];
+        return function () {
+            // log('calling:' + functionName)
+            // Only call the functions if the context is not lost.
+            loseContextIfTime();
+            if (!contextLost_) {
+                //if (!checkResources(arguments)) {
+                //  glErrorShadow_[wrappedContext_.INVALID_OPERATION] = true
+                //  return
+                //}
+                const result = f.apply(ctx, arguments);
+                return result;
+            }
+        };
+    }
+    function freeResources() {
+        for (let ii = 0; ii < resourceDb_.length; ++ii) {
+            const resource = resourceDb_[ii];
+            if (resource instanceof WebGLBuffer) {
+                unwrappedContext_.deleteBuffer(resource);
+            }
+            else if (resource instanceof WebGLFramebuffer) {
+                unwrappedContext_.deleteFramebuffer(resource);
+            }
+            else if (resource instanceof WebGLProgram) {
+                unwrappedContext_.deleteProgram(resource);
+            }
+            else if (resource instanceof WebGLRenderbuffer) {
+                unwrappedContext_.deleteRenderbuffer(resource);
+            }
+            else if (resource instanceof WebGLShader) {
+                unwrappedContext_.deleteShader(resource);
+            }
+            else if (resource instanceof WebGLTexture) {
+                unwrappedContext_.deleteTexture(resource);
+            }
+            else if (exports.isWebGL2RenderingContext) {
+                // @ts-ignore
+                if (resource instanceof WebGLQuery) {
+                    unwrappedContext_.deleteQuery(resource);
+                    // @ts-ignore
+                }
+                else if (resource instanceof WebGLSampler) {
+                    unwrappedContext_.deleteSampler(resource);
+                    // @ts-ignore
+                }
+                else if (resource instanceof WebGLSync) {
+                    unwrappedContext_.deleteSync(resource);
+                    // @ts-ignore
+                }
+                else if (resource instanceof WebGLTransformFeedback) {
+                    unwrappedContext_.deleteTransformFeedback(resource);
+                    // @ts-ignore
+                }
+                else if (resource instanceof WebGLVertexArrayObject) {
+                    unwrappedContext_.deleteVertexArray(resource);
+                }
+            }
+        }
+    }
+    function makeWebGLContextEvent(statusMessage) {
+        return {
+            statusMessage: statusMessage,
+            preventDefault: function () {
+                canRestore_ = true;
+            }
+        };
+    }
+    return canvas2;
+    function makeLostContextSimulatingContext(ctx) {
+        // copy all functions and properties to wrapper
+        for (const propertyName in ctx) {
+            if (typeof ctx[propertyName] == 'function') {
+                wrappedContext_[propertyName] = makeLostContextFunctionWrapper(ctx, propertyName);
+            }
+            else {
+                makePropertyWrapper(wrappedContext_, ctx, propertyName);
+            }
+        }
+        // Wrap a few functions specially.
+        wrappedContext_.getError = function () {
+            loseContextIfTime();
+            if (!contextLost_) {
+                let err;
+                while (err = unwrappedContext_.getError()) {
+                    glErrorShadow_[err] = true;
+                }
+            }
+            for (const err in glErrorShadow_) {
+                if (glErrorShadow_[err]) {
+                    delete glErrorShadow_[err];
+                    return err;
+                }
+            }
+            return wrappedContext_.NO_ERROR;
+        };
+        const creationFunctions = [
+            'createBuffer',
+            'createFramebuffer',
+            'createProgram',
+            'createRenderbuffer',
+            'createShader',
+            'createTexture'
+        ];
+        if (exports.isWebGL2RenderingContext) {
+            creationFunctions.push('createQuery', 'createSampler', 'fenceSync', 'createTransformFeedback', 'createVertexArray');
+        }
+        for (let i = 0; i < creationFunctions.length; ++i) {
+            const functionName = creationFunctions[i];
+            wrappedContext_[functionName] = function (f) {
+                return function () {
+                    loseContextIfTime();
+                    if (contextLost_) {
+                        return null;
+                    }
+                    const obj = f.apply(ctx, arguments);
+                    obj.__webglDebugContextLostId__ = contextId_;
+                    resourceDb_.push(obj);
+                    return obj;
+                };
+            }(ctx[functionName]);
+        }
+        const functionsThatShouldReturnNull = [
+            'getActiveAttrib',
+            'getActiveUniform',
+            'getBufferParameter',
+            'getContextAttributes',
+            'getAttachedShaders',
+            'getFramebufferAttachmentParameter',
+            'getParameter',
+            'getProgramParameter',
+            'getProgramInfoLog',
+            'getRenderbufferParameter',
+            'getShaderParameter',
+            'getShaderInfoLog',
+            'getShaderSource',
+            'getTexParameter',
+            'getUniform',
+            'getUniformLocation',
+            'getVertexAttrib'
+        ];
+        if (exports.isWebGL2RenderingContext) {
+            functionsThatShouldReturnNull.push('getInternalformatParameter', 'getQuery', 'getQueryParameter', 'getSamplerParameter', 'getSyncParameter', 'getTransformFeedbackVarying', 'getIndexedParameter', 'getUniformIndices', 'getActiveUniforms', 'getActiveUniformBlockParameter', 'getActiveUniformBlockName');
+        }
+        for (let ii = 0; ii < functionsThatShouldReturnNull.length; ++ii) {
+            const functionName = functionsThatShouldReturnNull[ii];
+            wrappedContext_[functionName] = function (f) {
+                return function () {
+                    loseContextIfTime();
+                    if (contextLost_) {
+                        return null;
+                    }
+                    return f.apply(ctx, arguments);
+                };
+            }(wrappedContext_[functionName]);
+        }
+        const isFunctions = [
+            'isBuffer',
+            'isEnabled',
+            'isFramebuffer',
+            'isProgram',
+            'isRenderbuffer',
+            'isShader',
+            'isTexture'
+        ];
+        if (exports.isWebGL2RenderingContext) {
+            isFunctions.push('isQuery', 'isSampler', 'isSync', 'isTransformFeedback', 'isVertexArray');
+        }
+        for (let ii = 0; ii < isFunctions.length; ++ii) {
+            const functionName = isFunctions[ii];
+            wrappedContext_[functionName] = function (f) {
+                return function () {
+                    loseContextIfTime();
+                    if (contextLost_) {
+                        return false;
+                    }
+                    return f.apply(ctx, arguments);
+                };
+            }(wrappedContext_[functionName]);
+        }
+        wrappedContext_.checkFramebufferStatus = function (f) {
+            return function () {
+                loseContextIfTime();
+                if (contextLost_) {
+                    return wrappedContext_.FRAMEBUFFER_UNSUPPORTED;
+                }
+                return f.apply(ctx, arguments);
+            };
+        }(wrappedContext_.checkFramebufferStatus);
+        wrappedContext_.getAttribLocation = function (f) {
+            return function () {
+                loseContextIfTime();
+                if (contextLost_) {
+                    return -1;
+                }
+                return f.apply(ctx, arguments);
+            };
+        }(wrappedContext_.getAttribLocation);
+        wrappedContext_.getVertexAttribOffset = function (f) {
+            return function () {
+                loseContextIfTime();
+                if (contextLost_) {
+                    return 0;
+                }
+                return f.apply(ctx, arguments);
+            };
+        }(wrappedContext_.getVertexAttribOffset);
+        wrappedContext_.isContextLost = function () {
+            return contextLost_;
+        };
+        if (exports.isWebGL2RenderingContext) {
+            wrappedContext_.getFragDataLocation = function (f) {
+                return function () {
+                    loseContextIfTime();
+                    if (contextLost_) {
+                        return -1;
+                    }
+                    return f.apply(ctx, arguments);
+                };
+            }(wrappedContext_.getFragDataLocation);
+            wrappedContext_.clientWaitSync = function (f) {
+                return function () {
+                    loseContextIfTime();
+                    if (contextLost_) {
+                        return wrappedContext_.WAIT_FAILED;
+                    }
+                    return f.apply(ctx, arguments);
+                };
+            }(wrappedContext_.clientWaitSync);
+            wrappedContext_.getUniformBlockIndex = function (f) {
+                return function () {
+                    loseContextIfTime();
+                    if (contextLost_) {
+                        return wrappedContext_.INVALID_INDEX;
+                    }
+                    return f.apply(ctx, arguments);
+                };
+            }(wrappedContext_.getUniformBlockIndex);
+        }
+        return wrappedContext_;
     }
 }
 
@@ -1031,14 +2290,13 @@ class Shader {
  */
 const GL_COLOR_BLACK = [0, 0, 0, 1];
 function currentGL() {
-    return TSGLContext.gl;
+    return TSGLContextBase.gl;
 }
-const WGL$2 = WebGLRenderingContext;
 function isNumber(obj) {
     const str = Object.prototype.toString.call(obj);
     return str == '[object Number]' || str == '[object Boolean]';
 }
-class TSGLContext {
+class TSGLContextBase {
     constructor(gl, immediate = {
         mesh: new Mesh()
             .addVertexBuffer('coords', 'ts_TexCoord')
@@ -1084,7 +2342,7 @@ class TSGLContext {
         this.drawCallCount = 0;
         this.projectionMatrixVersion = 0;
         this.modelViewMatrixVersion = 0;
-        this.matrixMode(TSGLContext.MODELVIEW);
+        this.matrixMode(TSGLContextBase.MODELVIEW);
     }
     /// Implement the OpenGL modelview and projection matrix stacks, along with some other useful GLU matrix functions.
     matrixMode(mode) {
@@ -1215,12 +2473,12 @@ class TSGLContext {
             throw new Error('mismatched viewerGL.begin() and viewerGL.end() calls');
         this.immediate.mesh.compile();
         this.immediate.shader.uniforms({
-            useTexture: !!TSGLContext.gl.getParameter(WGL$2.TEXTURE_BINDING_2D),
+            useTexture: !!TSGLContextBase.gl.getParameter(this.TEXTURE_BINDING_2D),
         }).drawBuffers(this.immediate.mesh.vertexBuffers, undefined, this.immediate.mode);
         this.immediate.mode = -1;
     }
     makeCurrent() {
-        TSGLContext.gl = this;
+        TSGLContextBase.gl = this;
     }
     /**
      * Starts an animation loop.
@@ -1282,10 +2540,10 @@ class TSGLContext {
             gl.canvas.height = (window.innerHeight - top - bottom) * window.devicePixelRatio;
             gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
             if (options.camera) {
-                gl.matrixMode(TSGLContext.PROJECTION);
+                gl.matrixMode(TSGLContextBase.PROJECTION);
                 gl.loadIdentity();
                 gl.perspective(options.fov || 45, gl.canvas.width / gl.canvas.height, options.near || 0.1, options.far || 1000);
-                gl.matrixMode(TSGLContext.MODELVIEW);
+                gl.matrixMode(TSGLContextBase.MODELVIEW);
             }
         }
         window.addEventListener('resize', windowOnResize);
@@ -1295,16 +2553,6 @@ class TSGLContext {
     viewportFill() {
         this.viewport(0, 0, this.canvas.width, this.canvas.height);
     }
-    handleError() {
-        // const errorCode = this.getError()
-        // if (0 !== errorCode) {
-        //     throw new Error('' + errorCode + WGL_ERROR[errorCode])
-        // }
-    }
-    /**
-     * `create()` creates a new WebGL context and augments it with more methods. The alpha channel is disabled
-     * by default because it usually causes unintended transparencies in the canvas.
-     */
     static create(options = {}) {
         const canvas = options.canvas || document.createElement('canvas');
         if (!options.canvas) {
@@ -1328,16 +2576,29 @@ class TSGLContext {
         }
         if (!newGL)
             throw new Error('WebGL not supported');
-        TSGLContext.gl = newGL;
-        ts3dutils.addOwnProperties(newGL, TSGLContext.prototype);
-        ts3dutils.addOwnProperties(newGL, new TSGLContext(newGL));
+        if (options.throwOnError) {
+            newGL = makeDebugContext(newGL, (err, funcName) => {
+                throw new Error(glEnumToString(err) + ' was caused by ' + funcName);
+            });
+        }
+        TSGLContextBase.gl = newGL;
+        ts3dutils.addOwnProperties(newGL, TSGLContextBase.prototype);
+        ts3dutils.addOwnProperties(newGL, new TSGLContextBase(newGL));
         //addEventListeners(newGL)
         return newGL;
     }
 }
-TSGLContext.MODELVIEW = 0;
-TSGLContext.PROJECTION = 1;
-TSGLContext.HALF_FLOAT_OES = 0x8D61;
+TSGLContextBase.MODELVIEW = 0;
+TSGLContextBase.PROJECTION = 1;
+TSGLContextBase.HALF_FLOAT_OES = 0x8D61;
+
+(function (TSGLContext) {
+    /**
+     * `create()` creates a new WebGL context and augments it with more methods. The alpha channel is disabled
+     * by default because it usually causes unintended transparencies in the canvas.
+     */
+    TSGLContext.create = TSGLContextBase.create;
+})(exports.TSGLContext || (exports.TSGLContext = {}));
 // enum WGL_ERROR {
 // 	NO_ERROR = WGL.NO_ERROR,
 // 	INVALID_ENUM = WGL.INVALID_ENUM,
@@ -1347,9 +2608,9 @@ TSGLContext.HALF_FLOAT_OES = 0x8D61;
 // 	OUT_OF_MEMORY = WGL.OUT_OF_MEMORY,
 // 	CONTEXT_LOST_WEBGL = WGL.CONTEXT_LOST_WEBGL,
 // }
-TSGLContext.prototype.MODELVIEW = TSGLContext.MODELVIEW;
-TSGLContext.prototype.PROJECTION = TSGLContext.PROJECTION;
-TSGLContext.prototype.HALF_FLOAT_OES = TSGLContext.HALF_FLOAT_OES;
+TSGLContextBase.prototype.MODELVIEW = TSGLContextBase.MODELVIEW;
+TSGLContextBase.prototype.PROJECTION = TSGLContextBase.PROJECTION;
+TSGLContextBase.prototype.HALF_FLOAT_OES = TSGLContextBase.HALF_FLOAT_OES;
 /**
  *
  * Push two triangles:
@@ -1369,277 +2630,6 @@ function hexIntToGLColor(color) {
     return [(color >> 16) / 255.0, ((color >> 8) & 0xff) / 255.0, (color & 0xff) / 255.0, 1.0];
 }
 
-const WGL$3 = WebGLRenderingContext;
-class Buffer {
-    /**
-     * Provides a simple method of uploading data to a GPU buffer. Example usage:
-     *
-     *     const vertices = new Buffer(WGL.ARRAY_BUFFER, Float32Array)
-     *     vertices.data = [[0, 0, 0], [1, 0, 0], [0, 1, 0], [1, 1, 0]]
-     *     vertices.compile()
-     *
-     *     const indices = new Buffer(WGL.ELEMENT_ARRAY_BUFFER, Uint16Array)
-     *     indices.data = [[0, 1, 2], [2, 1, 3]]
-     *     indices.compile()
-     *
-     * Specifies the target to which the buffer object is bound.
-     * The symbolic constant must be GL_ARRAY_BUFFER or GL_ELEMENT_ARRAY_BUFFER.
-     */
-    constructor(target, type) {
-        this.target = target;
-        this.type = type;
-        ts3dutils.assert(target == WGL$3.ARRAY_BUFFER || target == WGL$3.ELEMENT_ARRAY_BUFFER, 'target == WGL.ARRAY_BUFFER || target == WGL.ELEMENT_ARRAY_BUFFER');
-        ts3dutils.assert(type == Float32Array || type == Uint16Array, 'type == Float32Array || type == Uint16Array');
-        this.buffer = undefined;
-        this.type = type;
-        this.data = [];
-        this.count = 0;
-        this.spacing = 0;
-        this.hasBeenCompiled = false;
-    }
-    /**
-     * Upload the contents of `data` to the GPU in preparation for rendering. The data must be a list of lists
-     * where each inner list has the same length. For example, each element of data for vertex normals would be a
-     * list of length three. This will remember the data length and element length for later use by shaders.
-     *
-     * This could have used `[].concat.apply([], this.data)` to flatten the array but Google
-     * Chrome has a maximum number of arguments so the concatenations are chunked to avoid that limit.
-     *
-     * @param type Either `WGL.STATIC_DRAW` or `WGL.DYNAMIC_DRAW`. Defaults to `WGL.STATIC_DRAW`
-     */
-    compile(type = WGL$3.STATIC_DRAW, gl = currentGL()) {
-        ts3dutils.assert(WGL$3.STATIC_DRAW == type || WGL$3.DYNAMIC_DRAW == type, 'WGL.STATIC_DRAW == type || WGL.DYNAMIC_DRAW == type');
-        gl.handleError();
-        this.buffer = this.buffer || gl.createBuffer();
-        gl.handleError();
-        let buffer;
-        if (this.data.length == 0) {
-            console.warn('empty buffer ' + this.name);
-            //console.trace()
-        }
-        if (this.data.length == 0 || this.data[0] instanceof ts3dutils.V3) {
-            ts3dutils.assert(!(this.data[0] instanceof ts3dutils.V3) || this.type == Float32Array);
-            ts3dutils.V3.pack(this.data, buffer = new this.type(this.data.length * 3)); // asserts that all
-            // elements are V3s
-            this.spacing = 3;
-            this.count = this.data.length;
-            this.maxValue = 0;
-        }
-        else {
-            //assert(Array != this.data[0].constructor, this.name + this.data[0])
-            if (Array.isArray(this.data[0])) {
-                const bufferLength = this.data.length * this.data[0].length;
-                buffer = new this.type(bufferLength);
-                let i = this.data.length, destPtr = bufferLength;
-                while (i--) {
-                    const subArray = this.data[i];
-                    let j = subArray.length;
-                    while (j--) {
-                        buffer[--destPtr] = subArray[j];
-                    }
-                }
-                ts3dutils.assert(0 == destPtr);
-            }
-            else {
-                buffer = new this.type(this.data);
-            }
-            const spacing = this.data.length ? buffer.length / this.data.length : 0;
-            ts3dutils.assert(spacing % 1 == 0, `buffer ${this.name} elements not of consistent size, average size is ` + spacing);
-            if (ts3dutils.NLA_DEBUG) {
-                if (10000 <= buffer.length) {
-                    this.maxValue = 0;
-                }
-                else {
-                    this.maxValue = Math.max.apply(undefined, buffer);
-                }
-            }
-            ts3dutils.assert(spacing !== 0);
-            this.spacing = spacing;
-            this.count = this.data.length;
-        }
-        gl.bindBuffer(this.target, this.buffer);
-        gl.handleError();
-        gl.bufferData(this.target, buffer, type);
-        gl.handleError();
-        this.hasBeenCompiled = true;
-    }
-}
-
-class Texture {
-    /**
-     * Provides a simple wrapper around WebGL textures that supports render-to-texture.
-     *
-     * The arguments `width` and `height` give the size of the texture in texels.
-     * WebGL texture dimensions must be powers of two unless `filter` is set to
-     * either `WGL.NEAREST` or `WGL.LINEAR` and `wrap` is set to `WGL.CLAMP_TO_EDGE`
-     * (which they are by default).
-     *
-     * Texture parameters can be passed in via the `options` argument.
-     * Example usage:
-     *
-     *      let tex = new GL.Texture(256, 256, {
-         *       magFilter: WGL.NEAREST,
-         *       minFilter: WGL.LINEAR,
-         *
-         *       wrapS: WGL.REPEAT,
-         *       wrapT: WGL.REPEAT,
-         *
-         *       format: WGL.RGB, // Defaults to WGL.RGBA
-         *       type: WGL.FLOAT // Defaults to WGL.UNSIGNED_BYTE
-         *     })
-     *
-     */
-    constructor(width, height, options = {}, gl = currentGL()) {
-        this.gl = gl;
-        this.texture = gl.createTexture();
-        gl.handleError(); // in case createTexture returns null & fails
-        this.width = width;
-        this.height = height;
-        this.format = options.format || gl.RGBA;
-        this.internalFormat = options.internalFormat || gl.RGBA;
-        this.type = options.type || gl.UNSIGNED_BYTE;
-        const magFilter = options.filter || options.magFilter || gl.LINEAR;
-        const minFilter = options.filter || options.minFilter || gl.LINEAR;
-        if (this.type === gl.FLOAT) {
-            if (gl.version != 2 && !gl.getExtension('OES_texture_float')) {
-                throw new Error('OES_texture_float is required but not supported');
-            }
-            if ((minFilter !== gl.NEAREST || magFilter !== gl.NEAREST) && !gl.getExtension('OES_texture_float_linear')) {
-                throw new Error('OES_texture_float_linear is required but not supported');
-            }
-        }
-        else if (this.type === gl.HALF_FLOAT_OES) {
-            if (!gl.getExtension('OES_texture_half_float')) {
-                throw new Error('OES_texture_half_float is required but not supported');
-            }
-            if ((minFilter !== gl.NEAREST || magFilter !== gl.NEAREST) && !gl.getExtension('OES_texture_half_float_linear')) {
-                throw new Error('OES_texture_half_float_linear is required but not supported');
-            }
-        }
-        gl.bindTexture(gl.TEXTURE_2D, this.texture);
-        // gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1)
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, magFilter);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, minFilter);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, options.wrap || options.wrapS || gl.CLAMP_TO_EDGE);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, options.wrap || options.wrapT || gl.CLAMP_TO_EDGE);
-        gl.texImage2D(gl.TEXTURE_2D, 0, this.internalFormat, width, height, 0, this.format, this.type, options.data);
-    }
-    setData(data) {
-        this.gl.bindTexture(this.gl.TEXTURE_2D, this.texture);
-        this.gl.texImage2D(this.gl.TEXTURE_2D, 0, this.format, this.width, this.height, 0, this.format, this.type, data);
-    }
-    bind(unit) {
-        this.gl.activeTexture(this.gl.TEXTURE0 + unit);
-        this.gl.bindTexture(this.gl.TEXTURE_2D, this.texture);
-    }
-    unbind(unit) {
-        this.gl.activeTexture(this.gl.TEXTURE0 + unit);
-        this.gl.bindTexture(this.gl.TEXTURE_2D, null);
-    }
-    canDrawTo() {
-        const gl = this.gl;
-        this.framebuffer = this.framebuffer || gl.createFramebuffer();
-        gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebuffer);
-        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.texture, 0);
-        const result = gl.checkFramebufferStatus(gl.FRAMEBUFFER) == gl.FRAMEBUFFER_COMPLETE;
-        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-        return result;
-    }
-    drawTo(callback) {
-        const gl = this.gl;
-        this.framebuffer = this.framebuffer || gl.createFramebuffer();
-        this.renderbuffer = this.renderbuffer || gl.createRenderbuffer();
-        gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebuffer);
-        gl.bindRenderbuffer(gl.RENDERBUFFER, this.renderbuffer);
-        if (this.width != this.renderbuffer.width || this.height != this.renderbuffer.height) {
-            this.renderbuffer.width = this.width;
-            this.renderbuffer.height = this.height;
-            gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, this.width, this.height);
-        }
-        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.texture, 0);
-        gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, this.renderbuffer);
-        // if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) != gl.FRAMEBUFFER_COMPLETE) {
-        // 	throw new Error('Rendering to this texture is not supported (incomplete this.framebuffer)')
-        // }
-        const viewport = gl.getParameter(gl.VIEWPORT);
-        gl.viewport(0, 0, this.width, this.height);
-        callback(gl);
-        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-        gl.bindRenderbuffer(gl.RENDERBUFFER, null);
-        gl.viewport(viewport[0], viewport[1], viewport[2], viewport[3]);
-    }
-    swapWith(other) {
-        ts3dutils.assert(this.gl == other.gl);
-        let temp;
-        temp = other.texture;
-        other.texture = this.texture;
-        this.texture = temp;
-        temp = other.width;
-        other.width = this.width;
-        this.width = temp;
-        temp = other.height;
-        other.height = this.height;
-        this.height = temp;
-    }
-    /**
-     * Return a new texture created from `imgElement`, an `<img>` tag.
-     */
-    static fromImage(imgElement, options, gl = currentGL()) {
-        options = options || {};
-        const texture = new Texture(imgElement.width, imgElement.height, options, gl);
-        try {
-            gl.texImage2D(gl.TEXTURE_2D, 0, texture.format, texture.format, texture.type, imgElement);
-        }
-        catch (e) {
-            if (location.protocol == 'file:') {
-                throw new Error('imgElement not loaded for security reasons (serve this page over "http://" instead)');
-            }
-            else {
-                throw new Error('imgElement not loaded for security reasons (imgElement must originate from the same ' +
-                    'domain as this page or use Cross-Origin Resource Sharing)');
-            }
-        }
-        if (options.minFilter && options.minFilter != gl.NEAREST && options.minFilter != gl.LINEAR) {
-            gl.generateMipmap(gl.TEXTURE_2D);
-        }
-        return texture;
-    }
-    /**
-     * Returns a checkerboard texture that will switch to the correct texture when it loads.
-     */
-    static fromURLSwitch(url, options = {}, gl = currentGL()) {
-        Texture.checkerBoardCanvas = Texture.checkerBoardCanvas || (function () {
-            const c = document.createElement('canvas').getContext('2d');
-            if (!c)
-                throw new Error('Could not create 2d canvas.');
-            c.canvas.width = c.canvas.height = 128;
-            for (let y = 0; y < c.canvas.height; y += 16) {
-                for (let x = 0; x < c.canvas.width; x += 16) {
-                    //noinspection JSBitwiseOperatorUsage
-                    c.fillStyle = (x ^ y) & 16 ? '#FFF' : '#DDD';
-                    c.fillRect(x, y, 16, 16);
-                }
-            }
-            return c.canvas;
-        })();
-        const texture = Texture.fromImage(Texture.checkerBoardCanvas, options);
-        const image = new Image();
-        image.onload = () => Texture.fromImage(image, options, gl).swapWith(texture);
-        // error event doesn't return a reason. Most likely a 404.
-        image.onerror = () => { throw new Error('Could not load image ' + image.src + '. 404?'); };
-        image.src = url;
-        return texture;
-    }
-    static fromURL(url, options, gl = currentGL()) {
-        return new Promise((resolve, reject) => {
-            const image = new Image();
-            image.onload = () => resolve(Texture.fromImage(image, options, gl));
-            image.onerror = () => reject('Could not load image ' + image.src + '. 404?');
-            image.src = url;
-        });
-    }
-}
-
 exports.Buffer = Buffer;
 exports.Mesh = Mesh;
 exports.SHADER_VAR_TYPES = SHADER_VAR_TYPES;
@@ -1649,6 +2639,14 @@ exports.Texture = Texture;
 exports.GL_COLOR_BLACK = GL_COLOR_BLACK;
 exports.currentGL = currentGL;
 exports.isNumber = isNumber;
-exports.TSGLContext = TSGLContext;
+exports.TSGLContextBase = TSGLContextBase;
 exports.pushQuad = pushQuad;
+exports.init = init;
+exports.mightBeEnum = mightBeEnum;
+exports.glEnumToString = glEnumToString;
+exports.glFunctionArgToString = glFunctionArgToString;
+exports.glFunctionArgsToString = glFunctionArgsToString;
+exports.makeDebugContext = makeDebugContext;
+exports.resetToInitialState = resetToInitialState;
+exports.makeLostContextSimulatingCanvas = makeLostContextSimulatingCanvas;
 //# sourceMappingURL=bundle.js.map

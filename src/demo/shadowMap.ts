@@ -1,11 +1,6 @@
-/// <reference path="../types.d.ts" />
+import { AABB, clamp, DEG, V, V3 } from 'ts3dutils'
 
-import chroma from 'chroma-js'
-import { AABB, arrayFromFunction, clamp, DEG, int, lerp, M4, TAU, time, Tuple4, V, V3 } from 'ts3dutils'
-
-import { DRAW_MODES, TSGLContext, Mesh, pushQuad, Shader, Texture } from 'tsgl'
-
-const { sin, PI } = Math
+import { TSGLContext, Mesh, Shader, Texture } from 'tsgl'
 
 import cessnaJSON from '../../cessna.json'
 
@@ -132,7 +127,7 @@ export function shadowMap(gl: TSGLContext) {
 
 
 	gl.canvas.contentEditable = 'true'
-	gl.canvas.addEventListener('keypress', e => {
+	gl.canvas.addEventListener('keypress', () => {
 		useBoundingSphere = !useBoundingSphere
 	})
 
@@ -188,7 +183,7 @@ export function shadowMap(gl: TSGLContext) {
 	}
 
 
-	return gl.animate(function (abs, diff) {
+	return gl.animate(function (abs) {
 		const time = abs / 1000
 		// Move the light around
 		const light = new V3(100 * Math.sin(time * 0.2), 25, 20 * Math.cos(time * 0.2))

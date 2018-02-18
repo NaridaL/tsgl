@@ -2,11 +2,11 @@ import {
 	AABB, arrayFromFunction, assert, assertVectors, int, lerp, M4, NLA_PRECISION, raddd, Transformable, Tuple3, V, V3,
 } from 'ts3dutils'
 
-import {Buffer} from './Buffer'
-import {currentGL, GL_COLOR, pushQuad, TSGLContext} from './TSGLContext'
+import {currentGL, GL_COLOR, pushQuad, TSGLContext, Buffer} from './index'
 
 const {cos, sin, PI, min, max} = Math
-const WGL = WebGLRenderingContext
+
+const WGL = WebGLRenderingContext as any as WebGLRenderingContextStrict.Constants
 
 /**
  * @example new Mesh()

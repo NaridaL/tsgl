@@ -1,7 +1,8 @@
 import {assert, int, NLA_DEBUG, V3} from 'ts3dutils'
-import {currentGL, TSGLContext} from './TSGLContext'
+import {currentGL, TSGLContext} from './index'
 
-const WGL = WebGLRenderingContext
+import GL = WebGLRenderingContextStrict
+const WGL = WebGLRenderingContext as any as WebGLRenderingContextStrict.Constants
 
 export class Buffer {
 	buffer: WebGLBuffer | undefined
@@ -11,7 +12,7 @@ export class Buffer {
 	count: int
 
 	/** Space between elements in buffer. 3 for V3s. */
-	spacing: int
+	spacing: 1 | 2 | 3 | 4
 
 	hasBeenCompiled: boolean
 
@@ -33,14 +34,14 @@ export class Buffer {
 	 * Specifies the target to which the buffer object is bound.
 	 * The symbolic constant must be GL_ARRAY_BUFFER or GL_ELEMENT_ARRAY_BUFFER.
 	 */
-	constructor(readonly target: int, readonly type: typeof Float32Array | typeof Uint16Array) {
+	constructor(readonly target: GL.BufferTarget, readonly type: typeof Float32Array | typeof Uint16Array) {
 		assert(target == WGL.ARRAY_BUFFER || target == WGL.ELEMENT_ARRAY_BUFFER, 'target == WGL.ARRAY_BUFFER || target == WGL.ELEMENT_ARRAY_BUFFER')
 		assert(type == Float32Array || type == Uint16Array, 'type == Float32Array || type == Uint16Array')
 		this.buffer = undefined
 		this.type = type
 		this.data = []
 		this.count = 0
-		this.spacing = 0
+		this.spacing = 1
 		this.hasBeenCompiled = false
 	}
 
@@ -52,13 +53,11 @@ export class Buffer {
 	 * This could have used `[].concat.apply([], this.data)` to flatten the array but Google
 	 * Chrome has a maximum number of arguments so the concatenations are chunked to avoid that limit.
 	 *
-	 * @param type Either `WGL.STATIC_DRAW` or `WGL.DYNAMIC_DRAW`. Defaults to `WGL.STATIC_DRAW`
+	 * @param usage Either `WGL.STATIC_DRAW` or `WGL.DYNAMIC_DRAW`. Defaults to `WGL.STATIC_DRAW`
 	 */
-	compile(type: int = WGL.STATIC_DRAW, gl: TSGLContext = currentGL()): void {
-		assert(WGL.STATIC_DRAW == type || WGL.DYNAMIC_DRAW == type, 'WGL.STATIC_DRAW == type || WGL.DYNAMIC_DRAW == type')
-		gl.handleError()
+	compile(usage: GL.BufferDataUsage = WGL.STATIC_DRAW, gl: TSGLContext = currentGL()): void {
+		assert(WGL.STATIC_DRAW == usage || WGL.DYNAMIC_DRAW == usage, 'WGL.STATIC_DRAW == type || WGL.DYNAMIC_DRAW == type')
 		this.buffer = this.buffer || gl.createBuffer()!
-		gl.handleError()
 		let buffer: Float32Array | Uint16Array
 		if (this.data.length == 0) {
 			console.warn('empty buffer ' + this.name)
@@ -98,14 +97,12 @@ export class Buffer {
 					this.maxValue = Math.max.apply(undefined, buffer)
 				}
 			}
-			assert(spacing !== 0)
-			this.spacing = spacing
+			assert([1, 2, 3, 4].includes(spacing))
+			this.spacing = spacing as 1 | 2 | 3 | 4
 			this.count = this.data.length
 		}
 		gl.bindBuffer(this.target, this.buffer)
-		gl.handleError()
-		gl.bufferData(this.target, buffer, type)
-		gl.handleError()
+		gl.bufferData(this.target, buffer, usage)
 		this.hasBeenCompiled = true
 	}
 }

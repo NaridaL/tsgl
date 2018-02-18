@@ -1,18 +1,17 @@
 /// <reference path="../types.d.ts" />
 
-import chroma from 'chroma-js'
-import { AABB, arrayFromFunction, clamp, DEG, int, lerp, M4, TAU, time, Tuple4, V, V3 } from 'ts3dutils'
+import { arrayFromFunction, clamp, DEG, V, V3, Tuple2 } from 'ts3dutils'
 
-import { DRAW_MODES, Mesh, pushQuad, Shader, Texture, TSGLContext } from 'tsgl'
+import { Mesh, Shader, Texture, TSGLContext, isWebGL2RenderingContext } from 'tsgl'
 
-const { sin, PI } = Math
-
+import rayTracerVS from '../shaders/rayTracerVS.glslx'
 import rayTracerFS from '../shaders/rayTracerFS.glslx'
 
 /**
  * Realtime GPU ray tracing including reflection.
  */
 export async function rayTracing(gl: TSGLContext) {
+	if (!isWebGL2RenderingContext(gl)) throw new Error('require webgl2')
 	let angleX = 30
 	let angleY = 10
 
@@ -27,7 +26,6 @@ export async function rayTracing(gl: TSGLContext) {
 		.addVertexBuffer('specular', 'specular')
 		.rotateX(90 * DEG)
 	floor.specular = floor.vertices.map(_ => 0) // floor doesn't reflect
-	const cube = Mesh.cube().rotateX(20 * DEG).rotateY(30 * DEG).translate(2, 1, -2)
 	const dodecahedron = Mesh.sphere(0)
 		.addVertexBuffer('specular', 'specular')
 		.addVertexBuffer('coords', 'ts_TexCoord')
@@ -35,43 +33,16 @@ export async function rayTracing(gl: TSGLContext) {
 	// d20 reflects most of the light
 	dodecahedron.specular = dodecahedron.vertices.map(_ => 0.8)
 	// all uv coordinates the same to pick a solid color from the texture
-	dodecahedron.coords = dodecahedron.vertices.map(_ => [0, 0])
+	dodecahedron.coords = dodecahedron.vertices.map(_ => [0, 0] as Tuple2<number>)
 
 	// don't transform the vertices at all
 	// out/in pos so we get the world position of the fragments
-	const shader = Shader.create(`#version 300 es
-		precision mediump float;
-		in vec4 ts_Vertex;
-		out vec4 pos;
-		void main() {
-			gl_Position = ts_Vertex;
-			pos = ts_Vertex;
-		}`, rayTracerFS)
+	const shader = Shader.create(rayTracerVS, rayTracerFS)
 
 	// define spheres which we will have the shader ray-trace
 	const sphereCenters = arrayFromFunction(8, i => [V(0.0, 1.6, 0.0), V(3, 3, 3), V(-3, 3, 3)][i] || V3.O)
 	const sphereRadii = arrayFromFunction(8, i => [1.5, 0.5, 0.5][i] || 0)
 
-
-	const numArcQuads = 16
-	const groundTilesPerSide = 5
-	// Arc of randomly oriented quads
-	// quadMesh.addCube(M4.multiplyMultiple(
-	// 	M4.translate(0, 0, -0.2),
-	// 	M4.rotateAB(V3.XYZ, V3.Z)))
-	const cubes: Mesh[] = arrayFromFunction(numArcQuads, i => {
-		const r = 1
-		const t = i / numArcQuads * TAU
-		const center = V(0, 2, 0).plus(V(0, 0, 3).times(Math.cos(t))).plus(V(0, 2).times(Math.sin(t)))
-		// const center = V3.sphere(0, (i + Math.random()) / numArcQuads * Math.PI)
-		const a = V3.randomUnit()
-		const b = V3.randomUnit().cross(a).unit()
-		return Mesh.cube().transform(M4.multiplyMultiple(
-			M4.translate(center),
-			M4.forSys(a, b),
-			M4.scale(r, r, r),
-			M4.translate(-0.5, -0.5, -0.5)))
-	})
 
 	// texture for ray-traced mesh
 	const floorTexture = await Texture.fromURL('./mandelbrot.jpg')
@@ -82,13 +53,13 @@ export async function rayTracing(gl: TSGLContext) {
 
 	// verticesTexture contains the mesh vertices
 	// vertices are unpacked so we don't have an extra index buffer for the triangles
-	const verticesTexture = new Texture(textureWidth, textureHeight, { format: gl.RGB32F, type: gl.FLOAT })
+	const verticesTexture = new Texture(textureWidth, textureHeight)
 	const verticesBuffer = new Float32Array(textureWidth * textureHeight * 3)
-	const unindexedVertices = V3.pack(showMesh.TRIANGLES.map(i => showMesh.vertices[i]), verticesBuffer)
+	V3.pack(showMesh.TRIANGLES.map(i => showMesh.vertices[i]), verticesBuffer)
 	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB32F, textureWidth, textureHeight, 0, gl.RGB, gl.FLOAT, verticesBuffer)
 
 	// uvTexture contains the uv coordinates for the vertices as wel as the specular value for each vertex
-	const uvTexture = new Texture(textureWidth, textureHeight, { format: gl.RGB2F, type: gl.FLOAT })
+	const uvTexture = new Texture(textureWidth, textureHeight, { format: gl.RGB, type: gl.FLOAT })
 	const uvBuffer = new Float32Array(textureWidth * textureHeight * 3)
 	showMesh.TRIANGLES.forEach((i, index) => {
 		uvBuffer[index * 3] = showMesh.coords[i][0]
@@ -123,7 +94,7 @@ export async function rayTracing(gl: TSGLContext) {
 		'texCoords': 2
 	})
 
-	return gl.animate(function (abs, diff) {
+	return gl.animate(function (_abs, _diff) {
 
 		// Camera setup
 		gl.matrixMode(gl.MODELVIEW)

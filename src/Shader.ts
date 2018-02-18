@@ -1,37 +1,35 @@
 /* tslint:disable:no-string-literal */
 import {assert, assertf, assertInst, assertVectors, int, M4, NLA_DEBUG, V3} from 'ts3dutils'
 
-import {Buffer} from './Buffer'
-import {currentGL, GL_COLOR, TSGLContext} from './TSGLContext'
-import {Mesh} from './Mesh'
+import {currentGL, GL_COLOR, TSGLContext, Buffer, Mesh} from './index'
 
-const WGL = WebGLRenderingContext
+import GL = WebGLRenderingContextStrict
+const WGL = WebGLRenderingContext as any as WebGLRenderingContextStrict.Constants
 
 /**
  * These are all the draw modes usable in OpenGL ES
  */
-export enum DRAW_MODES {
-	POINTS = WGL.POINTS,
-	LINES = WGL.LINES,
-	LINE_STRIP = WGL.LINE_STRIP,
-	LINE_LOOP = WGL.LINE_LOOP,
-	TRIANGLES = WGL.TRIANGLES,
-	TRIANGLE_STRIP = WGL.TRIANGLE_STRIP,
-	TRIANGLE_FAN = WGL.TRIANGLE_FAN
+const DRAW_MODE_NAMES = {
+	[WGL.POINTS]: 'POINTS',
+	[WGL.LINES]: 'LINES',
+	[WGL.LINE_STRIP]: 'LINE_STRIP',
+	[WGL.LINE_LOOP]: 'LINE_LOOP',
+	[WGL.TRIANGLES]: 'TRIANGLES',
+	[WGL.TRIANGLE_STRIP]: 'TRIANGLE_STRIP',
+	[WGL.TRIANGLE_FAN]: 'TRIANGLE_FAN',
+}
+const DRAW_MODE_CHECKS: { [type: string]: (x: int) => boolean } = {
+	[WGL.POINTS]: _ => true,
+	[WGL.LINES]: x => 0 == x % 2, // divisible by 2
+	[WGL.LINE_STRIP]: x => x > 2, // need at least 2
+	[WGL.LINE_LOOP]: x => x > 2, // more like > 3, but oh well
+	[WGL.TRIANGLES]: x => 0 == x % 3, // divisible by 3
+	[WGL.TRIANGLE_STRIP]: x => x > 3,
+	[WGL.TRIANGLE_FAN]: x => x > 3,
 }
 
-export type DRAW_MODES_ENUM = keyof typeof DRAW_MODES
 export const SHADER_VAR_TYPES = ['FLOAT', 'FLOAT_MAT2', 'FLOAT_MAT3', 'FLOAT_MAT4', 'FLOAT_VEC2', 'FLOAT_VEC3', 'FLOAT_VEC4', 'INT', 'INT_VEC2', 'INT_VEC3', 'INT_VEC4', 'UNSIGNED_INT']
 
-const DRAW_MODE_CHECKS: { [type: string]: (x: int) => boolean } = {
-	[DRAW_MODES.POINTS]: _ => true,
-	[DRAW_MODES.LINES]: x => 0 == x % 2, // divisible by 2
-	[DRAW_MODES.LINE_STRIP]: x => x > 2, // need at least 2
-	[DRAW_MODES.LINE_LOOP]: x => x > 2, // more like > 3, but oh well
-	[DRAW_MODES.TRIANGLES]: x => 0 == x % 3, // divisible by 3
-	[DRAW_MODES.TRIANGLE_STRIP]: x => x > 3,
-	[DRAW_MODES.TRIANGLE_FAN]: x => x > 3,
-}
 
 export function isArray<T>(obj: any): obj is T[] {
 	return Array == obj.constructor || Float32Array == obj.constructor || Float64Array == obj.constructor
@@ -48,6 +46,7 @@ export interface UniformTypesMap {
 	SAMPLER_2D: int
 	BOOL: boolean
 }
+export type UniformTypes = keyof UniformTypesMap
 
 function isFloatArray(obj: any): obj is number[] | Float64Array | Float32Array {
 	return Float32Array == obj.constructor || Float64Array == obj.constructor ||
@@ -63,22 +62,48 @@ function isIntArray(x: any) {
 		(x as number[]).every(x => Number.isInteger(x))
 }
 
-export type ShaderType<UniformTypes> = string & { T?: UniformTypes }
+export type ShaderType<UniformTypes, AttributeTypes = {}> = string & { T?: UniformTypes, A?: AttributeTypes }
+export type VarTypeMap = { [name: string]: UniformTypes }
+export type ShaderSource<U extends VarTypeMap, IN extends VarTypeMap, OUT extends VarTypeMap, kind extends 'vertex' | 'fragment'> = string & { U: U, IN: IN, OUT: OUT, kind: kind }
 
-//const x:keyof UniformTypesMap = undefined as 'FLOAT_VEC4' | 'FLOAT_VEC3'
-export class Shader<UniformTypes extends { [uniformName: string]: keyof UniformTypesMap } = any> {
+//const x:UniformTypes = undefined as 'FLOAT_VEC4' | 'FLOAT_VEC3'
+export class Shader<UniformTypes extends VarTypeMap = any, AttributeTypes extends VarTypeMap = any> {
 	program: WebGLProgram
 	activeMatrices: { [matrixName: string ]: boolean }
-	attributes: { [attributeName: string ]: number }
+	attributeLocations: { [attributeName: string ]: number }
+	constantAttributes: { [attributeName: string ]: boolean }
 	uniformLocations: { [uniformName: string ]: WebGLUniformLocation }
-	uniformInfos: { [uniformName: string ]: WebGLActiveInfo }
+	uniformInfos: { [uniformName: string ]: GL.WebGLActiveInfo<GL.UniformType> }
 	projectionMatrixVersion = -1
 	modelViewMatrixVersion = -1
 	gl: TSGLContext
 
-	static create<S extends { [uniformName: string]: keyof UniformTypesMap },
-		T extends { [uniformName: string]: keyof UniformTypesMap }>
-	(vertexSource: ShaderType<S>, fragmentSource: ShaderType<T>, gl?: TSGLContext): Shader<S & T> {
+	/**
+	 * Create shader drom typed vertex and fragment source. Weird generic arguments are because
+	 * the vertex shader is required to have the OUT types the fragment shader needs as IN,
+	 * but not vice-versa.
+	 */
+	static create<
+	FragSrc extends ShaderSource<{}, {}, {}, 'fragment'>,
+	VertSrc extends ShaderSource<{}, {}, FragSrc['IN'], 'vertex'>>(
+		vertexSource: VertSrc, fragmentSource: FragSrc, gl?: TSGLContext
+	): Shader<VertSrc['U'] & FragSrc['U'], VertSrc['IN']>
+	/**
+	 * Create shader from typed vertex and untyped fragment source. Uniform of the fragment shader
+	 * can optionally be manually specified.
+	 */
+	static create<FU extends VarTypeMap, VertSrc extends ShaderSource<{}, {}, {}, 'vertex'>>(vertexSource: VertSrc, fragmentSource: string & { IN?: undefined }, gl?: TSGLContext): Shader<FU & VertSrc['U'], VertSrc['IN']>
+	/**
+	 * Create shader from untyped vertex and typed fragment source. Uniform and attribute types of the shader
+	 * can optionally be manually specified.
+	 */
+	static create<VU extends VarTypeMap, VA extends VarTypeMap, FragSrc extends ShaderSource<{}, {}, {}, 'vertex'>>(vertexSource: string & { IN?: undefined }, fragmentSource: FragSrc, gl?: TSGLContext): Shader<VU & FragSrc['U'], VA>
+	/**
+	 * Create shader from untyped vertex and fragment source. Uniform and attribute types of the shader
+	 * can optionally be manually specified.
+	 */
+	static create<U extends VarTypeMap = {}, A extends VarTypeMap = {}>(vertexSource: string & { IN?: undefined }, fragmentSource: string & { IN?: undefined }, gl?: TSGLContext): Shader<U, A>
+	static create(vertexSource: string, fragmentSource: string, gl?: TSGLContext) {
 		return new Shader(vertexSource, fragmentSource, gl) as any
 	}
 
@@ -124,11 +149,11 @@ export class Shader<UniformTypes extends { [uniformName: string]: keyof UniformT
 		const matrixNames = header.match(/\bts_\w+/g)
 
 		// Compile and link errors are thrown as strings.
-		function compileSource(type: number, source: string) {
-			const shader = gl.createShader(type)
+		function compileSource(type: GL.ShaderType, source: string) {
+			const shader = gl.createShader(type)!
 			gl.shaderSource(shader, source)
 			gl.compileShader(shader)
-			if (!gl.getShaderParameter(shader, WGL.COMPILE_STATUS)) {
+			if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
 				throw new Error('compile error: ' + gl.getShaderInfoLog(shader))
 			}
 			return shader
@@ -136,19 +161,16 @@ export class Shader<UniformTypes extends { [uniformName: string]: keyof UniformT
 
 
 		this.gl = gl
-		const program = gl.createProgram()
-		if (!program) {
-			gl.handleError()
-		}
-		this.program = program!
-		gl.attachShader(this.program, compileSource(WGL.VERTEX_SHADER, vertexSource))
-		gl.attachShader(this.program, compileSource(WGL.FRAGMENT_SHADER, fragmentSource))
+		this.program = gl.createProgram()!
+		gl.attachShader(this.program, compileSource(gl.VERTEX_SHADER, vertexSource))
+		gl.attachShader(this.program, compileSource(gl.FRAGMENT_SHADER, fragmentSource))
 		gl.linkProgram(this.program)
-		if (!gl.getProgramParameter(this.program, WGL.LINK_STATUS)) {
+		if (!gl.getProgramParameter(this.program, gl.LINK_STATUS)) {
 			throw new Error('link error: ' + gl.getProgramInfoLog(this.program))
 		}
-		this.attributes = {}
+		this.attributeLocations = {}
 		this.uniformLocations = {}
+		this.constantAttributes = {}
 
 		// Check for the use of built-in matrices that require expensive matrix
 		// multiplications to compute, and record these in `activeMatrices`.
@@ -160,14 +182,13 @@ export class Shader<UniformTypes extends { [uniformName: string]: keyof UniformT
 		})
 
 		this.uniformInfos = {}
-		for (let i = gl.getProgramParameter(this.program, WGL.ACTIVE_UNIFORMS); i-- > 0;) {
+		for (let i = gl.getProgramParameter(this.program, gl.ACTIVE_UNIFORMS); i-- > 0;) {
 			// see https://www.khronos.org/registry/OpenGL-Refpages/es2.0/xhtml/glGetActiveUniform.xml
 			// this.program has already been checked
 			// i is in bounds
 			const info = gl.getActiveUniform(this.program, i)!
 			this.uniformInfos[info.name] = info
 		}
-		gl.handleError()
 	}
 
 
@@ -178,7 +199,6 @@ export class Shader<UniformTypes extends { [uniformName: string]: keyof UniformT
 	uniforms(uniforms: Partial<{ [K in keyof UniformTypes]: UniformTypesMap[UniformTypes[K]] }>): this {
 		const gl = this.gl
 		gl.useProgram(this.program)
-		gl.handleError()
 
 		for (const name in uniforms) {
 			const location = this.uniformLocations[name] || gl.getUniformLocation(this.program, name)
@@ -279,15 +299,55 @@ export class Shader<UniformTypes extends { [uniformName: string]: keyof UniformT
 			} else {
 				throw new Error('attempted to set uniform "' + name + '" to invalid value ' + value)
 			}
-			gl.handleError()
 		}
 
 		return this
 	}
 
+	attributes(attributes: Partial<{ [K in keyof AttributeTypes]: UniformTypesMap[AttributeTypes[K]] }>): this {
+		const gl = this.gl
+		gl.useProgram(this.program)
+
+		for (const name in attributes) {
+			const location = this.attributeLocations[name] || gl.getAttribLocation(this.program, name)
+			if (location == -1) {
+				if (!name.startsWith('ts_')) {
+					console.warn(`Vertex buffer ${name} was not bound because the attribute is not active.`)
+				}
+				continue
+			}
+			this.attributeLocations[name] = location
+			gl.disableVertexAttribArray(location)
+			let value = attributes[name]
+			if (value instanceof V3) {
+				value = value.toArray()
+			}
+			if ('number' === typeof value) {
+				gl.vertexAttrib1f(location, value)
+			} else {
+				gl.vertexAttrib4fv(location, value as number[])
+				// switch ((value as number[]).length) {
+				// 	case 1:
+				// 		gl.vertexAttrib1fv(location, value as number[])
+				// 		break
+				// 	case 2:
+				// 		gl.vertexAttrib2fv(location, value as number[])
+				// 		break
+				// 	case 3:
+				// 		gl.vertexAttrib3fv(location, value as number[])
+				// 		break
+				// 	case 4:
+				// 		break
+				// }
+			}
+			this.constantAttributes[name] = true
+		}
+		return this
+	}
+
 	/**
 	 * Sets all uniform matrix attributes, binds all relevant buffers, and draws the mesh geometry as indexed
-	 * triangles or indexed LINES. Set `mode` to `WGL.LINES` (and either add indices to `LINES` or call
+	 * triangles or indexed LINES. Set `mode` to `gl.LINES` (and either add indices to `LINES` or call
 	 * `computeWireframe()`) to draw the mesh in wireframe.
 	 *
 	 * @param mesh
@@ -296,12 +356,12 @@ export class Shader<UniformTypes extends { [uniformName: string]: keyof UniformT
 	 * @param start int
 	 * @param count int
 	 */
-	draw(mesh: Mesh, mode: DRAW_MODES = DRAW_MODES.TRIANGLES, start?: int, count?: int): this {
+	draw(mesh: Mesh, mode: GL.DrawMode = WGL.TRIANGLES, start?: int, count?: int): this {
 		assert(mesh.hasBeenCompiled, 'mesh.hasBeenCompiled')
-		assert(undefined != DRAW_MODES[mode])
-		const modeStr: string = DRAW_MODES[mode]
+		assert(undefined != DRAW_MODE_NAMES[mode])
+		const modeName: string = DRAW_MODE_NAMES[mode]
 		// assert(mesh.indexBuffers[modeStr], `mesh.indexBuffers[${modeStr}] undefined`)
-		return this.drawBuffers(mesh.vertexBuffers, mesh.indexBuffers[modeStr], mode, start, count)
+		return this.drawBuffers(mesh.vertexBuffers, mesh.indexBuffers[modeName], mode, start, count)
 	}
 
 	/**
@@ -314,11 +374,10 @@ export class Shader<UniformTypes extends { [uniformName: string]: keyof UniformT
 	 */
 	drawBuffers(vertexBuffers: { [attributeName: string]: Buffer },
 				indexBuffer: Buffer | undefined,
-				mode: DRAW_MODES = DRAW_MODES.TRIANGLES,
+				mode: GL.DrawMode = WGL.TRIANGLES,
 				start: int = 0, count?: int): this {
 		const gl = this.gl
-		gl.handleError()
-		assert(undefined != DRAW_MODES[mode])
+		assert(undefined != DRAW_MODE_NAMES[mode])
 		assertf(() => 1 <= Object.keys(vertexBuffers).length)
 		Object.keys(vertexBuffers).forEach(key => assertInst(Buffer, vertexBuffers[key]))
 
@@ -359,32 +418,27 @@ export class Shader<UniformTypes extends { [uniformName: string]: keyof UniformT
 		for (const attribute in vertexBuffers) {
 			const buffer = vertexBuffers[attribute]
 			assert(buffer.hasBeenCompiled)
-			const location = this.attributes[attribute] || gl.getAttribLocation(this.program, attribute)
-			gl.handleError()
+			const location = this.attributeLocations[attribute] || gl.getAttribLocation(this.program, attribute)
 			if (location == -1 || !buffer.buffer) {
 				if (!attribute.startsWith('ts_')) {
 					console.warn(`Vertex buffer ${attribute} was not bound because the attribute is not active.`)
 				}
 				continue
 			}
-			this.attributes[attribute] = location
+			this.attributeLocations[attribute] = location
 			gl.bindBuffer(WGL.ARRAY_BUFFER, buffer.buffer)
-			gl.handleError()
 
 			gl.enableVertexAttribArray(location)
-			gl.handleError()
 
 			gl.vertexAttribPointer(location, buffer.spacing, WGL.FLOAT, false, 0, 0)
-			gl.handleError()
 
 			minVertexBufferLength = Math.min(minVertexBufferLength, buffer.count)
 		}
 
 		// Disable unused attribute pointers.
-		for (const attribute in this.attributes) {
+		for (const attribute in this.attributeLocations) {
 			if (!(attribute in vertexBuffers)) {
-				gl.disableVertexAttribArray(this.attributes[attribute])
-				gl.handleError()
+				gl.disableVertexAttribArray(this.attributeLocations[attribute])
 			}
 		}
 
@@ -394,7 +448,9 @@ export class Shader<UniformTypes extends { [uniformName: string]: keyof UniformT
 				const buffer=gl.getVertexAttrib(i, gl.VERTEX_ATTRIB_ARRAY_BUFFER_BINDING)
 				if (!buffer) {
 					const info = gl.getActiveAttrib(this.program, i)!
-					throw new Error('No buffer is bound to attribute ' + info.name)
+					if (!this.constantAttributes[info.name]) {
+						console.warn('No buffer is bound to attribute ' + info.name + ' and it was not set with .attributes()')
+					}
 				}
 				// console.log('name:', info.name, 'type:', info.type, 'size:', info.size)
 			}
@@ -404,7 +460,7 @@ export class Shader<UniformTypes extends { [uniformName: string]: keyof UniformT
 		if (minVertexBufferLength) {
 			count = count || (indexBuffer ? indexBuffer.count : minVertexBufferLength)
 			assert(DRAW_MODE_CHECKS[mode](count), 'count ' + count + ' doesn\'t fulfill requirement '
-				+ DRAW_MODE_CHECKS[mode].toString() + ' for mode ' + DRAW_MODES[mode])
+				+ DRAW_MODE_CHECKS[mode].toString() + ' for mode ' + DRAW_MODE_NAMES[mode])
 
 			if (indexBuffer) {
 				assert(indexBuffer.hasBeenCompiled)
@@ -415,16 +471,13 @@ export class Shader<UniformTypes extends { [uniformName: string]: keyof UniformT
 					throw new Error('Buffer not long enough for passed parameters start/length/buffer length' + ' ' + start + ' ' + count + ' ' + indexBuffer.count)
 				}
 				gl.bindBuffer(WGL.ELEMENT_ARRAY_BUFFER, indexBuffer.buffer!)
-				gl.handleError()
 				// start parameter has to be multiple of sizeof(WGL.UNSIGNED_SHORT)
 				gl.drawElements(mode, count, WGL.UNSIGNED_SHORT, 2 * start)
-				gl.handleError()
 			} else {
 				if (start + count > minVertexBufferLength) {
 					throw new Error('invalid')
 				}
 				gl.drawArrays(mode, start, count)
-				gl.handleError()
 			}
 			gl.drawCallCount++
 		}
