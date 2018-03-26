@@ -1,4 +1,4 @@
-import { assert, NLA_DEBUG, V3, AABB, arrayFromFunction, assertVectors, lerp, M4, NLA_PRECISION, Transformable, V, assertf, assertInst, addOwnProperties, DEG, P3ZX } from 'ts3dutils';
+import { assert, NLA_DEBUG, V3, AABB, arrayFromFunction, assertVectors, lerp, M4, NLA_PRECISION, Transformable, V, eq0, assertf, assertInst, addOwnProperties, DEG, P3ZX } from 'ts3dutils';
 import { __awaiter } from 'tslib';
 import chroma from 'chroma-js';
 
@@ -110,25 +110,56 @@ class Mesh extends Transformable {
         this.indexBuffers = {};
         this.addVertexBuffer('vertices', 'ts_Vertex');
     }
+    /**
+     * Calculate area, volume and centroid of the mesh.
+     *
+     * The area is the sum of the areas of the triangles.
+     *
+     * For closed meshes, the volume is the contained volume. If the volume is inside-out, i.e. the face normals point
+     * inwards, the returned value is negative. In general, this calculates the sum of the z-direction shadow volumes
+     * of the triangles. The z-dir shadow volume is the cut-off prism with the triangle projected onto the XY plane as
+     * the base face and the triangle itself as the top face.
+     *
+     * The centroid is the "mean point of all points inside the volume". If a uniform density is assumed, this is
+     * equivalent to the center of gravity. In general, this calculates the weighted average of the centroids of all the
+     * triangle shadow volumes.
+     */
     calcVolume() {
-        let totalVolume = 0, totalCentroid = V3.O, totalAreaX2 = 0;
+        let totalVolumeX2 = 0, totalCentroidWithZX2 = V3.O, totalAreaX2 = 0;
         const triangles = this.TRIANGLES;
         const vertices = this.vertices;
         for (let i = 0; i < triangles.length; i += 3) {
-            const i0 = triangles[i + 0], i1 = triangles[i + 1], i2 = triangles[i + 2];
-            const v0 = vertices[i0], v1 = vertices[i1], v2 = vertices[i2];
-            const v01 = v1.minus(v0), v02 = v2.minus(v0);
-            const normal = v01.cross(v02);
+            const ai = triangles[i + 0], bi = triangles[i + 1], ci = triangles[i + 2];
+            const a = vertices[ai], b = vertices[bi], c = vertices[ci];
+            const ab = b.minus(a), ac = c.minus(a);
+            const normal = ab.cross(ac);
             //const centroidZ = (v0.z + v1.z + v2.z) / 3
+            const faceCentroid = V3.add(a, b, c).div(3);
             //totalVolume += centroidZ * (area === v01.cross(v02).length() / 2) * v01.cross(v02).unit().z
-            const faceCentroid = v0.plus(v1.plus(v2)).div(3);
-            totalVolume += faceCentroid.z * normal.z / 2;
+            totalVolumeX2 += faceCentroid.z * normal.z;
             const faceAreaX2 = normal.length();
             totalAreaX2 += faceAreaX2;
-            totalCentroid = totalCentroid.plus(new V3(faceCentroid.x, faceCentroid.y, faceCentroid.z / 2).times(faceCentroid.z * normal.z / 2));
+            // NB: the shadow volume centroid does NOT have the same XY coordinates
+            // as the face centroid.
+            // calculate the weighted centroid of the shadow volume:
+            // faceShadowCentroid = INTEGRATE [0; 1] (
+            //   INTEGRATE [0; 1 - s] (
+            //     normal.z *
+            //     ((1 - s - t) a + s b + t c) *
+            //     ((1 - s - t) a + s b + t c).z
+            //   ) dt
+            // ) ds
+            // = (a (2 a.z + b.z + c.z) + b (a.z + 2 b.z + c.z) + c (a.z + b.z + 2 c.z)) / 24
+            const faceShadowCentroid = V3.add(a.times(2 * a.z + b.z + c.z), b.times(a.z + 2 * b.z + c.z), c.times(a.z + b.z + 2 * c.z)).times(normal.z); // 1/24 factor is done at very end
+            totalCentroidWithZX2 = totalCentroidWithZX2.plus(faceShadowCentroid);
         }
         // sumInPlaceTree adds negligible additional accuracy for XY sphere
-        return { volume: totalVolume, centroid: totalCentroid.div(triangles.length / 3), area: totalAreaX2 / 2 };
+        const volume = totalVolumeX2 / 2;
+        return {
+            volume,
+            centroid: eq0(volume) ? V3.O : totalCentroidWithZX2.div(24 * volume).schur(new V3(1, 1, 0.5)),
+            area: totalAreaX2 / 2
+        };
     }
     /**
      * Add a new vertex buffer with a list as a property called `name` on this object and map it to
@@ -302,11 +333,11 @@ class Mesh extends Transformable {
                 mesh[name] = this[name];
             }
         }
-        mesh.compile();
+        this.hasBeenCompiled && mesh.compile();
         return mesh;
     }
     /**
-     * Computes a new normal1 for each vertex from the average normal1 of the neighboring triangles. This means
+     * Computes a new normal for each vertex from the average normal of the neighboring triangles. This means
      * adjacent triangles must share vertices for the resulting normals to be smooth.
      */
     computeNormalsFromFlatTriangles() {
@@ -401,23 +432,9 @@ class Mesh extends Transformable {
         }
         return sphere;
     }
-    // ### Mesh.plane([options])
-    //
-    // Generates a square 2x2 mesh the xy plane centered at the origin. The
-    // `options` argument specifies options to pass to the mesh constructor.
-    // Additional options include `detailX` and `detailY`, which set the tesselation
-    // in x and y, and `detail`, which sets both `detailX` and `detailY` at once.
-    // Two triangles are generated by default.
-    // Example usage:
-    //
-    //     var mesh1 = Mesh.plane();
-    //     var mesh2 = Mesh.plane({ detail: 5 });
-    //     var mesh3 = Mesh.plane({ detailX: 20, detailY: 40 });
-    //
     /**
      * Generates a square mesh in the XY plane.
      * Texture coordinates (buffer "coords") are set to go from 0 to 1 in either direction.
-     *
      *
      * @param {Object=} options
      * @param {number=} options.detail Defaults to 1
@@ -485,7 +502,7 @@ class Mesh extends Transformable {
             3, 7, 1, 5,
         ];
         mesh.vertices = VERTEX_CORNERS.map(i => Mesh.UNIT_CUBE_CORNERS[i]);
-        mesh.normals = [V3.X.negated(), V3.X, V3.Y.negated(), V3.Y, V3.Z.negated(), V3.Z].map(v => [v, v, v, v]).concatenated();
+        mesh.normals = [V3.X.negated(), V3.X, V3.Y.negated(), V3.Y, V3.Z.negated(), V3.Z].flatMap(v => [v, v, v, v]);
         for (let i = 0; i < 6 * 4; i += 4) {
             pushQuad(mesh.TRIANGLES, 0 != i % 8, VERTEX_CORNERS[i], VERTEX_CORNERS[i + 1], VERTEX_CORNERS[i + 2], VERTEX_CORNERS[i + 3]);
         }
@@ -637,7 +654,7 @@ class Mesh extends Transformable {
             pushQuad(triangles, false, i, i + 1, vertices.length + i, vertices.length + i + 1);
         }
         if (close) {
-            pushQuad(triangles, false, 0, vertices.length - 1, vertices.length, vertices.length * 2 - 1);
+            pushQuad(triangles, false, vertices.length - 1, 0, vertices.length * 2 - 1, vertices.length);
         }
         if (normals) {
             mesh.normals = normals.concat(normals);
@@ -673,21 +690,20 @@ class Mesh extends Transformable {
     }
     static parametric(pF, pN, sMin, sMax, tMin, tMax, sRes, tRes) {
         const mesh = new Mesh()
-            .addVertexBuffer('normals', 'ts_Normal')
-            .addIndexBuffer('TRIANGLES');
+            .addIndexBuffer('TRIANGLES')
+            .addVertexBuffer('normals', 'ts_Normal');
         for (let si = 0; si <= sRes; si++) {
             const s = lerp(sMin, sMax, si / sRes);
             for (let ti = 0; ti <= tRes; ti++) {
                 const t = lerp(tMin, tMax, ti / tRes);
                 mesh.vertices.push(pF(s, t));
-                mesh.normals.push(pN(s, t));
+                pN && mesh.normals.push(pN(s, t));
                 if (ti < tRes && si < sRes) {
                     const offset = ti + si * (tRes + 1);
                     pushQuad(mesh.TRIANGLES, false, offset, offset + tRes + 1, offset + 1, offset + tRes + 2);
                 }
             }
         }
-        mesh.compile();
         return mesh;
     }
     static load(json) {
@@ -1111,7 +1127,9 @@ class Shader {
         }
         // Draw the geometry.
         if (minVertexBufferLength) {
-            count = count || (indexBuffer ? indexBuffer.count : minVertexBufferLength);
+            if (undefined === count) {
+                count = (indexBuffer ? indexBuffer.count : minVertexBufferLength);
+            }
             assert(DRAW_MODE_CHECKS[mode](count), 'count ' + count + ' doesn\'t fulfill requirement '
                 + DRAW_MODE_CHECKS[mode].toString() + ' for mode ' + DRAW_MODE_NAMES[mode]);
             if (indexBuffer) {
@@ -1921,8 +1939,6 @@ function makeLostContextSimulatingCanvas(canvas) {
                     if (unwrappedContext_) {
                         throw new Error('got different context');
                     }
-                    // @ts-ignore
-                    isWebGL2RenderingContext = window.WebGL2RenderingContext && (ctx instanceof WebGL2RenderingContext);
                     unwrappedContext_ = ctx;
                     wrappedContext_ = makeLostContextSimulatingContext(unwrappedContext_);
                 }
@@ -2452,7 +2468,7 @@ class TSGLContextBase {
                     ? hexIntToGLColor(args[0])
                     : (1 == args.length && 'string' == typeof args[0])
                         ? chroma(args[0]).gl()
-                        : [args[0], args[1], args[2], args[3] || 0];
+                        : [args[0], args[1], args[2], args[3] || 1];
     }
     texCoord(...args) {
         this.immediate.coord = V.apply(undefined, args).toArray(2);

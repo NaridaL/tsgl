@@ -688,8 +688,6 @@ export function makeLostContextSimulatingCanvas(canvas: HTMLCanvasElement) {
 					if (unwrappedContext_) {
 						throw new Error('got different context')
 					}
-					// @ts-ignore
-					isWebGL2RenderingContext = window.WebGL2RenderingContext && (ctx instanceof WebGL2RenderingContext)
 					unwrappedContext_ = ctx
 					wrappedContext_ = makeLostContextSimulatingContext(unwrappedContext_)
 				}

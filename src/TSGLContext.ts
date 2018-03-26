@@ -228,7 +228,7 @@ export class TSGLContextBase {
 				? hexIntToGLColor(args[0])
 				: (1 == args.length && 'string' == typeof args[0])
 					? chroma(args[0]).gl()
-					: [args[0], args[1], args[2], args[3] || 0]
+					: [args[0], args[1], args[2], args[3] || 1]
 	}
 
 	texCoord(s: number, t: number): void

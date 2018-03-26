@@ -458,7 +458,9 @@ export class Shader<UniformTypes extends VarTypeMap = any, AttributeTypes extend
 
 		// Draw the geometry.
 		if (minVertexBufferLength) {
-			count = count || (indexBuffer ? indexBuffer.count : minVertexBufferLength)
+			if (undefined === count) {
+				count = (indexBuffer ? indexBuffer.count : minVertexBufferLength)
+			}
 			assert(DRAW_MODE_CHECKS[mode](count), 'count ' + count + ' doesn\'t fulfill requirement '
 				+ DRAW_MODE_CHECKS[mode].toString() + ' for mode ' + DRAW_MODE_NAMES[mode])
 
