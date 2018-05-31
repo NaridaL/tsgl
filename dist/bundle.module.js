@@ -3,7 +3,7 @@ import { __awaiter } from 'tslib';
 import chroma from 'chroma-js';
 
 const WGL = WebGLRenderingContext;
-class Buffer {
+class Buffer$$1 {
     /**
      * Provides a simple method of uploading data to a GPU buffer. Example usage:
      *
@@ -40,7 +40,7 @@ class Buffer {
      *
      * @param usage Either `WGL.STATIC_DRAW` or `WGL.DYNAMIC_DRAW`. Defaults to `WGL.STATIC_DRAW`
      */
-    compile(usage = WGL.STATIC_DRAW, gl = currentGL()) {
+    compile(usage = WGL.STATIC_DRAW, gl = currentGL$$1()) {
         assert(WGL.STATIC_DRAW == usage || WGL.DYNAMIC_DRAW == usage, 'WGL.STATIC_DRAW == type || WGL.DYNAMIC_DRAW == type');
         this.buffer = this.buffer || gl.createBuffer();
         let buffer;
@@ -102,7 +102,7 @@ const WGL$1 = WebGLRenderingContext;
  *        .addIndexBuffer('LINES')
  *        .addVertexBuffer('normals', 'ts_Normal')
  */
-class Mesh extends Transformable {
+class Mesh$$1 extends Transformable {
     constructor() {
         super();
         this.hasBeenCompiled = false;
@@ -172,7 +172,7 @@ class Mesh extends Transformable {
         this.hasBeenCompiled = false;
         assert('string' == typeof name);
         assert('string' == typeof attribute);
-        const buffer = this.vertexBuffers[attribute] = new Buffer(WGL$1.ARRAY_BUFFER, Float32Array);
+        const buffer = this.vertexBuffers[attribute] = new Buffer$$1(WGL$1.ARRAY_BUFFER, Float32Array);
         buffer.name = name;
         this[name] = [];
         return this;
@@ -184,13 +184,13 @@ class Mesh extends Transformable {
      */
     addIndexBuffer(name) {
         this.hasBeenCompiled = false;
-        const buffer = this.indexBuffers[name] = new Buffer(WGL$1.ELEMENT_ARRAY_BUFFER, Uint16Array);
+        const buffer = this.indexBuffers[name] = new Buffer$$1(WGL$1.ELEMENT_ARRAY_BUFFER, Uint16Array);
         buffer.name = name;
         this[name] = [];
         return this;
     }
     concat(...others) {
-        const mesh = new Mesh();
+        const mesh = new Mesh$$1();
         [this].concat(others).forEach((oldMesh) => {
             const startIndex = mesh.vertices ? mesh.vertices.length : 0;
             Object.getOwnPropertyNames(oldMesh.vertexBuffers).forEach(attribute => {
@@ -215,7 +215,7 @@ class Mesh extends Transformable {
      *
      * Sets `this.hasBeenCompiled` to true.
      */
-    compile(gl = currentGL()) {
+    compile(gl = currentGL$$1()) {
         // figure out shortest vertex buffer to make sure indexBuffers are in bounds
         let minVertexBufferLength = Infinity; // TODO, _minBufferName
         Object.getOwnPropertyNames(this.vertexBuffers).forEach(attribute => {
@@ -242,7 +242,7 @@ class Mesh extends Transformable {
     static fromBinarySTL(stl) {
         return __awaiter(this, void 0, void 0, function* () {
             return new Promise((resolve, reject) => {
-                const mesh = new Mesh()
+                const mesh = new Mesh$$1()
                     .addVertexBuffer('normals', 'ts_Normal');
                 const fileReader = new FileReader();
                 fileReader.onerror = reject;
@@ -314,7 +314,7 @@ class Mesh extends Transformable {
      * Index buffer data is referenced.
      */
     transform(m4) {
-        const mesh = new Mesh();
+        const mesh = new Mesh$$1();
         mesh.vertices = m4.transformedPoints(this.vertices);
         if (this.normals) {
             mesh.addVertexBuffer('normals', 'ts_Normal');
@@ -452,7 +452,7 @@ class Mesh extends Transformable {
         const startY = options.startY || 0;
         const width = options.width || 1;
         const height = options.height || 1;
-        const mesh = new Mesh()
+        const mesh = new Mesh$$1()
             .addIndexBuffer('LINES')
             .addIndexBuffer('TRIANGLES')
             .addVertexBuffer('normals', 'ts_Normal')
@@ -484,10 +484,10 @@ class Mesh extends Transformable {
     /**
      * Generates a unit cube (1x1x1) starting at the origin and extending into the (+ + +) octant.
      * I.e. box from V3.O to V3(1,1,1)
-     * Creates line, triangle, vertex and normal1 buffers.
+     * Creates line (only cube edges), triangle, vertex and normal1 buffers.
      */
     static cube() {
-        const mesh = new Mesh()
+        const mesh = new Mesh$$1()
             .addVertexBuffer('normals', 'ts_Normal')
             .addIndexBuffer('TRIANGLES')
             .addIndexBuffer('LINES');
@@ -501,10 +501,10 @@ class Mesh extends Transformable {
             2, 6, 0, 4,
             3, 7, 1, 5,
         ];
-        mesh.vertices = VERTEX_CORNERS.map(i => Mesh.UNIT_CUBE_CORNERS[i]);
+        mesh.vertices = VERTEX_CORNERS.map(i => Mesh$$1.UNIT_CUBE_CORNERS[i]);
         mesh.normals = [V3.X.negated(), V3.X, V3.Y.negated(), V3.Y, V3.Z.negated(), V3.Z].flatMap(v => [v, v, v, v]);
         for (let i = 0; i < 6 * 4; i += 4) {
-            pushQuad(mesh.TRIANGLES, 0 != i % 8, VERTEX_CORNERS[i], VERTEX_CORNERS[i + 1], VERTEX_CORNERS[i + 2], VERTEX_CORNERS[i + 3]);
+            pushQuad$$1(mesh.TRIANGLES, 0 != i % 8, VERTEX_CORNERS[i], VERTEX_CORNERS[i + 1], VERTEX_CORNERS[i + 2], VERTEX_CORNERS[i + 3]);
         }
         // indexes of LINES relative to UNIT_CUBE_CORNERS. Mapped to VERTEX_CORNERS.indexOf
         // so they make sense in the context of the mesh
@@ -526,14 +526,14 @@ class Mesh extends Transformable {
         return mesh;
     }
     static isocahedron() {
-        return Mesh.sphere(0);
+        return Mesh$$1.sphere(0);
     }
     static sphere2(las, longs) {
         const baseVertices = arrayFromFunction(las, i => {
             const angle = i / (las - 1) * PI - PI / 2;
             return new V3(0, cos(angle), sin(angle));
         });
-        return Mesh.rotation(baseVertices, { anchor: V3.O, dir1: V3.Z }, 2 * PI, longs, true, baseVertices);
+        return Mesh$$1.rotation(baseVertices, { anchor: V3.O, dir1: V3.Z }, 2 * PI, longs, true, baseVertices);
     }
     /**
      * Returns a sphere mesh with radius 1 created by subdividing the faces of a isocahedron (20-sided) recursively
@@ -617,7 +617,7 @@ class Mesh extends Transformable {
                 tesselateRecursively(c, caMid1, bcMid1, res - 1, vertices, triangles, ic, icam, ibcm, lines);
             }
         }
-        const mesh = new Mesh()
+        const mesh = new Mesh$$1()
             .addVertexBuffer('normals', 'ts_Normal')
             .addIndexBuffer('TRIANGLES')
             .addIndexBuffer('LINES');
@@ -633,7 +633,7 @@ class Mesh extends Transformable {
     }
     static aabb(aabb) {
         const matrix = M4.multiplyMultiple(M4.translate(aabb.min), M4.scale(aabb.size().max(new V3(NLA_PRECISION, NLA_PRECISION, NLA_PRECISION))));
-        const mesh = Mesh.cube().transform(matrix);
+        const mesh = Mesh$$1.cube().transform(matrix);
         // mesh.vertices = aabb.corners()
         mesh.computeNormalLines(20);
         mesh.compile();
@@ -642,7 +642,7 @@ class Mesh extends Transformable {
     static offsetVertices(vertices, offset, close, normals) {
         assertVectors.apply(undefined, vertices);
         assertVectors(offset);
-        const mesh = new Mesh()
+        const mesh = new Mesh$$1()
             .addIndexBuffer('TRIANGLES')
             .addVertexBuffer('coords', 'ts_TexCoord');
         normals && mesh.addVertexBuffer('normals', 'ts_Normal');
@@ -651,10 +651,10 @@ class Mesh extends Transformable {
         mesh.coords = arrayFromFunction(vl * 2, (i) => [(i % vl) / vl, (i / vl) | 0]);
         const triangles = mesh.TRIANGLES;
         for (let i = 0; i < vertices.length - 1; i++) {
-            pushQuad(triangles, false, i, i + 1, vertices.length + i, vertices.length + i + 1);
+            pushQuad$$1(triangles, false, i, i + 1, vertices.length + i, vertices.length + i + 1);
         }
         if (close) {
-            pushQuad(triangles, false, vertices.length - 1, 0, vertices.length * 2 - 1, vertices.length);
+            pushQuad$$1(triangles, false, vertices.length - 1, 0, vertices.length * 2 - 1, vertices.length);
         }
         if (normals) {
             mesh.normals = normals.concat(normals);
@@ -668,7 +668,7 @@ class Mesh extends Transformable {
     // these will also be rotated and correctly added to the mesh.
     // @example const precious = Mesh.rotation([V(10, 0, -2), V(10, 0, 2), V(11, 0, 2), V(11, 0, -2)], , L3.Z, 512)
     static rotation(vertices, lineAxis, totalRads, steps, close = true, normals) {
-        const mesh = new Mesh().addIndexBuffer('TRIANGLES');
+        const mesh = new Mesh$$1().addIndexBuffer('TRIANGLES');
         normals && mesh.addVertexBuffer('normals', 'ts_Normal');
         const vc = vertices.length, vTotal = vc * steps;
         const rotMat = new M4();
@@ -681,7 +681,7 @@ class Mesh extends Transformable {
             normals && mesh.normals.push(...rotMat.transformedVectors(normals));
             if (close || i !== steps - 1) {
                 for (let j = 0; j < vc - 1; j++) {
-                    pushQuad(triangles, false, i * vc + j + 1, i * vc + j, ((i + 1) * vc + j + 1) % vTotal, ((i + 1) * vc + j) % vTotal);
+                    pushQuad$$1(triangles, false, i * vc + j + 1, i * vc + j, ((i + 1) * vc + j + 1) % vTotal, ((i + 1) * vc + j) % vTotal);
                 }
             }
         }
@@ -689,7 +689,7 @@ class Mesh extends Transformable {
         return mesh;
     }
     static parametric(pF, pN, sMin, sMax, tMin, tMax, sRes, tRes) {
-        const mesh = new Mesh()
+        const mesh = new Mesh$$1()
             .addIndexBuffer('TRIANGLES')
             .addVertexBuffer('normals', 'ts_Normal');
         for (let si = 0; si <= sRes; si++) {
@@ -700,14 +700,14 @@ class Mesh extends Transformable {
                 pN && mesh.normals.push(pN(s, t));
                 if (ti < tRes && si < sRes) {
                     const offset = ti + si * (tRes + 1);
-                    pushQuad(mesh.TRIANGLES, false, offset, offset + tRes + 1, offset + 1, offset + tRes + 2);
+                    pushQuad$$1(mesh.TRIANGLES, false, offset, offset + tRes + 1, offset + 1, offset + tRes + 2);
                 }
             }
         }
         return mesh;
     }
     static load(json) {
-        const mesh = new Mesh();
+        const mesh = new Mesh$$1();
         if (Array.isArray(json.vertices[0])) {
             mesh.vertices = json.vertices.map(x => V(x));
         }
@@ -727,7 +727,7 @@ class Mesh extends Transformable {
     }
 }
 // unique corners of a unit cube. Used by Mesh.cube to generate a cube mesh.
-Mesh.UNIT_CUBE_CORNERS = [
+Mesh$$1.UNIT_CUBE_CORNERS = [
     V3.O,
     new V3(0, 0, 1),
     new V3(0, 1, 0),
@@ -761,8 +761,8 @@ const DRAW_MODE_CHECKS = {
     [WGL$2.TRIANGLE_STRIP]: x => x > 3,
     [WGL$2.TRIANGLE_FAN]: x => x > 3,
 };
-const SHADER_VAR_TYPES = ['FLOAT', 'FLOAT_MAT2', 'FLOAT_MAT3', 'FLOAT_MAT4', 'FLOAT_VEC2', 'FLOAT_VEC3', 'FLOAT_VEC4', 'INT', 'INT_VEC2', 'INT_VEC3', 'INT_VEC4', 'UNSIGNED_INT'];
-function isArray(obj) {
+const SHADER_VAR_TYPES$$1 = ['FLOAT', 'FLOAT_MAT2', 'FLOAT_MAT3', 'FLOAT_MAT4', 'FLOAT_VEC2', 'FLOAT_VEC3', 'FLOAT_VEC4', 'INT', 'INT_VEC2', 'INT_VEC3', 'INT_VEC4', 'UNSIGNED_INT'];
+function isArray$$1(obj) {
     return Array == obj.constructor || Float32Array == obj.constructor || Float64Array == obj.constructor;
 }
 function isFloatArray(obj) {
@@ -778,7 +778,7 @@ function isIntArray(x) {
         x.every(x => Number.isInteger(x));
 }
 //const x:UniformTypes = undefined as 'FLOAT_VEC4' | 'FLOAT_VEC3'
-class Shader {
+class Shader$$1 {
     /**
      * Provides a convenient wrapper for WebGL shaders. A few uniforms and attributes,
      * prefixed with `gl_`, are automatically added to all shader sources to make
@@ -806,7 +806,7 @@ class Shader {
      *
      * Compiles a shader program using the provided vertex and fragment shaders.
      */
-    constructor(vertexSource, fragmentSource, gl = currentGL()) {
+    constructor(vertexSource, fragmentSource, gl = currentGL$$1()) {
         this.projectionMatrixVersion = -1;
         this.modelViewMatrixVersion = -1;
         // const versionRegex = /^(?:\s+|\/\/[\s\S]*?[\r\n]+|\/\*[\s\S]*?\*\/)+(#version\s+(\d+)\s+es)/
@@ -860,7 +860,7 @@ class Shader {
         }
     }
     static create(vertexSource, fragmentSource, gl) {
-        return new Shader(vertexSource, fragmentSource, gl);
+        return new Shader$$1(vertexSource, fragmentSource, gl);
     }
     /**
      * Set a uniform for each property of `uniforms`. The correct `viewerGL.uniform*()` method is inferred from the
@@ -888,7 +888,7 @@ class Shader {
                     }
                 }
                 assert(gl.FLOAT != info.type ||
-                    (1 == info.size && 'number' === typeof value || isFloatArray(value) && info.size == value.length));
+                    (1 == info.size && 'number' === typeof value || isFloatArray(value)));
                 assert(gl.FLOAT_VEC3 != info.type ||
                     (1 == info.size && value instanceof V3 ||
                         Array.isArray(value) && info.size == value.length && assertVectors(...value)));
@@ -900,7 +900,12 @@ class Shader {
                 value = value.toArray();
             }
             if (gl.FLOAT_VEC4 == info.type && info.size != 1) {
-                gl.uniform4fv(location, value.concatenated());
+                if (value instanceof Float32Array || value instanceof Float64Array) {
+                    gl.uniform4fv(location, value instanceof Float32Array ? value : Float32Array.from(value));
+                }
+                else {
+                    gl.uniform4fv(location, value.concatenated());
+                }
             }
             else if (gl.FLOAT == info.type && info.size != 1) {
                 gl.uniform1fv(location, value);
@@ -1057,7 +1062,7 @@ class Shader {
         const gl = this.gl;
         assert(undefined != DRAW_MODE_NAMES[mode]);
         assertf(() => 1 <= Object.keys(vertexBuffers).length);
-        Object.keys(vertexBuffers).forEach(key => assertInst(Buffer, vertexBuffers[key]));
+        Object.keys(vertexBuffers).forEach(key => assertInst(Buffer$$1, vertexBuffers[key]));
         // Only varruct up the built-in matrices that are active in the shader
         const on = this.activeMatrices;
         const modelViewMatrixInverse = (on['ts_ModelViewMatrixInverse'] || on['ts_NormalMatrix'])
@@ -1156,7 +1161,7 @@ class Shader {
     }
 }
 
-class Texture {
+class Texture$$1 {
     /**
      * Provides a simple wrapper around WebGL textures that supports render-to-texture.
      *
@@ -1180,7 +1185,7 @@ class Texture {
          *     })
      *
      */
-    constructor(width, height, options = {}, gl = currentGL()) {
+    constructor(width, height, options = {}, gl = currentGL$$1()) {
         this.gl = gl;
         this.width = width;
         this.height = height;
@@ -1271,8 +1276,8 @@ class Texture {
     /**
      * Return a new texture created from `imgElement`, an `<img>` tag.
      */
-    static fromImage(imgElement, options = {}, gl = currentGL()) {
-        const texture = new Texture(imgElement.width, imgElement.height, options, gl);
+    static fromImage(imgElement, options = {}, gl = currentGL$$1()) {
+        const texture = new Texture$$1(imgElement.width, imgElement.height, options, gl);
         try {
             gl.texImage2D(gl.TEXTURE_2D, 0, texture.format, texture.format, texture.type, imgElement);
         }
@@ -1293,8 +1298,8 @@ class Texture {
     /**
      * Returns a checkerboard texture that will switch to the correct texture when it loads.
      */
-    static fromURLSwitch(url, options, gl = currentGL()) {
-        Texture.checkerBoardCanvas = Texture.checkerBoardCanvas || (function () {
+    static fromURLSwitch(url, options, gl = currentGL$$1()) {
+        Texture$$1.checkerBoardCanvas = Texture$$1.checkerBoardCanvas || (function () {
             const c = document.createElement('canvas').getContext('2d');
             if (!c)
                 throw new Error('Could not create 2d canvas.');
@@ -1308,18 +1313,18 @@ class Texture {
             }
             return c.canvas;
         })();
-        const texture = Texture.fromImage(Texture.checkerBoardCanvas, options);
+        const texture = Texture$$1.fromImage(Texture$$1.checkerBoardCanvas, options);
         const image = new Image();
-        image.onload = () => Texture.fromImage(image, options, gl).swapWith(texture);
+        image.onload = () => Texture$$1.fromImage(image, options, gl).swapWith(texture);
         // error event doesn't return a reason. Most likely a 404.
         image.onerror = () => { throw new Error('Could not load image ' + image.src + '. 404?'); };
         image.src = url;
         return texture;
     }
-    static fromURL(url, options, gl = currentGL()) {
+    static fromURL(url, options, gl = currentGL$$1()) {
         return new Promise((resolve, reject) => {
             const image = new Image();
-            image.onload = () => resolve(Texture.fromImage(image, options, gl));
+            image.onload = () => resolve(Texture$$1.fromImage(image, options, gl));
             image.onerror = () => reject('Could not load image ' + image.src + '. 404?');
             image.src = url;
         });
@@ -2298,24 +2303,24 @@ function makeLostContextSimulatingCanvas(canvas) {
 /**
  * There's only one constant, use it for default values. Use chroma-js or similar for actual colors.
  */
-const GL_COLOR_BLACK = [0, 0, 0, 1];
-function currentGL() {
-    return TSGLContextBase.gl;
+const GL_COLOR_BLACK$$1 = [0, 0, 0, 1];
+function currentGL$$1() {
+    return TSGLContextBase$$1.gl;
 }
-function isNumber(obj) {
+function isNumber$$1(obj) {
     const str = Object.prototype.toString.call(obj);
     return str == '[object Number]' || str == '[object Boolean]';
 }
-class TSGLContextBase {
+class TSGLContextBase$$1 {
     constructor(gl, immediate = {
-        mesh: new Mesh()
+        mesh: new Mesh$$1()
             .addVertexBuffer('coords', 'ts_TexCoord')
             .addVertexBuffer('colors', 'ts_Color'),
         mode: -1,
         coord: [0, 0],
         color: [1, 1, 1, 1],
         pointSize: 1,
-        shader: Shader.create(`
+        shader: Shader$$1.create(`
 			attribute vec4 ts_Color;
 			attribute vec4 ts_Vertex;
 			uniform mat4 ts_ModelViewProjectionMatrix;
@@ -2352,7 +2357,7 @@ class TSGLContextBase {
         this.drawCallCount = 0;
         this.projectionMatrixVersion = 0;
         this.modelViewMatrixVersion = 0;
-        this.matrixMode(TSGLContextBase.MODELVIEW);
+        this.matrixMode(TSGLContextBase$$1.MODELVIEW);
     }
     /// Implement the OpenGL modelview and projection matrix stacks, along with some other useful GLU matrix functions.
     matrixMode(mode) {
@@ -2483,12 +2488,12 @@ class TSGLContextBase {
             throw new Error('mismatched viewerGL.begin() and viewerGL.end() calls');
         this.immediate.mesh.compile();
         this.immediate.shader.uniforms({
-            useTexture: !!TSGLContextBase.gl.getParameter(this.TEXTURE_BINDING_2D),
+            useTexture: !!TSGLContextBase$$1.gl.getParameter(this.TEXTURE_BINDING_2D),
         }).drawBuffers(this.immediate.mesh.vertexBuffers, undefined, this.immediate.mode);
         this.immediate.mode = -1;
     }
     makeCurrent() {
-        TSGLContextBase.gl = this;
+        TSGLContextBase$$1.gl = this;
     }
     /**
      * Starts an animation loop.
@@ -2550,10 +2555,10 @@ class TSGLContextBase {
             gl.canvas.height = (window.innerHeight - top - bottom) * window.devicePixelRatio;
             gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
             if (options.camera) {
-                gl.matrixMode(TSGLContextBase.PROJECTION);
+                gl.matrixMode(TSGLContextBase$$1.PROJECTION);
                 gl.loadIdentity();
                 gl.perspective(options.fov || 45, gl.canvas.width / gl.canvas.height, options.near || 0.1, options.far || 1000);
-                gl.matrixMode(TSGLContextBase.MODELVIEW);
+                gl.matrixMode(TSGLContextBase$$1.MODELVIEW);
             }
         }
         window.addEventListener('resize', windowOnResize);
@@ -2591,23 +2596,23 @@ class TSGLContextBase {
                 throw new Error(glEnumToString(err) + ' was caused by ' + funcName);
             });
         }
-        TSGLContextBase.gl = newGL;
-        addOwnProperties(newGL, TSGLContextBase.prototype);
-        addOwnProperties(newGL, new TSGLContextBase(newGL));
+        TSGLContextBase$$1.gl = newGL;
+        addOwnProperties(newGL, TSGLContextBase$$1.prototype);
+        addOwnProperties(newGL, new TSGLContextBase$$1(newGL));
         //addEventListeners(newGL)
         return newGL;
     }
 }
-TSGLContextBase.MODELVIEW = 0;
-TSGLContextBase.PROJECTION = 1;
-TSGLContextBase.HALF_FLOAT_OES = 0x8D61;
+TSGLContextBase$$1.MODELVIEW = 0;
+TSGLContextBase$$1.PROJECTION = 1;
+TSGLContextBase$$1.HALF_FLOAT_OES = 0x8D61;
 var TSGLContext;
-(function (TSGLContext) {
+(function (TSGLContext$$1) {
     /**
      * `create()` creates a new WebGL context and augments it with more methods. The alpha channel is disabled
      * by default because it usually causes unintended transparencies in the canvas.
      */
-    TSGLContext.create = TSGLContextBase.create;
+    TSGLContext$$1.create = TSGLContextBase$$1.create;
 })(TSGLContext || (TSGLContext = {}));
 // enum WGL_ERROR {
 // 	NO_ERROR = WGL.NO_ERROR,
@@ -2618,9 +2623,9 @@ var TSGLContext;
 // 	OUT_OF_MEMORY = WGL.OUT_OF_MEMORY,
 // 	CONTEXT_LOST_WEBGL = WGL.CONTEXT_LOST_WEBGL,
 // }
-TSGLContextBase.prototype.MODELVIEW = TSGLContextBase.MODELVIEW;
-TSGLContextBase.prototype.PROJECTION = TSGLContextBase.PROJECTION;
-TSGLContextBase.prototype.HALF_FLOAT_OES = TSGLContextBase.HALF_FLOAT_OES;
+TSGLContextBase$$1.prototype.MODELVIEW = TSGLContextBase$$1.MODELVIEW;
+TSGLContextBase$$1.prototype.PROJECTION = TSGLContextBase$$1.PROJECTION;
+TSGLContextBase$$1.prototype.HALF_FLOAT_OES = TSGLContextBase$$1.HALF_FLOAT_OES;
 /**
  *
  * Push two triangles:
@@ -2628,7 +2633,7 @@ TSGLContextBase.prototype.HALF_FLOAT_OES = TSGLContextBase.HALF_FLOAT_OES;
  * | \ |
  * a - b
  */
-function pushQuad(triangles, flipped, a, b, c, d) {
+function pushQuad$$1(triangles, flipped, a, b, c, d) {
     if (flipped) {
         triangles.push(a, c, b, b, c, d);
     }
@@ -2640,5 +2645,5 @@ function hexIntToGLColor(color) {
     return [(color >> 16) / 255.0, ((color >> 8) & 0xff) / 255.0, (color & 0xff) / 255.0, 1.0];
 }
 
-export { Buffer, Mesh, SHADER_VAR_TYPES, isArray, Shader, Texture, GL_COLOR_BLACK, currentGL, isNumber, TSGLContextBase, TSGLContext, pushQuad, init, mightBeEnum, glEnumToString, glFunctionArgToString, glFunctionArgsToString, makeDebugContext, isWebGL2RenderingContext, resetToInitialState, makeLostContextSimulatingCanvas };
+export { Buffer$$1 as Buffer, Mesh$$1 as Mesh, SHADER_VAR_TYPES$$1 as SHADER_VAR_TYPES, isArray$$1 as isArray, Shader$$1 as Shader, Texture$$1 as Texture, GL_COLOR_BLACK$$1 as GL_COLOR_BLACK, currentGL$$1 as currentGL, isNumber$$1 as isNumber, TSGLContextBase$$1 as TSGLContextBase, TSGLContext, pushQuad$$1 as pushQuad, init, mightBeEnum, glEnumToString, glFunctionArgToString, glFunctionArgsToString, makeDebugContext, isWebGL2RenderingContext, resetToInitialState, makeLostContextSimulatingCanvas };
 //# sourceMappingURL=bundle.module.js.map

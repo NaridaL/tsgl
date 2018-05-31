@@ -217,7 +217,7 @@ export class Shader<UniformTypes extends VarTypeMap = any, AttributeTypes extend
 					}
 				}
 				assert(gl.FLOAT != info.type ||
-					(1 == info.size && 'number' === typeof value || isFloatArray(value) && info.size == value.length))
+					(1 == info.size && 'number' === typeof value || isFloatArray(value) ))
 				assert(gl.FLOAT_VEC3 != info.type ||
 					(1 == info.size && value instanceof V3 ||
 						Array.isArray(value) && info.size == value.length && assertVectors(...value)))
@@ -229,7 +229,11 @@ export class Shader<UniformTypes extends VarTypeMap = any, AttributeTypes extend
 				value = value.toArray()
 			}
 			if (gl.FLOAT_VEC4 == info.type && info.size != 1) {
-				gl.uniform4fv(location, value.concatenated())
+				if (value instanceof Float32Array || value instanceof Float64Array) {
+					gl.uniform4fv(location, value instanceof Float32Array ? value : Float32Array.from(value))
+				} else {
+					gl.uniform4fv(location, value.concatenated())
+				}
 			} else if (gl.FLOAT == info.type && info.size != 1) {
 				gl.uniform1fv(location, value)
 			} else if (gl.FLOAT_VEC3 == info.type && info.size != 1) {

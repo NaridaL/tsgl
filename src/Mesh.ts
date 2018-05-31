@@ -467,7 +467,7 @@ export class Mesh extends Transformable {
 	/**
 	 * Generates a unit cube (1x1x1) starting at the origin and extending into the (+ + +) octant.
 	 * I.e. box from V3.O to V3(1,1,1)
-	 * Creates line, triangle, vertex and normal1 buffers.
+	 * Creates line (only cube edges), triangle, vertex and normal1 buffers.
 	 */
 	static cube() {
 		const mesh = new Mesh()
