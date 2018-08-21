@@ -1,4 +1,3 @@
-(function(l, i, v, e) { v = l.createElement(i); v.async = 1; v.src = '//' + (location.host || 'localhost').split(':')[0] + ':35729/livereload.js?snipver=1'; e = l.getElementsByTagName(i)[0]; e.parentNode.insertBefore(v, e)})(document, 'script');
 var demo = (function (exports,chroma) {
     'use strict';
 
@@ -143,7 +142,6 @@ var demo = (function (exports,chroma) {
             return this._size;
         }
     }
-    //# sourceMappingURL=bundle.module.js.map
 
     class Vector {
         constructor(v) {
@@ -3691,7 +3689,6 @@ var demo = (function (exports,chroma) {
             return this.toString();
         }
     }
-    //# sourceMappingURL=bundle.module.js.map
 
     const WGL = WebGLRenderingContext;
     class Buffer$$1 {
@@ -4766,6 +4763,7 @@ var demo = (function (exports,chroma) {
                 gl.disableVertexAttribArray(location);
                 let value = attributes[name];
                 if (value instanceof V3) {
+                    // TODO: figure out the types here...
                     value = value.toArray();
                 }
                 if ('number' === typeof value) {

@@ -1,8 +1,8 @@
 {
 	"extends": ["naridal-tslib-config/tslint.json", "tslint-config-prettier"],
 	"rules": {
-		"no-unused-variable": [true],
-		"no-unnecessary-type-assertion": false,
+		// "no-unused-variable": [true],
+		"no-unnecessary-type-assertion": true,
 		"ordered-imports": {
 			"severity": "warning"
 		}

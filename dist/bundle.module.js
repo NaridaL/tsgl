@@ -1068,6 +1068,7 @@ class Shader$$1 {
             gl.disableVertexAttribArray(location);
             let value = attributes[name];
             if (value instanceof V3) {
+                // TODO: figure out the types here...
                 value = value.toArray();
             }
             if ('number' === typeof value) {
@@ -1402,7 +1403,7 @@ class Texture$$1 {
         return new Promise((resolve, reject) => {
             const image = new Image();
             image.onload = () => resolve(Texture$$1.fromImage(image, options, gl));
-            image.onerror = () => reject('Could not load image ' + image.src + '. 404?');
+            image.onerror = ev => reject('Could not load image ' + image.src + '. 404?' + ev);
             image.src = url;
         });
     }
@@ -2017,6 +2018,7 @@ function makeLostContextSimulatingCanvas(canvas) {
             // Did we get a context and is it a WebGL context?
             // @ts-ignore
             if (ctx instanceof WebGLRenderingContext ||
+                // TODO:?
                 (window.WebGL2RenderingContext && ctx instanceof WebGL2RenderingContext)) {
                 if (ctx != unwrappedContext_) {
                     if (unwrappedContext_) {
@@ -2378,6 +2380,10 @@ function makeLostContextSimulatingCanvas(canvas) {
     }
 }
 
+var posCoordVS = "attribute vec2 ts_TexCoord;attribute vec4 ts_Vertex;uniform mat4 ts_ModelViewProjectionMatrix;varying vec2 coord;void main(){coord=ts_TexCoord.xy;gl_Position=ts_ModelViewProjectionMatrix*ts_Vertex;}";
+
+var sdfRenderFS = "precision mediump float;uniform sampler2D u_texture;uniform vec4 u_color;uniform float u_buffer;uniform float u_gamma;uniform float u_debug;varying vec2 coord;void main(){float dist=texture2D(u_texture,coord).r;if(u_debug>0.0){gl_FragColor=vec4(dist,dist,dist,1);}else{float alpha=smoothstep(u_buffer-u_gamma,u_buffer+u_gamma,dist);gl_FragColor=vec4(u_color.rgb,alpha*u_color.a);if(gl_FragColor.a==0.0){discard;}}}";
+
 /**
  * There's only one constant, use it for default values. Use chroma-js or similar for actual colors.
  */
@@ -2433,6 +2439,7 @@ class TSGLContextBase$$1 {
         this.drawCallCount = 0;
         this.projectionMatrixVersion = 0;
         this.modelViewMatrixVersion = 0;
+        this.cachedSDFMeshes = {};
         this.matrixMode(TSGLContextBase$$1.MODELVIEW);
     }
     /// Implement the OpenGL modelview and projection matrix stacks, along with some other useful GLU matrix functions.
@@ -2649,6 +2656,56 @@ class TSGLContextBase$$1 {
     viewportFill() {
         this.viewport(0, 0, this.canvas.width, this.canvas.height);
     }
+    setupTextRendering(pngURL, jsonURL) {
+        return __awaiter(this, void 0, void 0, function* () {
+            this.textRenderShader = Shader$$1.create(posCoordVS, sdfRenderFS);
+            [this.textAtlas, this.textMetrics] = yield Promise.all([
+                Texture$$1.fromURL(pngURL, {
+                    format: this.LUMINANCE,
+                    internalFormat: this.LUMINANCE,
+                    type: this.UNSIGNED_BYTE,
+                }),
+                fetch(jsonURL).then(r => r.json()),
+            ]);
+            const cs = this.textMetrics.chars;
+            const maxY = Object.keys(cs).reduce((a, b) => Math.max(a, cs[b][3]), 0);
+            const minY = Object.keys(cs).reduce((a, b) => Math.min(a, cs[b][3] - cs[b][1]), 0);
+            console.log(maxY, minY);
+        });
+    }
+    getSDFMeshForString(str) {
+        assert(this.textMetrics);
+        return (this.cachedSDFMeshes[str] ||
+            (this.cachedSDFMeshes[str] = createTextMesh(this.textMetrics, this.textAtlas, str)));
+    }
+    renderText(string, color, size = 1, xAlign = 'left', baseline = 'bottom', gamma = 0.05, lineHeight = 1.2) {
+        const strMesh = this.getSDFMeshForString(string);
+        this.pushMatrix();
+        this.scale(size);
+        const xTranslate = { left: 0, center: -0.5, right: -1 };
+        const yTranslate = {
+            top: -this.textMetrics.ascender / this.textMetrics.size,
+            middle: (-this.textMetrics.ascender - this.textMetrics.descender) / 2 / this.textMetrics.size,
+            alphabetic: 0,
+            bottom: -this.textMetrics.descender / this.textMetrics.size,
+        };
+        // console.log('yTranslate[baseline]', yTranslate[baseline])
+        this.translate(xTranslate[xAlign] * strMesh.width, yTranslate[baseline], 0);
+        this.multMatrix(M4.forSys(V3.X, V3.Y, new V3(0, -lineHeight, 0)));
+        this.textAtlas.bind(0);
+        this.textRenderShader
+            .uniforms({ texture: 0, u_color: color, u_debug: 0, u_gamma: gamma, u_buffer: 192 / 256 })
+            .draw(strMesh);
+        this.popMatrix();
+        // gl.uniform1f(shader.u_debug, debug ? 1 : 0)
+        // gl.uniform4fv(shader.u_color, [1, 1, 1, 1])
+        // gl.uniform1f(shader.u_buffer, buffer)
+        // gl.drawArrays(gl.TRIANGLES, 0, vertexBuffer.numItems)
+        // gl.uniform4fv(shader.u_color, [0, 0, 0, 1])
+        // gl.uniform1f(shader.u_buffer, 192 / 256)
+        // gl.uniform1f(shader.u_gamma, (gamma * 1.4142) / scale)
+        // gl.drawArrays(gl.TRIANGLES, 0, vertexBuffer.numItems)
+    }
     static create(options = {}) {
         const canvas = options.canvas || document.createElement('canvas');
         if (!options.canvas) {
@@ -2710,9 +2767,11 @@ TSGLContextBase$$1.prototype.HALF_FLOAT_OES = TSGLContextBase$$1.HALF_FLOAT_OES;
 /**
  *
  * Push two triangles:
- * c - d
- * | \ |
- * a - b
+ * ```
+ c - d
+ | \ |
+ a - b
+ ```
  */
 function pushQuad$$1(triangles, flipped, a, b, c, d) {
     // prettier-ignore
@@ -2725,6 +2784,65 @@ function pushQuad$$1(triangles, flipped, a, b, c, d) {
 }
 function hexIntToGLColor(color) {
     return [(color >> 16) / 255.0, ((color >> 8) & 0xff) / 255.0, (color & 0xff) / 255.0, 1.0];
+}
+// function measureText(metrics: FontJsonMetrics, text: string, size: number) {
+// 	const dimensions = {
+// 		advance: 0,
+// 	}
+// 	const scale = size / metrics.size
+// 	for (let i = 0; i < text.length; i++) {
+// 		const horiAdvance = metrics.chars[text[i]][4]
+// 		dimensions.advance += horiAdvance * scale
+// 	}
+// 	return dimensions
+// }
+// gl.getExtension('OES_standard_derivatives')
+// gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE)
+// gl.enable(gl.BLEND)
+// const texture = gl.createTexture()
+// const vertexBuffer = gl.createBuffer()
+// const textureBuffer = gl.createBuffer()
+function createTextMesh(fontMetrics, fontTextureAtlas, str, lineHeight = 1) {
+    const mesh = new Mesh$$1().addIndexBuffer('TRIANGLES').addVertexBuffer('coords', 'ts_TexCoord');
+    let cursorX = 0;
+    let cursorY = 0;
+    function drawGlyph(chr) {
+        const metric = fontMetrics.chars[chr];
+        if (!metric)
+            return;
+        const [width, height, horiBearingX, horiBearingY, horiAdvance, posX, posY] = metric;
+        const { size, buffer } = fontMetrics;
+        const quadStartIndex = mesh.vertices.length;
+        // buffer = margin on texture
+        if (width > 0 && height > 0) {
+            // Add a quad (= two triangles) per glyph.
+            const left = (cursorX + horiBearingX - buffer) / size;
+            const right = (cursorX + horiBearingX + width + buffer) / size;
+            const bottom = (horiBearingY - height - buffer) / size;
+            const top = (horiBearingY + buffer) / size;
+            mesh.vertices.push(new V3(left, bottom, cursorY / size), new V3(right, bottom, cursorY / size), new V3(left, top, cursorY / size), new V3(right, top, cursorY / size));
+            const coordsLeft = posX / fontTextureAtlas.width;
+            const coordsRight = (posX + width + 2 * buffer) / fontTextureAtlas.width;
+            const coordsBottom = (posY + height + 2 * buffer) / fontTextureAtlas.height;
+            const coordsTop = posY / fontTextureAtlas.height;
+            mesh.coords.push([coordsLeft, coordsBottom], [coordsRight, coordsBottom], [coordsLeft, coordsTop], [coordsRight, coordsTop]);
+            // mesh.coords.push([0, 0], [0, 1], [1, 0], [1, 1])
+            pushQuad$$1(mesh.TRIANGLES, false, quadStartIndex, quadStartIndex + 1, quadStartIndex + 2, quadStartIndex + 3);
+        }
+        // pen.x += Math.ceil(horiAdvance * scale);
+        cursorX += horiAdvance;
+    }
+    for (let i = 0; i < str.length; i++) {
+        const chr = str[i];
+        if ('\n' == chr) {
+            cursorX = 0;
+            cursorY += lineHeight * fontMetrics.size;
+        }
+        else {
+            drawGlyph(chr);
+        }
+    }
+    return Object.assign(mesh.compile(), { width: cursorX / fontMetrics.size, lineCount: cursorY + 1 });
 }
 
 export { Buffer$$1 as Buffer, Mesh$$1 as Mesh, SHADER_VAR_TYPES$$1 as SHADER_VAR_TYPES, isArray$$1 as isArray, Shader$$1 as Shader, Texture$$1 as Texture, GL_COLOR_BLACK$$1 as GL_COLOR_BLACK, currentGL$$1 as currentGL, isNumber$$1 as isNumber, TSGLContextBase$$1 as TSGLContextBase, TSGLContext, pushQuad$$1 as pushQuad, init, mightBeEnum, glEnumToString, glFunctionArgToString, glFunctionArgsToString, makeDebugContext, isWebGL2RenderingContext, resetToInitialState, makeLostContextSimulatingCanvas };

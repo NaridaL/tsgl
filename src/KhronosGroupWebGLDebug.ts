@@ -688,7 +688,8 @@ export function makeLostContextSimulatingCanvas(canvas: HTMLCanvasElement) {
 			// @ts-ignore
 			if (
 				ctx instanceof WebGLRenderingContext ||
-				(window.WebGL2RenderingContext && ctx instanceof WebGL2RenderingContext)
+				// TODO:?
+				((window as any).WebGL2RenderingContext && ctx instanceof WebGL2RenderingContext)
 			) {
 				if (ctx != unwrappedContext_) {
 					if (unwrappedContext_) {

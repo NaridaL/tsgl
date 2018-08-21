@@ -372,7 +372,8 @@ export class Shader<UniformTypes extends VarTypeMap = any, AttributeTypes extend
 			gl.disableVertexAttribArray(location)
 			let value = attributes[name]
 			if (value instanceof V3) {
-				value = value.toArray()
+				// TODO: figure out the types here...
+				value = value.toArray() as any
 			}
 			if ('number' === typeof value) {
 				gl.vertexAttrib1f(location, value)

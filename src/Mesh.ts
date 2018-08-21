@@ -202,7 +202,7 @@ export class Mesh extends Transformable {
 			const fileReader = new FileReader()
 			fileReader.onerror = reject
 			fileReader.onload = function(_progressEvent) {
-				const dataView = new DataView(this.result)
+				const dataView = new DataView(this.result as ArrayBuffer)
 				const HEADER_BYTE_SIZE = 80
 				const triangleCount = dataView.getUint32(HEADER_BYTE_SIZE, true)
 				mesh.normals.length = triangleCount * 3

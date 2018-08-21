@@ -1,10 +1,9 @@
 import { arrayFromFunction, lerp, V, V3 } from 'ts3dutils'
-
 import { Mesh, Shader, Texture, TSGLContext } from 'tsgl'
 
-const { sin, PI } = Math
-
 import gazeboJSON from '../../gazebo.json'
+
+const { sin, PI } = Math
 
 /**
  * Render mesh to texture, then render that texture to another mesh.

@@ -2,11 +2,11 @@ import chroma from 'chroma-js'
 import { addOwnProperties, assert, DEG, int, M4, P3ZX, V, V3 } from 'ts3dutils'
 import { glEnumToString } from './KhronosGroupWebGLDebug'
 
+// @ts-ignore
+import posCoordVS from '../src/shaders/posCoordVS.glslx'
+// @ts-ignore
+import sdfRenderFS from '../src/shaders/sdfRenderFS.glslx'
 import { makeDebugContext, Mesh, Shader, Texture } from './index'
-// @ts-ignore
-import posCoordVS from './shaders/posCoordVS.glslx'
-// @ts-ignore
-import sdfRenderFS from './shaders/sdfRenderFS.glslx'
 
 import GL = WebGLRenderingContextStrict
 export type GL_COLOR = [number, number, number, number]
