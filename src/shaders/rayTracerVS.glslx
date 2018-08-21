@@ -1,0 +1,8 @@
+#version 300 es
+precision mediump float;
+in vec4 ts_Vertex;
+out vec4 pos;
+void main() {
+	gl_Position = ts_Vertex;
+	pos = ts_Vertex;
+}

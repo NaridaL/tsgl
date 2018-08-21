@@ -1,0 +1,33 @@
+// A fragment shader for rendering signed distance fields. Main use case: text.
+
+precision mediump float;
+
+// the atlas texture
+uniform sampler2D u_texture;
+
+// the color the text should be rendered
+uniform vec4 u_color;
+
+// the zero distance value in the texture
+uniform float u_buffer;
+
+// control the bluriness of the output 0.05 is a good value
+uniform float u_gamma;
+
+// set to > 1.0 to just output the texture 
+uniform float u_debug;
+
+varying vec2 coord;
+
+void main() {
+    float dist = texture2D(u_texture, coord).r;
+    if (u_debug > 0.0) {
+        gl_FragColor = vec4(dist, dist, dist, 1);
+    } else {
+        float alpha = smoothstep(u_buffer - u_gamma, u_buffer + u_gamma, dist);
+        gl_FragColor = vec4(u_color.rgb, alpha * u_color.a);
+        if (gl_FragColor.a == 0.0) {
+            discard;
+        }
+    }
+}

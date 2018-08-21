@@ -1,12 +1,13 @@
-import { Mesh, TSGLContext, Shader } from 'tsgl'
-import { V3, V } from 'ts3dutils'
+import { V, V3 } from 'ts3dutils'
+import { Mesh, Shader, TSGLContext } from 'tsgl'
 
 /**
  * Draw a rotating cube.
  */
-export async function setupDemo(gl: TSGLContext) {
+export function setupDemo(gl: TSGLContext) {
 	const mesh = Mesh.cube()
-	const shader = Shader.create<{ color: 'FLOAT_VEC4' }, {}>(`
+	const shader = Shader.create<{ color: 'FLOAT_VEC4' }, {}>(
+		`
 		uniform mat4 ts_ModelViewProjectionMatrix;
 		attribute vec4 ts_Vertex;
 		varying vec4 foo;
@@ -14,14 +15,16 @@ export async function setupDemo(gl: TSGLContext) {
 			foo = vec4(1.0, 1.0, 1.0, 1.0);
 			gl_Position = ts_ModelViewProjectionMatrix * ts_Vertex;
 		}
-	`, `
+	`,
+		`
 		precision highp float;
 		uniform vec4 color;
 		varying vec4 bar;
 		void main() {
 			gl_FragColor = color;
 		}
-	`)
+	`,
+	)
 
 	// setup camera
 	gl.matrixMode(gl.PROJECTION)
@@ -32,8 +35,8 @@ export async function setupDemo(gl: TSGLContext) {
 
 	gl.enable(gl.DEPTH_TEST)
 
-	return gl.animate(function (abs, _diff) {
-		const angleDeg = abs / 1000 * 45
+	return gl.animate(function(abs, _diff) {
+		const angleDeg = (abs / 1000) * 45
 		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 		gl.loadIdentity()
 		gl.rotate(angleDeg, 0, 0, 1)

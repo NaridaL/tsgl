@@ -1,9 +1,9 @@
 /// <reference path="../types.d.ts" />
-import { V3, DEG, V, clamp } from 'ts3dutils'
-import { TSGLContext, Mesh, Shader } from 'tsgl'
+import { clamp, DEG, V, V3 } from 'ts3dutils'
+import { Mesh, Shader, TSGLContext } from 'tsgl'
 
-import posNormalColorVS from '../shaders/posNormalColorVS.glslx'
 import chroma from 'chroma-js'
+import posNormalColorVS from '../shaders/posNormalColorVS.glslx'
 
 /**
  * Move camera using mouse.
@@ -12,19 +12,24 @@ export function camera(gl: TSGLContext) {
 	let yRot = -10 * DEG
 	let zRot = 90 * DEG
 	let camera = new V3(0, -5, 1)
-	const mesh = Mesh.sphere().computeWireframeFromFlatTriangles().compile()
-	const shader = Shader.create(posNormalColorVS, `
+	const mesh = Mesh.sphere()
+		.computeWireframeFromFlatTriangles()
+		.compile()
+	const shader = Shader.create(
+		posNormalColorVS,
+		`
 precision mediump float;
 uniform float brightness;
 varying vec3 normal;
 void main() {
 	gl_FragColor = vec4(brightness * (normal * 0.5 + 0.5), 1.0);
 }
-`)
+`,
+	)
 
 	let lastPos = V3.O
 	// scene rotation
-	gl.canvas.onmousemove = function (e) {
+	gl.canvas.onmousemove = function(e) {
 		const pagePos = V(e.pageX, e.pageY)
 		const delta = lastPos.to(pagePos)
 		if (e.buttons & 1) {
@@ -35,10 +40,10 @@ void main() {
 	}
 	gl.canvas.contentEditable = 'true'
 	const keys: { [key: string]: boolean } = {}
-	gl.canvas.onkeydown = function (e) {
+	gl.canvas.onkeydown = function(e) {
 		keys[e.code] = true
 	}
-	gl.canvas.onkeyup = function (e) {
+	gl.canvas.onkeyup = function(e) {
 		keys[e.code] = false
 	}
 
@@ -57,7 +62,7 @@ void main() {
 	console.log(gl.getVertexAttrib(0, gl.CURRENT_VERTEX_ATTRIB))
 	console.log(gl.getVertexAttrib(0, gl.VERTEX_ATTRIB_ARRAY_ENABLED))
 
-	const gl2 = gl as any as WebGL2RenderingContext
+	const gl2 = (gl as any) as WebGL2RenderingContext
 	const vao = gl2.createVertexArray()
 	gl2.bindVertexArray(vao)
 	gl2.vertexAttrib1f(0, 31)
@@ -68,10 +73,10 @@ void main() {
 	console.log(gl.getVertexAttrib(0, gl.CURRENT_VERTEX_ATTRIB))
 	console.log(gl.getVertexAttrib(0, gl.VERTEX_ATTRIB_ARRAY_ENABLED))
 
-	return gl.animate(function (_abs, diff) {
+	return gl.animate(function(_abs, diff) {
 		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 		gl.loadIdentity()
-		const speed = diff / 1000 * 4
+		const speed = (diff / 1000) * 4
 
 		// Forward movement
 		const forwardMov = +!!(keys.KeyW || keys.ArrowUp) - +!!(keys.KeyS || keys.ArrowDown)
@@ -97,9 +102,12 @@ void main() {
 		gl.rotate(-yRot, 0, 1, 0)
 		gl.translate(-camera.x, -camera.y, -camera.z)
 
-		shader.uniforms({ brightness: 1 }).attributes({ts_Color: chroma('red').gl()}).draw(mesh, gl.TRIANGLES)
+		shader
+			.uniforms({ brightness: 1 })
+			.attributes({ ts_Color: chroma('red').gl() })
+			.draw(mesh, gl.TRIANGLES)
 		shader.uniforms({ brightness: 0 }).draw(mesh, gl.LINES)
 	})
 }
 
-(camera as any).info = 'LMB-drag to move camera.'
+;(camera as any).info = 'LMB-drag to move camera.'

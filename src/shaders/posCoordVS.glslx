@@ -1,0 +1,9 @@
+
+attribute vec2 ts_TexCoord;
+attribute vec4 ts_Vertex;
+uniform mat4 ts_ModelViewProjectionMatrix;
+varying vec2 coord;
+void main() {
+    coord = ts_TexCoord.xy;
+    gl_Position = ts_ModelViewProjectionMatrix * ts_Vertex;
+}

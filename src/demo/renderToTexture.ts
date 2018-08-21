@@ -1,6 +1,6 @@
 import { arrayFromFunction, lerp, V, V3 } from 'ts3dutils'
 
-import { TSGLContext, Mesh, Shader, Texture } from 'tsgl'
+import { Mesh, Shader, Texture, TSGLContext } from 'tsgl'
 
 const { sin, PI } = Math
 
@@ -20,7 +20,8 @@ export function renderToTexture(gl: TSGLContext) {
 	const plane = Mesh.plane()
 	const texture = Texture.fromURLSwitch('texture.png')
 	const overlay = new Texture(1024, 1024)
-	const meshShader = Shader.create(`
+	const meshShader = Shader.create(
+		`
 	attribute vec3 ts_Normal;
 	attribute vec4 ts_Vertex;
 	uniform mat4 ts_ModelViewProjectionMatrix;
@@ -29,14 +30,17 @@ export function renderToTexture(gl: TSGLContext) {
     normal = ts_Normal;
     gl_Position = ts_ModelViewProjectionMatrix * ts_Vertex;
   }
-`, `
+`,
+		`
 	precision highp float;
   varying vec3 normal;
   void main() {
     gl_FragColor = vec4(normal * 0.5 + 0.5, 1.0);
   }
-`)
-	const planeShader = Shader.create(`
+`,
+	)
+	const planeShader = Shader.create(
+		`
 	attribute vec2 ts_TexCoord;
 	attribute vec4 ts_Vertex;
 	uniform mat4 ts_ModelViewProjectionMatrix;
@@ -45,7 +49,8 @@ export function renderToTexture(gl: TSGLContext) {
     coord = ts_TexCoord.xy;
     gl_Position = ts_ModelViewProjectionMatrix * ts_Vertex;
   }
-`, `
+`,
+		`
 	precision highp float;
   uniform sampler2D texture;
   uniform sampler2D overlay;
@@ -53,17 +58,17 @@ export function renderToTexture(gl: TSGLContext) {
   void main() {
     gl_FragColor = (texture2D(overlay, coord) + texture2D(texture, coord)) / 2.0;
   }
-`)
+`,
+	)
 
 	gl.clearColor(1, 1, 1, 1)
 	gl.enable(gl.DEPTH_TEST)
 
-
-	return gl.animate(function (abs) {
-		const angleDeg = abs / 1000 * 20
+	return gl.animate(function(abs) {
+		const angleDeg = (abs / 1000) * 20
 
 		gl.pushMatrix()
-		overlay.drawTo(function (gl: TSGLContext) {
+		overlay.drawTo(function(gl: TSGLContext) {
 			gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 			gl.matrixMode(gl.PROJECTION)
 			gl.loadIdentity()

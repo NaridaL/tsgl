@@ -1,8 +1,8 @@
-import {assert, int, NLA_DEBUG, V3} from 'ts3dutils'
-import {currentGL, TSGLContext} from './index'
+import { assert, int, NLA_DEBUG, V3 } from 'ts3dutils'
+import { currentGL, TSGLContext } from './index'
 
 import GL = WebGLRenderingContextStrict
-const WGL = WebGLRenderingContext as any as WebGLRenderingContextStrict.Constants
+const WGL = (WebGLRenderingContext as any) as WebGLRenderingContextStrict.Constants
 
 export class Buffer {
 	buffer: WebGLBuffer | undefined
@@ -35,7 +35,10 @@ export class Buffer {
 	 * The symbolic constant must be GL_ARRAY_BUFFER or GL_ELEMENT_ARRAY_BUFFER.
 	 */
 	constructor(readonly target: GL.BufferTarget, readonly type: typeof Float32Array | typeof Uint16Array) {
-		assert(target == WGL.ARRAY_BUFFER || target == WGL.ELEMENT_ARRAY_BUFFER, 'target == WGL.ARRAY_BUFFER || target == WGL.ELEMENT_ARRAY_BUFFER')
+		assert(
+			target == WGL.ARRAY_BUFFER || target == WGL.ELEMENT_ARRAY_BUFFER,
+			'target == WGL.ARRAY_BUFFER || target == WGL.ELEMENT_ARRAY_BUFFER',
+		)
 		assert(type == Float32Array || type == Uint16Array, 'type == Float32Array || type == Uint16Array')
 		this.buffer = undefined
 		this.type = type
@@ -56,7 +59,10 @@ export class Buffer {
 	 * @param usage Either `WGL.STATIC_DRAW` or `WGL.DYNAMIC_DRAW`. Defaults to `WGL.STATIC_DRAW`
 	 */
 	compile(usage: GL.BufferDataUsage = WGL.STATIC_DRAW, gl: TSGLContext = currentGL()): void {
-		assert(WGL.STATIC_DRAW == usage || WGL.DYNAMIC_DRAW == usage, 'WGL.STATIC_DRAW == type || WGL.DYNAMIC_DRAW == type')
+		assert(
+			WGL.STATIC_DRAW == usage || WGL.DYNAMIC_DRAW == usage,
+			'WGL.STATIC_DRAW == type || WGL.DYNAMIC_DRAW == type',
+		)
 		this.buffer = this.buffer || gl.createBuffer()!
 		let buffer: Float32Array | Uint16Array
 		if (this.data.length == 0) {
@@ -65,8 +71,8 @@ export class Buffer {
 		}
 		if (this.data.length == 0 || this.data[0] instanceof V3) {
 			assert(!(this.data[0] instanceof V3) || this.type == Float32Array)
-			V3.pack(this.data, buffer = new this.type(this.data.length * 3) as Float32Array) // asserts that all
-																							 // elements are V3s
+			V3.pack(this.data, (buffer = new this.type(this.data.length * 3) as Float32Array)) // asserts that all
+			// elements are V3s
 			this.spacing = 3
 			this.count = this.data.length
 			this.maxValue = 0
@@ -75,7 +81,8 @@ export class Buffer {
 			if (Array.isArray(this.data[0])) {
 				const bufferLength = this.data.length * this.data[0].length
 				buffer = new this.type(bufferLength)
-				let i = this.data.length, destPtr = bufferLength
+				let i = this.data.length,
+					destPtr = bufferLength
 				while (i--) {
 					const subArray = this.data[i]
 					let j = subArray.length

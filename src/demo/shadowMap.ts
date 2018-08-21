@@ -1,15 +1,13 @@
 import { AABB, clamp, DEG, V, V3 } from 'ts3dutils'
 
-import { TSGLContext, Mesh, Shader, Texture } from 'tsgl'
+import { Mesh, Shader, Texture, TSGLContext } from 'tsgl'
 
 import cessnaJSON from '../../cessna.json'
-
 
 /**
  * Draw shadow of a mesh using a shadow map.
  */
 export function shadowMap(gl: TSGLContext) {
-
 	//const mesh = await fetch('dodecahedron.stl')
 	//    .then(r => r.blob())
 	//    .then(Mesh.fromBinarySTL)
@@ -20,42 +18,55 @@ export function shadowMap(gl: TSGLContext) {
 	let angleY = 20
 	let useBoundingSphere = true
 	const cube = Mesh.cube()
-	const sphere = Mesh.sphere(2).computeWireframeFromFlatTriangles().compile()
-	const plane = Mesh.plane().translate(-0.5, -0.5).scale(300, 300, 1)
+	const sphere = Mesh.sphere(2)
+		.computeWireframeFromFlatTriangles()
+		.compile()
+	const plane = Mesh.plane()
+		.translate(-0.5, -0.5)
+		.scale(300, 300, 1)
 	const depthMap = new Texture(1024, 1024, { format: gl.RGBA })
 	const texturePlane = Mesh.plane()
 	const boundingSphere = mesh.getBoundingSphere()
 	const boundingBox = mesh.getAABB()
-	const frustrumCube = Mesh.cube().scale(2).translate(V3.XYZ.negated())
-	const colorShader = Shader.create(`
+	const frustrumCube = Mesh.cube()
+		.scale(2)
+		.translate(V3.XYZ.negated())
+	const colorShader = Shader.create(
+		`
 	uniform mat4 ts_ModelViewProjectionMatrix;
 	attribute vec4 ts_Vertex;
   void main() {
     gl_Position = ts_ModelViewProjectionMatrix * ts_Vertex;
   }
-`, `
+`,
+		`
 	precision highp float;
   uniform vec4 color;
   void main() {
     gl_FragColor = color;
   }
-`)
-	const depthShader = Shader.create(`
+`,
+	)
+	const depthShader = Shader.create(
+		`
 	uniform mat4 ts_ModelViewProjectionMatrix;
 	attribute vec4 ts_Vertex;
   varying vec4 pos;
   void main() {
     gl_Position = pos = ts_ModelViewProjectionMatrix * ts_Vertex;
   }
-`, `
+`,
+		`
 	precision highp float;
   varying vec4 pos;
   void main() {
     float depth = pos.z / pos.w;
     gl_FragColor = vec4(depth * 0.5 + 0.5);
   }
-`)
-	const displayShader = Shader.create(`
+`,
+	)
+	const displayShader = Shader.create(
+		`
 	uniform mat4 ts_ModelViewMatrix;
 	uniform mat3 ts_NormalMatrix;
 	uniform mat4 ts_ModelViewProjectionMatrix;
@@ -72,7 +83,8 @@ export function shadowMap(gl: TSGLContext) {
     gl_Position = ts_ModelViewProjectionMatrix * ts_Vertex;
     coord = shadowMapMatrix * gl_Position;
   }
-`, `
+`,
+		`
 	precision highp float;
   uniform sampler2D depthMap;
   varying vec4 coord;
@@ -96,26 +108,30 @@ export function shadowMap(gl: TSGLContext) {
     float diffuse = max(0.0, dot(normalize(toLight), normalize(normal)));
     gl_FragColor = vec4((normal * 0.5 + 0.5) * mix(ambient, 1.0, diffuse * (1.0 - shadow)), 1.0);
   }
-`)
-	const textureShader = Shader.create(`
+`,
+	)
+	const textureShader = Shader.create(
+		`
   varying vec2 coord;
   attribute vec2 ts_TexCoord;
   void main() {
     coord = ts_TexCoord;
     gl_Position = vec4(coord * 2.0 - 1.0, 0.0, 1.0);
   }
-`, `
+`,
+		`
 	precision highp float;
   uniform sampler2D texture;
   varying vec2 coord;
   void main() {
     gl_FragColor = texture2D(texture, coord);
   }
-`)
+`,
+	)
 
 	let lastPos = V3.O
 	// scene rotation
-	gl.canvas.onmousemove = function (e) {
+	gl.canvas.onmousemove = function(e) {
 		const pagePos = V(e.pageX, e.pageY)
 		const delta = lastPos.to(pagePos)
 		if (e.buttons & 1) {
@@ -124,7 +140,6 @@ export function shadowMap(gl: TSGLContext) {
 		}
 		lastPos = pagePos
 	}
-
 
 	gl.canvas.contentEditable = 'true'
 	gl.canvas.addEventListener('keypress', () => {
@@ -182,8 +197,7 @@ export function shadowMap(gl: TSGLContext) {
 		gl.lookAt(light, center, V3.Y)
 	}
 
-
-	return gl.animate(function (abs) {
+	return gl.animate(function(abs) {
 		const time = abs / 1000
 		// Move the light around
 		const light = new V3(100 * Math.sin(time * 0.2), 25, 20 * Math.cos(time * 0.2))
@@ -202,7 +216,7 @@ export function shadowMap(gl: TSGLContext) {
 		// fragment depth.
 		const shadowMapMatrix = gl.projectionMatrix.times(gl.modelViewMatrix)
 		depthMap.unbind(0)
-		depthMap.drawTo(function () {
+		depthMap.drawTo(function() {
 			gl.clearColor(1, 1, 1, 1)
 			gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 			depthShader.draw(mesh)
@@ -225,16 +239,20 @@ export function shadowMap(gl: TSGLContext) {
 		// Draw view frustum
 		gl.pushMatrix()
 		gl.translate(light)
-		colorShader.uniforms({
-			color: [1, 1, 0, 1],
-		}).draw(sphere, gl.LINES)
+		colorShader
+			.uniforms({
+				color: [1, 1, 0, 1],
+			})
+			.draw(sphere, gl.LINES)
 		gl.popMatrix()
 
 		gl.pushMatrix()
 		gl.multMatrix(shadowMapMatrixInversed)
-		colorShader.uniforms({
-			color: [1, 1, 0, 1],
-		}).draw(frustrumCube, gl.LINES)
+		colorShader
+			.uniforms({
+				color: [1, 1, 0, 1],
+			})
+			.draw(frustrumCube, gl.LINES)
 		gl.popMatrix()
 
 		// Draw the bounding volume
@@ -242,25 +260,31 @@ export function shadowMap(gl: TSGLContext) {
 		if (useBoundingSphere) {
 			gl.translate(boundingSphere.center)
 			gl.scale(boundingSphere.radius)
-			colorShader.uniforms({
-				color: [0, 1, 1, 1],
-			}).draw(sphere, gl.LINES)
+			colorShader
+				.uniforms({
+					color: [0, 1, 1, 1],
+				})
+				.draw(sphere, gl.LINES)
 		} else {
 			gl.translate(boundingBox.min)
 			gl.scale(boundingBox.size())
-			colorShader.uniforms({
-				color: [0, 1, 1, 1],
-			}).draw(cube, gl.LINES)
+			colorShader
+				.uniforms({
+					color: [0, 1, 1, 1],
+				})
+				.draw(cube, gl.LINES)
 		}
 		gl.popMatrix()
 
 		// Draw mesh
 		depthMap.bind(0)
-		displayShader.uniforms({
-			shadowMapMatrix: shadowMapMatrix.times(gl.projectionMatrix.times(gl.modelViewMatrix).inversed()),
-			light: gl.modelViewMatrix.transformPoint(light),
-			depthMap: 0,
-		}).draw(mesh)
+		displayShader
+			.uniforms({
+				shadowMapMatrix: shadowMapMatrix.times(gl.projectionMatrix.times(gl.modelViewMatrix).inversed()),
+				light: gl.modelViewMatrix.transformPoint(light),
+				depthMap: 0,
+			})
+			.draw(mesh)
 
 		// Draw plane
 		gl.pushMatrix()
@@ -274,4 +298,4 @@ export function shadowMap(gl: TSGLContext) {
 		gl.viewport(0, 0, gl.canvas.width, gl.canvas.height)
 	})
 }
-(shadowMap as any).info = 'Press any key to toggle between sphere- or AABB-based camera clipping.'
+;(shadowMap as any).info = 'Press any key to toggle between sphere- or AABB-based camera clipping.'

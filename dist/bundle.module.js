@@ -1,4 +1,4 @@
-import { assert, NLA_DEBUG, V3, AABB, arrayFromFunction, assertVectors, lerp, M4, NLA_PRECISION, Transformable, V, eq0, assertf, assertInst, addOwnProperties, DEG, P3ZX } from 'ts3dutils';
+import { assert, NLA_DEBUG, V3, AABB, arrayFromFunction, assertVectors, eq0, lerp, M4, NLA_PRECISION, Transformable, V, assertf, assertInst, addOwnProperties, DEG, P3ZX } from 'ts3dutils';
 import { __awaiter } from 'tslib';
 import chroma from 'chroma-js';
 
@@ -50,7 +50,7 @@ class Buffer$$1 {
         }
         if (this.data.length == 0 || this.data[0] instanceof V3) {
             assert(!(this.data[0] instanceof V3) || this.type == Float32Array);
-            V3.pack(this.data, buffer = new this.type(this.data.length * 3)); // asserts that all
+            V3.pack(this.data, (buffer = new this.type(this.data.length * 3))); // asserts that all
             // elements are V3s
             this.spacing = 3;
             this.count = this.data.length;
@@ -158,7 +158,7 @@ class Mesh$$1 extends Transformable {
         return {
             volume,
             centroid: eq0(volume) ? V3.O : totalCentroidWithZX2.div(24 * volume).schur(new V3(1, 1, 0.5)),
-            area: totalAreaX2 / 2
+            area: totalAreaX2 / 2,
         };
     }
     /**
@@ -172,7 +172,7 @@ class Mesh$$1 extends Transformable {
         this.hasBeenCompiled = false;
         assert('string' == typeof name);
         assert('string' == typeof attribute);
-        const buffer = this.vertexBuffers[attribute] = new Buffer$$1(WGL$1.ARRAY_BUFFER, Float32Array);
+        const buffer = (this.vertexBuffers[attribute] = new Buffer$$1(WGL$1.ARRAY_BUFFER, Float32Array));
         buffer.name = name;
         this[name] = [];
         return this;
@@ -184,7 +184,7 @@ class Mesh$$1 extends Transformable {
      */
     addIndexBuffer(name) {
         this.hasBeenCompiled = false;
-        const buffer = this.indexBuffers[name] = new Buffer$$1(WGL$1.ELEMENT_ARRAY_BUFFER, Uint16Array);
+        const buffer = (this.indexBuffers[name] = new Buffer$$1(WGL$1.ELEMENT_ARRAY_BUFFER, Uint16Array));
         buffer.name = name;
         this[name] = [];
         return this;
@@ -242,8 +242,7 @@ class Mesh$$1 extends Transformable {
     static fromBinarySTL(stl) {
         return __awaiter(this, void 0, void 0, function* () {
             return new Promise((resolve, reject) => {
-                const mesh = new Mesh$$1()
-                    .addVertexBuffer('normals', 'ts_Normal');
+                const mesh = new Mesh$$1().addVertexBuffer('normals', 'ts_Normal');
                 const fileReader = new FileReader();
                 fileReader.onerror = reject;
                 fileReader.onload = function (_progressEvent) {
@@ -318,7 +317,11 @@ class Mesh$$1 extends Transformable {
         mesh.vertices = m4.transformedPoints(this.vertices);
         if (this.normals) {
             mesh.addVertexBuffer('normals', 'ts_Normal');
-            const invTrans = m4.as3x3().inversed().transposed().normalized();
+            const invTrans = m4
+                .as3x3()
+                .inversed()
+                .transposed()
+                .normalized();
             mesh.normals = this.normals.map(n => invTrans.transformVector(n).unit());
             // mesh.normals.forEach(n => assert(n.hasLength(1)))
         }
@@ -352,7 +355,10 @@ class Mesh$$1 extends Transformable {
             const a = vertices[ai];
             const b = vertices[bi];
             const c = vertices[ci];
-            const normal = b.minus(a).cross(c.minus(a)).unit();
+            const normal = b
+                .minus(a)
+                .cross(c.minus(a))
+                .unit();
             normals[ai] = normals[ai].plus(normal);
             normals[bi] = normals[bi].plus(normal);
             normals[ci] = normals[ci].plus(normal);
@@ -436,14 +442,14 @@ class Mesh$$1 extends Transformable {
      * Generates a square mesh in the XY plane.
      * Texture coordinates (buffer "coords") are set to go from 0 to 1 in either direction.
      *
-     * @param {Object=} options
-     * @param {number=} options.detail Defaults to 1
-     * @param {number=} options.detailX Defaults to options.detail. Number of subdivisions in X direction.
-     * @param {number=} options.detailY Defaults to options.detail. Number of subdivisions in Y direction.j
-     * @param {number=} options.width defaults to 1
-     * @param {number=} options.height defaults to 1
-     * @param {number=} options.startX defaults to 0
-     * @param {number=} options.startY defaults to 0
+     * @param options foo
+     * @param options.detail Defaults to 1
+     * @param options.detailX Defaults to options.detail. Number of subdivisions in X direction.
+     * @param options.detailY Defaults to options.detail. Number of subdivisions in Y direction.j
+     * @param options.width defaults to 1
+     * @param options.height defaults to 1
+     * @param options.startX defaults to 0
+     * @param options.startY defaults to 0
      */
     static plane(options = {}) {
         const detailX = options.detailX || options.detail || 1;
@@ -481,6 +487,44 @@ class Mesh$$1 extends Transformable {
         mesh.compile();
         return mesh;
     }
+    static box(xDetail = 1, yDetail = 1, zDetail = 1) {
+        const mesh = new Mesh$$1()
+            .addIndexBuffer('LINES')
+            .addIndexBuffer('TRIANGLES')
+            .addVertexBuffer('normals', 'ts_Normal');
+        mesh.vertices.length = mesh.normals.length =
+            2 * ((xDetail + 1) * (yDetail + 1) + (yDetail + 1) * (zDetail + 1) + (zDetail + 1) * (xDetail + 1));
+        mesh.TRIANGLES.length = 4 * (xDetail * yDetail + yDetail * zDetail + zDetail * xDetail);
+        let vi = 0, ti = 0;
+        function x(detailX, detailY, m, startX = 0, width = 1, startY = 0, height = 1) {
+            const normal = m.transformVector(V3.Z);
+            for (let j = 0; j <= detailY; j++) {
+                const t = j / detailY;
+                for (let i = 0; i <= detailX; i++) {
+                    const s = i / detailX;
+                    mesh.vertices[vi] = m.transformPoint(new V3(startX + s * width, startY + t * height, 0));
+                    mesh.normals[vi] = normal;
+                    vi++;
+                    if (i < detailX && j < detailY) {
+                        const offset = i + j * (detailX + 1);
+                        mesh.TRIANGLES[ti++] = offset;
+                        mesh.TRIANGLES[ti++] = offset + detailX + 1;
+                        mesh.TRIANGLES[ti++] = offset + 1;
+                        mesh.TRIANGLES[ti++] = offset + detailX + 1;
+                        mesh.TRIANGLES[ti++] = offset + detailX + 2;
+                        mesh.TRIANGLES[ti++] = offset + 1;
+                    }
+                }
+            }
+        }
+        x(yDetail, xDetail, M4.forSys(V3.Y, V3.X, V3.Z.negated()));
+        x(xDetail, yDetail, M4.translate(V3.Z));
+        x(zDetail, yDetail, M4.forSys(V3.Z, V3.Y, V3.X.negated()));
+        x(yDetail, zDetail, M4.forSys(V3.Y, V3.Z, V3.X, V3.X));
+        x(xDetail, zDetail, M4.forSys(V3.X, V3.Z, V3.Y.negated()));
+        x(zDetail, xDetail, M4.forSys(V3.Z, V3.X, V3.Y, V3.Y));
+        return mesh;
+    }
     /**
      * Generates a unit cube (1x1x1) starting at the origin and extending into the (+ + +) octant.
      * I.e. box from V3.O to V3(1,1,1)
@@ -493,6 +537,7 @@ class Mesh$$1 extends Transformable {
             .addIndexBuffer('LINES');
         // basically indexes for faces of the cube. vertices each need to be added 3 times,
         // as they have different normals depending on the face being rendered
+        // prettier-ignore
         const VERTEX_CORNERS = [
             0, 1, 2, 3,
             4, 5, 6, 7,
@@ -508,6 +553,7 @@ class Mesh$$1 extends Transformable {
         }
         // indexes of LINES relative to UNIT_CUBE_CORNERS. Mapped to VERTEX_CORNERS.indexOf
         // so they make sense in the context of the mesh
+        // prettier-ignore
         mesh.LINES = [
             0, 1,
             0, 2,
@@ -528,12 +574,12 @@ class Mesh$$1 extends Transformable {
     static isocahedron() {
         return Mesh$$1.sphere(0);
     }
-    static sphere2(las, longs) {
-        const baseVertices = arrayFromFunction(las, i => {
-            const angle = i / (las - 1) * PI - PI / 2;
+    static sphere2(latitudes, longitudes) {
+        const baseVertices = arrayFromFunction(latitudes, i => {
+            const angle = (i / (latitudes - 1)) * PI - PI / 2;
             return new V3(0, cos(angle), sin(angle));
         });
-        return Mesh$$1.rotation(baseVertices, { anchor: V3.O, dir1: V3.Z }, 2 * PI, longs, true, baseVertices);
+        return Mesh$$1.rotation(baseVertices, { anchor: V3.O, dir1: V3.Z }, 2 * PI, longitudes, true, baseVertices);
     }
     /**
      * Returns a sphere mesh with radius 1 created by subdividing the faces of a isocahedron (20-sided) recursively
@@ -559,9 +605,10 @@ class Mesh$$1 extends Transformable {
             new V3(t, 0, -s),
             new V3(t, 0, s),
             new V3(-t, 0, -s),
-            new V3(-t, 0, s)
+            new V3(-t, 0, s),
         ];
         // base triangles of isocahedron
+        // prettier-ignore
         const triangles = [
             // 5 faces around point 0
             0, 11, 5,
@@ -642,9 +689,7 @@ class Mesh$$1 extends Transformable {
     static offsetVertices(vertices, offset, close, normals) {
         assertVectors.apply(undefined, vertices);
         assertVectors(offset);
-        const mesh = new Mesh$$1()
-            .addIndexBuffer('TRIANGLES')
-            .addVertexBuffer('coords', 'ts_TexCoord');
+        const mesh = new Mesh$$1().addIndexBuffer('TRIANGLES').addVertexBuffer('coords', 'ts_TexCoord');
         normals && mesh.addVertexBuffer('normals', 'ts_Normal');
         mesh.vertices = vertices.concat(vertices.map(v => v.plus(offset)));
         const vl = vertices.length;
@@ -675,7 +720,7 @@ class Mesh$$1 extends Transformable {
         const triangles = mesh.TRIANGLES;
         for (let i = 0; i < steps; i++) {
             // add triangles
-            const rads = totalRads / steps * i;
+            const rads = (totalRads / steps) * i;
             M4.rotateLine(lineAxis.anchor, lineAxis.dir1, rads, rotMat);
             mesh.vertices.push(...rotMat.transformedPoints(vertices));
             normals && mesh.normals.push(...rotMat.transformedVectors(normals));
@@ -689,9 +734,7 @@ class Mesh$$1 extends Transformable {
         return mesh;
     }
     static parametric(pF, pN, sMin, sMax, tMin, tMax, sRes, tRes) {
-        const mesh = new Mesh$$1()
-            .addIndexBuffer('TRIANGLES')
-            .addVertexBuffer('normals', 'ts_Normal');
+        const mesh = new Mesh$$1().addIndexBuffer('TRIANGLES').addVertexBuffer('normals', 'ts_Normal');
         for (let si = 0; si <= sRes; si++) {
             const s = lerp(sMin, sMax, si / sRes);
             for (let ti = 0; ti <= tRes; ti++) {
@@ -761,21 +804,34 @@ const DRAW_MODE_CHECKS = {
     [WGL$2.TRIANGLE_STRIP]: x => x > 3,
     [WGL$2.TRIANGLE_FAN]: x => x > 3,
 };
-const SHADER_VAR_TYPES$$1 = ['FLOAT', 'FLOAT_MAT2', 'FLOAT_MAT3', 'FLOAT_MAT4', 'FLOAT_VEC2', 'FLOAT_VEC3', 'FLOAT_VEC4', 'INT', 'INT_VEC2', 'INT_VEC3', 'INT_VEC4', 'UNSIGNED_INT'];
+const SHADER_VAR_TYPES$$1 = [
+    'FLOAT',
+    'FLOAT_MAT2',
+    'FLOAT_MAT3',
+    'FLOAT_MAT4',
+    'FLOAT_VEC2',
+    'FLOAT_VEC3',
+    'FLOAT_VEC4',
+    'INT',
+    'INT_VEC2',
+    'INT_VEC3',
+    'INT_VEC4',
+    'UNSIGNED_INT',
+];
 function isArray$$1(obj) {
     return Array == obj.constructor || Float32Array == obj.constructor || Float64Array == obj.constructor;
 }
 function isFloatArray(obj) {
-    return Float32Array == obj.constructor || Float64Array == obj.constructor ||
-        Array.isArray(obj) && obj.every(x => 'number' == typeof x);
+    return (Float32Array == obj.constructor ||
+        Float64Array == obj.constructor ||
+        (Array.isArray(obj) && obj.every(x => 'number' == typeof x)));
 }
 function isIntArray(x) {
-    if ([Int8Array, Uint8Array, Uint8ClampedArray, Int16Array, Uint16Array, Int32Array, Uint32Array]
-        .some(y => x instanceof y)) {
+    if ([Int8Array, Uint8Array, Uint8ClampedArray, Int16Array, Uint16Array, Int32Array, Uint32Array].some(y => x instanceof y)) {
         return true;
     }
-    return (x instanceof Float32Array || x instanceof Float64Array || Array.isArray(x)) &&
-        x.every(x => Number.isInteger(x));
+    return ((x instanceof Float32Array || x instanceof Float64Array || Array.isArray(x)) &&
+        x.every(x => Number.isInteger(x)));
 }
 //const x:UniformTypes = undefined as 'FLOAT_VEC4' | 'FLOAT_VEC3'
 class Shader$$1 {
@@ -845,11 +901,12 @@ class Shader$$1 {
         // Check for the use of built-in matrices that require expensive matrix
         // multiplications to compute, and record these in `activeMatrices`.
         this.activeMatrices = {};
-        matrixNames && matrixNames.forEach(name => {
-            if (gl.getUniformLocation(this.program, name)) {
-                this.activeMatrices[name] = true;
-            }
-        });
+        matrixNames &&
+            matrixNames.forEach(name => {
+                if (gl.getUniformLocation(this.program, name)) {
+                    this.activeMatrices[name] = true;
+                }
+            });
         this.uniformInfos = {};
         for (let i = gl.getProgramParameter(this.program, gl.ACTIVE_UNIFORMS); i-- > 0;) {
             // see https://www.khronos.org/registry/OpenGL-Refpages/es2.0/xhtml/glGetActiveUniform.xml
@@ -887,12 +944,11 @@ class Shader$$1 {
                         assert(isIntArray(value) && value.length == info.size, 'value must be int array if info.size != 1');
                     }
                 }
-                assert(gl.FLOAT != info.type ||
-                    (1 == info.size && 'number' === typeof value || isFloatArray(value)));
+                assert(gl.FLOAT != info.type || ((1 == info.size && 'number' === typeof value) || isFloatArray(value)));
                 assert(gl.FLOAT_VEC3 != info.type ||
-                    (1 == info.size && value instanceof V3 ||
-                        Array.isArray(value) && info.size == value.length && assertVectors(...value)));
-                assert(gl.FLOAT_VEC4 != info.type || 1 != info.size || isFloatArray(value) && value.length == 4);
+                    ((1 == info.size && value instanceof V3) ||
+                        (Array.isArray(value) && info.size == value.length && assertVectors(...value))));
+                assert(gl.FLOAT_VEC4 != info.type || 1 != info.size || (isFloatArray(value) && value.length == 4));
                 assert(gl.FLOAT_MAT4 != info.type || value instanceof M4, () => value.toSource());
                 assert(gl.FLOAT_MAT3 != info.type || value.length == 9 || value instanceof M4);
             }
@@ -930,6 +986,7 @@ class Shader$$1 {
                     // Matrices are automatically transposed, since WebGL uses column-major
                     // indices instead of row-major indices.
                     case 9:
+                        // prettier-ignore
                         gl.uniformMatrix3fv(location, false, new Float32Array([
                             value[0], value[3], value[6],
                             value[1], value[4], value[7],
@@ -937,6 +994,7 @@ class Shader$$1 {
                         ]));
                         break;
                     case 16:
+                        // prettier-ignore
                         gl.uniformMatrix4fv(location, false, new Float32Array([
                             value[0], value[4], value[8], value[12],
                             value[1], value[5], value[9], value[13],
@@ -962,6 +1020,7 @@ class Shader$$1 {
             else if (value instanceof M4) {
                 const m = value.m;
                 if (gl.FLOAT_MAT4 == info.type) {
+                    // prettier-ignore
                     gl.uniformMatrix4fv(location, false, [
                         m[0], m[4], m[8], m[12],
                         m[1], m[5], m[9], m[13],
@@ -970,6 +1029,7 @@ class Shader$$1 {
                     ]);
                 }
                 else if (gl.FLOAT_MAT3 == info.type) {
+                    // prettier-ignore
                     gl.uniformMatrix3fv(location, false, [
                         m[0], m[4], m[8],
                         m[1], m[5], m[9],
@@ -977,6 +1037,7 @@ class Shader$$1 {
                     ]);
                 }
                 else if (gl.FLOAT_MAT2 == info.type) {
+                    // prettier-ignore
                     gl.uniformMatrix2fv(location, false, new Float32Array([
                         m[0], m[4],
                         m[1], m[5]
@@ -1065,31 +1126,32 @@ class Shader$$1 {
         Object.keys(vertexBuffers).forEach(key => assertInst(Buffer$$1, vertexBuffers[key]));
         // Only varruct up the built-in matrices that are active in the shader
         const on = this.activeMatrices;
-        const modelViewMatrixInverse = (on['ts_ModelViewMatrixInverse'] || on['ts_NormalMatrix'])
+        const modelViewMatrixInverse = (on['ts_ModelViewMatrixInverse'] || on['ts_NormalMatrix']) &&
             //&& this.modelViewMatrixVersion != gl.modelViewMatrixVersion
-            && gl.modelViewMatrix.inversed();
-        const projectionMatrixInverse = on['ts_ProjectionMatrixInverse']
+            gl.modelViewMatrix.inversed();
+        const projectionMatrixInverse = on['ts_ProjectionMatrixInverse'] &&
             //&& this.projectionMatrixVersion != gl.projectionMatrixVersion
-            && gl.projectionMatrix.inversed();
-        const modelViewProjectionMatrix = (on['ts_ModelViewProjectionMatrix'] || on['ts_ModelViewProjectionMatrixInverse'])
+            gl.projectionMatrix.inversed();
+        const modelViewProjectionMatrix = (on['ts_ModelViewProjectionMatrix'] || on['ts_ModelViewProjectionMatrixInverse']) &&
             //&& (this.projectionMatrixVersion != gl.projectionMatrixVersion || this.modelViewMatrixVersion !=
             // gl.modelViewMatrixVersion)
-            && gl.projectionMatrix.times(gl.modelViewMatrix);
+            gl.projectionMatrix.times(gl.modelViewMatrix);
         const uni = {}; // Uniform Matrices
-        on['ts_ModelViewMatrix']
-            && this.modelViewMatrixVersion != gl.modelViewMatrixVersion
-            && (uni['ts_ModelViewMatrix'] = gl.modelViewMatrix);
+        on['ts_ModelViewMatrix'] &&
+            this.modelViewMatrixVersion != gl.modelViewMatrixVersion &&
+            (uni['ts_ModelViewMatrix'] = gl.modelViewMatrix);
         on['ts_ModelViewMatrixInverse'] && (uni['ts_ModelViewMatrixInverse'] = modelViewMatrixInverse);
-        on['ts_ProjectionMatrix']
-            && this.projectionMatrixVersion != gl.projectionMatrixVersion
-            && (uni['ts_ProjectionMatrix'] = gl.projectionMatrix);
+        on['ts_ProjectionMatrix'] &&
+            this.projectionMatrixVersion != gl.projectionMatrixVersion &&
+            (uni['ts_ProjectionMatrix'] = gl.projectionMatrix);
         projectionMatrixInverse && (uni['ts_ProjectionMatrixInverse'] = projectionMatrixInverse);
         modelViewProjectionMatrix && (uni['ts_ModelViewProjectionMatrix'] = modelViewProjectionMatrix);
-        modelViewProjectionMatrix && on['ts_ModelViewProjectionMatrixInverse']
-            && (uni['ts_ModelViewProjectionMatrixInverse'] = modelViewProjectionMatrix.inversed());
-        on['ts_NormalMatrix']
-            && this.modelViewMatrixVersion != gl.modelViewMatrixVersion
-            && (uni['ts_NormalMatrix'] = modelViewMatrixInverse.transposed());
+        modelViewProjectionMatrix &&
+            on['ts_ModelViewProjectionMatrixInverse'] &&
+            (uni['ts_ModelViewProjectionMatrixInverse'] = modelViewProjectionMatrix.inversed());
+        on['ts_NormalMatrix'] &&
+            this.modelViewMatrixVersion != gl.modelViewMatrixVersion &&
+            (uni['ts_NormalMatrix'] = modelViewMatrixInverse.transposed());
         this.uniforms(uni);
         this.projectionMatrixVersion = gl.projectionMatrixVersion;
         this.modelViewMatrixVersion = gl.modelViewMatrixVersion;
@@ -1133,17 +1195,26 @@ class Shader$$1 {
         // Draw the geometry.
         if (minVertexBufferLength) {
             if (undefined === count) {
-                count = (indexBuffer ? indexBuffer.count : minVertexBufferLength);
+                count = indexBuffer ? indexBuffer.count : minVertexBufferLength;
             }
-            assert(DRAW_MODE_CHECKS[mode](count), 'count ' + count + ' doesn\'t fulfill requirement '
-                + DRAW_MODE_CHECKS[mode].toString() + ' for mode ' + DRAW_MODE_NAMES[mode]);
+            assert(DRAW_MODE_CHECKS[mode](count), 'count ' +
+                count +
+                "doesn't fulfill requirement +" +
+                DRAW_MODE_CHECKS[mode].toString() +
+                ' for mode ' +
+                DRAW_MODE_NAMES[mode]);
             if (indexBuffer) {
                 assert(indexBuffer.hasBeenCompiled);
                 assert(minVertexBufferLength > indexBuffer.maxValue);
                 assert(count % indexBuffer.spacing == 0);
                 assert(start % indexBuffer.spacing == 0);
                 if (start + count > indexBuffer.count) {
-                    throw new Error('Buffer not long enough for passed parameters start/length/buffer length' + ' ' + start + ' ' + count + ' ' + indexBuffer.count);
+                    throw new Error('Buffer not long enough for passed parameters start/length/buffer length ' +
+                        start +
+                        ' ' +
+                        count +
+                        ' ' +
+                        indexBuffer.count);
                 }
                 gl.bindBuffer(WGL$2.ELEMENT_ARRAY_BUFFER, indexBuffer.buffer);
                 // start parameter has to be multiple of sizeof(WGL.UNSIGNED_SHORT)
@@ -1174,15 +1245,15 @@ class Texture$$1 {
      * Example usage:
      *
      *      let tex = new GL.Texture(256, 256, {
-         *       magFilter: WGL.NEAREST,
-         *       minFilter: WGL.LINEAR,
-         *
-         *       wrapS: WGL.REPEAT,
-         *       wrapT: WGL.REPEAT,
-         *
-         *       format: WGL.RGB, // Defaults to WGL.RGBA
-         *       type: WGL.FLOAT // Defaults to WGL.UNSIGNED_BYTE
-         *     })
+     *       magFilter: WGL.NEAREST,
+     *       minFilter: WGL.LINEAR,
+     *
+     *       wrapS: WGL.REPEAT,
+     *       wrapT: WGL.REPEAT,
+     *
+     *       format: WGL.RGB, // Defaults to WGL.RGBA
+     *       type: WGL.FLOAT // Defaults to WGL.UNSIGNED_BYTE
+     *     })
      *
      */
     constructor(width, height, options = {}, gl = currentGL$$1()) {
@@ -1198,7 +1269,8 @@ class Texture$$1 {
             if (gl.version != 2 && !gl.getExtension('OES_texture_float')) {
                 throw new Error('OES_texture_float is required but not supported');
             }
-            if ((minFilter !== gl.NEAREST || magFilter !== gl.NEAREST) && !gl.getExtension('OES_texture_float_linear')) {
+            if ((minFilter !== gl.NEAREST || magFilter !== gl.NEAREST) &&
+                !gl.getExtension('OES_texture_float_linear')) {
                 throw new Error('OES_texture_float_linear is required but not supported');
             }
         }
@@ -1206,7 +1278,8 @@ class Texture$$1 {
             if (!gl.getExtension('OES_texture_half_float')) {
                 throw new Error('OES_texture_half_float is required but not supported');
             }
-            if ((minFilter !== gl.NEAREST || magFilter !== gl.NEAREST) && !gl.getExtension('OES_texture_half_float_linear')) {
+            if ((minFilter !== gl.NEAREST || magFilter !== gl.NEAREST) &&
+                !gl.getExtension('OES_texture_half_float_linear')) {
                 throw new Error('OES_texture_half_float_linear is required but not supported');
             }
         }
@@ -1299,25 +1372,29 @@ class Texture$$1 {
      * Returns a checkerboard texture that will switch to the correct texture when it loads.
      */
     static fromURLSwitch(url, options, gl = currentGL$$1()) {
-        Texture$$1.checkerBoardCanvas = Texture$$1.checkerBoardCanvas || (function () {
-            const c = document.createElement('canvas').getContext('2d');
-            if (!c)
-                throw new Error('Could not create 2d canvas.');
-            c.canvas.width = c.canvas.height = 128;
-            for (let y = 0; y < c.canvas.height; y += 16) {
-                for (let x = 0; x < c.canvas.width; x += 16) {
-                    //noinspection JSBitwiseOperatorUsage
-                    c.fillStyle = (x ^ y) & 16 ? '#FFF' : '#DDD';
-                    c.fillRect(x, y, 16, 16);
-                }
-            }
-            return c.canvas;
-        })();
+        Texture$$1.checkerBoardCanvas =
+            Texture$$1.checkerBoardCanvas ||
+                (function () {
+                    const c = document.createElement('canvas').getContext('2d');
+                    if (!c)
+                        throw new Error('Could not create 2d canvas.');
+                    c.canvas.width = c.canvas.height = 128;
+                    for (let y = 0; y < c.canvas.height; y += 16) {
+                        for (let x = 0; x < c.canvas.width; x += 16) {
+                            //noinspection JSBitwiseOperatorUsage
+                            c.fillStyle = (x ^ y) & 16 ? '#FFF' : '#DDD';
+                            c.fillRect(x, y, 16, 16);
+                        }
+                    }
+                    return c.canvas;
+                })();
         const texture = Texture$$1.fromImage(Texture$$1.checkerBoardCanvas, options);
         const image = new Image();
         image.onload = () => Texture$$1.fromImage(image, options, gl).swapWith(texture);
         // error event doesn't return a reason. Most likely a 404.
-        image.onerror = () => { throw new Error('Could not load image ' + image.src + '. 404?'); };
+        image.onerror = () => {
+            throw new Error('Could not load image ' + image.src + '. 404?');
+        };
         image.src = url;
         return texture;
     }
@@ -1390,170 +1467,172 @@ function error(msg) {
  */
 const glValidEnumContexts = {
     // Generic setters and getters
-    'enable': { 1: { 0: true } },
-    'disable': { 1: { 0: true } },
-    'getParameter': { 1: { 0: true } },
+    enable: { 1: { 0: true } },
+    disable: { 1: { 0: true } },
+    getParameter: { 1: { 0: true } },
     // Rendering
-    'drawArrays': { 3: { 0: true } },
-    'drawElements': { 4: { 0: true, 2: true } },
+    drawArrays: { 3: { 0: true } },
+    drawElements: { 4: { 0: true, 2: true } },
     // Shaders
-    'createShader': { 1: { 0: true } },
-    'getShaderParameter': { 2: { 1: true } },
-    'getProgramParameter': { 2: { 1: true } },
-    'getShaderPrecisionFormat': { 2: { 0: true, 1: true } },
+    createShader: { 1: { 0: true } },
+    getShaderParameter: { 2: { 1: true } },
+    getProgramParameter: { 2: { 1: true } },
+    getShaderPrecisionFormat: { 2: { 0: true, 1: true } },
     // Vertex attributes
-    'getVertexAttrib': { 2: { 1: true } },
-    'vertexAttribPointer': { 6: { 2: true } },
+    getVertexAttrib: { 2: { 1: true } },
+    vertexAttribPointer: { 6: { 2: true } },
     // Textures
-    'bindTexture': { 2: { 0: true } },
-    'activeTexture': { 1: { 0: true } },
-    'getTexParameter': { 2: { 0: true, 1: true } },
-    'texParameterf': { 3: { 0: true, 1: true } },
-    'texParameteri': { 3: { 0: true, 1: true, 2: true } },
+    bindTexture: { 2: { 0: true } },
+    activeTexture: { 1: { 0: true } },
+    getTexParameter: { 2: { 0: true, 1: true } },
+    texParameterf: { 3: { 0: true, 1: true } },
+    texParameteri: { 3: { 0: true, 1: true, 2: true } },
     // texImage2D and texSubImage2D are defined below with WebGL 2 entrypoints
-    'copyTexImage2D': { 8: { 0: true, 2: true } },
-    'copyTexSubImage2D': { 8: { 0: true } },
-    'generateMipmap': { 1: { 0: true } },
+    copyTexImage2D: { 8: { 0: true, 2: true } },
+    copyTexSubImage2D: { 8: { 0: true } },
+    generateMipmap: { 1: { 0: true } },
     // compressedTexImage2D and compressedTexSubImage2D are defined below with WebGL 2 entrypoints
     // Buffer objects
-    'bindBuffer': { 2: { 0: true } },
+    bindBuffer: { 2: { 0: true } },
     // bufferData and bufferSubData are defined below with WebGL 2 entrypoints
-    'getBufferParameter': { 2: { 0: true, 1: true } },
+    getBufferParameter: { 2: { 0: true, 1: true } },
     // Renderbuffers and framebuffers
-    'pixelStorei': { 2: { 0: true, 1: true } },
+    pixelStorei: { 2: { 0: true, 1: true } },
     // readPixels is defined below with WebGL 2 entrypoints
-    'bindRenderbuffer': { 2: { 0: true } },
-    'bindFramebuffer': { 2: { 0: true } },
-    'checkFramebufferStatus': { 1: { 0: true } },
-    'framebufferRenderbuffer': { 4: { 0: true, 1: true, 2: true } },
-    'framebufferTexture2D': { 5: { 0: true, 1: true, 2: true } },
-    'getFramebufferAttachmentParameter': { 3: { 0: true, 1: true, 2: true } },
-    'getRenderbufferParameter': { 2: { 0: true, 1: true } },
-    'renderbufferStorage': { 4: { 0: true, 1: true } },
+    bindRenderbuffer: { 2: { 0: true } },
+    bindFramebuffer: { 2: { 0: true } },
+    checkFramebufferStatus: { 1: { 0: true } },
+    framebufferRenderbuffer: { 4: { 0: true, 1: true, 2: true } },
+    framebufferTexture2D: { 5: { 0: true, 1: true, 2: true } },
+    getFramebufferAttachmentParameter: { 3: { 0: true, 1: true, 2: true } },
+    getRenderbufferParameter: { 2: { 0: true, 1: true } },
+    renderbufferStorage: { 4: { 0: true, 1: true } },
     // Frame buffer operations (clear, blend, depth test, stencil)
-    'clear': { 1: { 0: { 'enumBitwiseOr': ['COLOR_BUFFER_BIT', 'DEPTH_BUFFER_BIT', 'STENCIL_BUFFER_BIT'] } } },
-    'depthFunc': { 1: { 0: true } },
-    'blendFunc': { 2: { 0: true, 1: true } },
-    'blendFuncSeparate': { 4: { 0: true, 1: true, 2: true, 3: true } },
-    'blendEquation': { 1: { 0: true } },
-    'blendEquationSeparate': { 2: { 0: true, 1: true } },
-    'stencilFunc': { 3: { 0: true } },
-    'stencilFuncSeparate': { 4: { 0: true, 1: true } },
-    'stencilMaskSeparate': { 2: { 0: true } },
-    'stencilOp': { 3: { 0: true, 1: true, 2: true } },
-    'stencilOpSeparate': { 4: { 0: true, 1: true, 2: true, 3: true } },
+    clear: { 1: { 0: { enumBitwiseOr: ['COLOR_BUFFER_BIT', 'DEPTH_BUFFER_BIT', 'STENCIL_BUFFER_BIT'] } } },
+    depthFunc: { 1: { 0: true } },
+    blendFunc: { 2: { 0: true, 1: true } },
+    blendFuncSeparate: { 4: { 0: true, 1: true, 2: true, 3: true } },
+    blendEquation: { 1: { 0: true } },
+    blendEquationSeparate: { 2: { 0: true, 1: true } },
+    stencilFunc: { 3: { 0: true } },
+    stencilFuncSeparate: { 4: { 0: true, 1: true } },
+    stencilMaskSeparate: { 2: { 0: true } },
+    stencilOp: { 3: { 0: true, 1: true, 2: true } },
+    stencilOpSeparate: { 4: { 0: true, 1: true, 2: true, 3: true } },
     // Culling
-    'cullFace': { 1: { 0: true } },
-    'frontFace': { 1: { 0: true } },
+    cullFace: { 1: { 0: true } },
+    frontFace: { 1: { 0: true } },
     // ANGLE_instanced_arrays extension
-    'drawArraysInstancedANGLE': { 4: { 0: true } },
-    'drawElementsInstancedANGLE': { 5: { 0: true, 2: true } },
+    drawArraysInstancedANGLE: { 4: { 0: true } },
+    drawElementsInstancedANGLE: { 5: { 0: true, 2: true } },
     // EXT_blend_minmax extension
-    'blendEquationEXT': { 1: { 0: true } },
+    blendEquationEXT: { 1: { 0: true } },
     // WebGL 2 Buffer objects
-    'bufferData': {
+    bufferData: {
         3: { 0: true, 2: true },
         4: { 0: true, 2: true },
-        5: { 0: true, 2: true } // WebGL 2
+        5: { 0: true, 2: true },
     },
-    'bufferSubData': {
+    bufferSubData: {
         3: { 0: true },
         4: { 0: true },
-        5: { 0: true } // WebGL 2
+        5: { 0: true },
     },
-    'copyBufferSubData': { 5: { 0: true, 1: true } },
-    'getBufferSubData': { 3: { 0: true }, 4: { 0: true }, 5: { 0: true } },
+    copyBufferSubData: { 5: { 0: true, 1: true } },
+    getBufferSubData: { 3: { 0: true }, 4: { 0: true }, 5: { 0: true } },
     // WebGL 2 Framebuffer objects
-    'blitFramebuffer': { 10: { 8: { 'enumBitwiseOr': ['COLOR_BUFFER_BIT', 'DEPTH_BUFFER_BIT', 'STENCIL_BUFFER_BIT'] }, 9: true } },
-    'framebufferTextureLayer': { 5: { 0: true, 1: true } },
-    'invalidateFramebuffer': { 2: { 0: true } },
-    'invalidateSubFramebuffer': { 6: { 0: true } },
-    'readBuffer': { 1: { 0: true } },
+    blitFramebuffer: {
+        10: { 8: { enumBitwiseOr: ['COLOR_BUFFER_BIT', 'DEPTH_BUFFER_BIT', 'STENCIL_BUFFER_BIT'] }, 9: true },
+    },
+    framebufferTextureLayer: { 5: { 0: true, 1: true } },
+    invalidateFramebuffer: { 2: { 0: true } },
+    invalidateSubFramebuffer: { 6: { 0: true } },
+    readBuffer: { 1: { 0: true } },
     // WebGL 2 Renderbuffer objects
-    'getInternalformatParameter': { 3: { 0: true, 1: true, 2: true } },
-    'renderbufferStorageMultisample': { 5: { 0: true, 2: true } },
+    getInternalformatParameter: { 3: { 0: true, 1: true, 2: true } },
+    renderbufferStorageMultisample: { 5: { 0: true, 2: true } },
     // WebGL 2 Texture objects
-    'texStorage2D': { 5: { 0: true, 2: true } },
-    'texStorage3D': { 6: { 0: true, 2: true } },
-    'texImage2D': {
+    texStorage2D: { 5: { 0: true, 2: true } },
+    texStorage3D: { 6: { 0: true, 2: true } },
+    texImage2D: {
         9: { 0: true, 2: true, 6: true, 7: true },
         6: { 0: true, 2: true, 3: true, 4: true },
-        10: { 0: true, 2: true, 6: true, 7: true } // WebGL 2
+        10: { 0: true, 2: true, 6: true, 7: true },
     },
-    'texImage3D': {
+    texImage3D: {
         10: { 0: true, 2: true, 7: true, 8: true },
-        11: { 0: true, 2: true, 7: true, 8: true }
+        11: { 0: true, 2: true, 7: true, 8: true },
     },
-    'texSubImage2D': {
+    texSubImage2D: {
         9: { 0: true, 6: true, 7: true },
         7: { 0: true, 4: true, 5: true },
-        10: { 0: true, 6: true, 7: true } // WebGL 2
+        10: { 0: true, 6: true, 7: true },
     },
-    'texSubImage3D': {
+    texSubImage3D: {
         11: { 0: true, 8: true, 9: true },
-        12: { 0: true, 8: true, 9: true }
+        12: { 0: true, 8: true, 9: true },
     },
-    'copyTexSubImage3D': { 9: { 0: true } },
-    'compressedTexImage2D': {
+    copyTexSubImage3D: { 9: { 0: true } },
+    compressedTexImage2D: {
         7: { 0: true, 2: true },
         8: { 0: true, 2: true },
-        9: { 0: true, 2: true } // WebGL 2
+        9: { 0: true, 2: true },
     },
-    'compressedTexImage3D': {
+    compressedTexImage3D: {
         8: { 0: true, 2: true },
         9: { 0: true, 2: true },
-        10: { 0: true, 2: true }
+        10: { 0: true, 2: true },
     },
-    'compressedTexSubImage2D': {
+    compressedTexSubImage2D: {
         8: { 0: true, 6: true },
         9: { 0: true, 6: true },
-        10: { 0: true, 6: true } // WebGL 2
+        10: { 0: true, 6: true },
     },
-    'compressedTexSubImage3D': {
+    compressedTexSubImage3D: {
         10: { 0: true, 8: true },
         11: { 0: true, 8: true },
-        12: { 0: true, 8: true }
+        12: { 0: true, 8: true },
     },
     // WebGL 2 Vertex attribs
-    'vertexAttribIPointer': { 5: { 2: true } },
+    vertexAttribIPointer: { 5: { 2: true } },
     // WebGL 2 Writing to the drawing buffer
-    'drawArraysInstanced': { 4: { 0: true } },
-    'drawElementsInstanced': { 5: { 0: true, 2: true } },
-    'drawRangeElements': { 6: { 0: true, 4: true } },
+    drawArraysInstanced: { 4: { 0: true } },
+    drawElementsInstanced: { 5: { 0: true, 2: true } },
+    drawRangeElements: { 6: { 0: true, 4: true } },
     // WebGL 2 Reading back pixels
-    'readPixels': {
+    readPixels: {
         7: { 4: true, 5: true },
-        8: { 4: true, 5: true } // WebGL 2
+        8: { 4: true, 5: true },
     },
     // WebGL 2 Multiple Render Targets
-    'clearBufferfv': { 3: { 0: true }, 4: { 0: true } },
-    'clearBufferiv': { 3: { 0: true }, 4: { 0: true } },
-    'clearBufferuiv': { 3: { 0: true }, 4: { 0: true } },
-    'clearBufferfi': { 4: { 0: true } },
+    clearBufferfv: { 3: { 0: true }, 4: { 0: true } },
+    clearBufferiv: { 3: { 0: true }, 4: { 0: true } },
+    clearBufferuiv: { 3: { 0: true }, 4: { 0: true } },
+    clearBufferfi: { 4: { 0: true } },
     // WebGL 2 Query objects
-    'beginQuery': { 2: { 0: true } },
-    'endQuery': { 1: { 0: true } },
-    'getQuery': { 2: { 0: true, 1: true } },
-    'getQueryParameter': { 2: { 1: true } },
+    beginQuery: { 2: { 0: true } },
+    endQuery: { 1: { 0: true } },
+    getQuery: { 2: { 0: true, 1: true } },
+    getQueryParameter: { 2: { 1: true } },
     // WebGL 2 Sampler objects
-    'samplerParameteri': { 3: { 1: true, 2: true } },
-    'samplerParameterf': { 3: { 1: true } },
-    'getSamplerParameter': { 2: { 1: true } },
+    samplerParameteri: { 3: { 1: true, 2: true } },
+    samplerParameterf: { 3: { 1: true } },
+    getSamplerParameter: { 2: { 1: true } },
     // WebGL 2 Sync objects
-    'fenceSync': { 2: { 0: true, 1: { 'enumBitwiseOr': [] } } },
-    'clientWaitSync': { 3: { 1: { 'enumBitwiseOr': ['SYNC_FLUSH_COMMANDS_BIT'] } } },
-    'waitSync': { 3: { 1: { 'enumBitwiseOr': [] } } },
-    'getSyncParameter': { 2: { 1: true } },
+    fenceSync: { 2: { 0: true, 1: { enumBitwiseOr: [] } } },
+    clientWaitSync: { 3: { 1: { enumBitwiseOr: ['SYNC_FLUSH_COMMANDS_BIT'] } } },
+    waitSync: { 3: { 1: { enumBitwiseOr: [] } } },
+    getSyncParameter: { 2: { 1: true } },
     // WebGL 2 Transform Feedback
-    'bindTransformFeedback': { 2: { 0: true } },
-    'beginTransformFeedback': { 1: { 0: true } },
-    'transformFeedbackVaryings': { 3: { 2: true } },
+    bindTransformFeedback: { 2: { 0: true } },
+    beginTransformFeedback: { 1: { 0: true } },
+    transformFeedbackVaryings: { 3: { 2: true } },
     // WebGL2 Uniform Buffer Objects and Transform Feedback Buffers
-    'bindBufferBase': { 3: { 0: true } },
-    'bindBufferRange': { 5: { 0: true } },
-    'getIndexedParameter': { 2: { 0: true } },
-    'getActiveUniforms': { 3: { 2: true } },
-    'getActiveUniformBlockParameter': { 3: { 2: true } }
+    bindBufferBase: { 3: { 0: true } },
+    bindBufferRange: { 5: { 0: true } },
+    getIndexedParameter: { 2: { 0: true } },
+    getActiveUniforms: { 3: { 2: true } },
+    getActiveUniformBlockParameter: { 3: { 2: true } },
 };
 /**
  * Map of numbers to names.
@@ -1594,7 +1673,7 @@ function init() {
  */
 function mightBeEnum(value) {
     init();
-    return (glEnums[value] !== undefined);
+    return glEnums[value] !== undefined;
 }
 /**
  * Gets an string version of an WebGL enum.
@@ -1608,8 +1687,7 @@ function mightBeEnum(value) {
 function glEnumToString(value) {
     init();
     var name = glEnums[value];
-    return (name !== undefined) ? ('gl.' + name) :
-        ('/*UNKNOWN WebGL ENUM*/ 0x' + value.toString(16) + '');
+    return name !== undefined ? 'gl.' + name : '/*UNKNOWN WebGL ENUM*/ 0x' + value.toString(16) + '';
 }
 /**
  * Converts the argument of a WebGL function to a string.
@@ -1681,8 +1759,7 @@ function glFunctionArgsToString(functionName, args) {
     var argStr = '';
     var numArgs = args.length;
     for (var ii = 0; ii < numArgs; ++ii) {
-        argStr += ((ii == 0) ? '' : ', ') +
-            glFunctionArgToString(functionName, numArgs, ii, args[ii]);
+        argStr += (ii == 0 ? '' : ', ') + glFunctionArgToString(functionName, numArgs, ii, args[ii]);
     }
     return argStr;
 }
@@ -1726,17 +1803,17 @@ function makePropertyWrapper(wrapper, original, propertyName) {
  */
 function makeDebugContext(ctx, opt_onErrorFunc, opt_onFunc, opt_err_ctx = ctx) {
     init();
-    opt_onErrorFunc = opt_onErrorFunc || function (err, functionName, args) {
-        // apparently we can't do args.join(',')
-        var argStr = '';
-        var numArgs = args.length;
-        for (let i = 0; i < numArgs; ++i) {
-            argStr += ((i == 0) ? '' : ', ') +
-                glFunctionArgToString(functionName, numArgs, i, args[i]);
-        }
-        error('WebGL error ' + glEnumToString(err) + ' in ' + functionName +
-            '(' + argStr + ')');
-    };
+    opt_onErrorFunc =
+        opt_onErrorFunc ||
+            function (err, functionName, args) {
+                // apparently we can't do args.join(',')
+                var argStr = '';
+                var numArgs = args.length;
+                for (let i = 0; i < numArgs; ++i) {
+                    argStr += (i == 0 ? '' : ', ') + glFunctionArgToString(functionName, numArgs, i, args[i]);
+                }
+                error('WebGL error ' + glEnumToString(err) + ' in ' + functionName + '(' + argStr + ')');
+            };
     // Holds booleans for each GL error so after we get the error ourselves
     // we can still return it to the client app.
     const glErrorShadow = {};
@@ -1861,8 +1938,8 @@ function resetToInitialState(ctx2) {
     ctx2.polygonOffset(0, 0);
     ctx2.sampleCoverage(1, false);
     ctx2.scissor(0, 0, ctx2.canvas.width, ctx2.canvas.height);
-    ctx2.stencilFunc(ctx2.ALWAYS, 0, 0xFFFFFFFF);
-    ctx2.stencilMask(0xFFFFFFFF);
+    ctx2.stencilFunc(ctx2.ALWAYS, 0, 0xffffffff);
+    ctx2.stencilMask(0xffffffff);
     ctx2.stencilOp(ctx2.KEEP, ctx2.KEEP, ctx2.KEEP);
     ctx2.viewport(0, 0, ctx2.canvas.width, ctx2.canvas.height);
     ctx2.clear(ctx2.COLOR_BUFFER_BIT | ctx2.DEPTH_BUFFER_BIT | ctx2.STENCIL_BUFFER_BIT);
@@ -1934,12 +2011,13 @@ function makeLostContextSimulatingCanvas(canvas) {
     let restoreTimeout_ = 0;
     // Holds booleans for each GL error so can simulate errors.
     const glErrorShadow_ = {};
-    canvas2.getContext = function (f) {
+    canvas2.getContext = (function (f) {
         return function () {
             const ctx = f.apply(canvas2, arguments);
             // Did we get a context and is it a WebGL context?
             // @ts-ignore
-            if ((ctx instanceof WebGLRenderingContext) || (window.WebGL2RenderingContext && (ctx instanceof WebGL2RenderingContext))) {
+            if (ctx instanceof WebGLRenderingContext ||
+                (window.WebGL2RenderingContext && ctx instanceof WebGL2RenderingContext)) {
                 if (ctx != unwrappedContext_) {
                     if (unwrappedContext_) {
                         throw new Error('got different context');
@@ -1951,9 +2029,9 @@ function makeLostContextSimulatingCanvas(canvas) {
             }
             return ctx;
         };
-    }(canvas2.getContext);
+    })(canvas2.getContext);
     function wrapEvent(listener) {
-        if (typeof (listener) == 'function') {
+        if (typeof listener == 'function') {
             return listener;
         }
         else {
@@ -2122,7 +2200,7 @@ function makeLostContextSimulatingCanvas(canvas) {
             statusMessage: statusMessage,
             preventDefault: function () {
                 canRestore_ = true;
-            }
+            },
         };
     }
     return canvas2;
@@ -2141,7 +2219,7 @@ function makeLostContextSimulatingCanvas(canvas) {
             loseContextIfTime();
             if (!contextLost_) {
                 let err;
-                while (err = unwrappedContext_.getError()) {
+                while ((err = unwrappedContext_.getError())) {
                     glErrorShadow_[err] = true;
                 }
             }
@@ -2159,14 +2237,14 @@ function makeLostContextSimulatingCanvas(canvas) {
             'createProgram',
             'createRenderbuffer',
             'createShader',
-            'createTexture'
+            'createTexture',
         ];
         if (isWebGL2RenderingContext) {
             creationFunctions.push('createQuery', 'createSampler', 'fenceSync', 'createTransformFeedback', 'createVertexArray');
         }
         for (let i = 0; i < creationFunctions.length; ++i) {
             const functionName = creationFunctions[i];
-            wrappedContext_[functionName] = function (f) {
+            wrappedContext_[functionName] = (function (f) {
                 return function () {
                     loseContextIfTime();
                     if (contextLost_) {
@@ -2177,7 +2255,7 @@ function makeLostContextSimulatingCanvas(canvas) {
                     resourceDb_.push(obj);
                     return obj;
                 };
-            }(ctx[functionName]);
+            })(ctx[functionName]);
         }
         const functionsThatShouldReturnNull = [
             'getActiveAttrib',
@@ -2196,14 +2274,14 @@ function makeLostContextSimulatingCanvas(canvas) {
             'getTexParameter',
             'getUniform',
             'getUniformLocation',
-            'getVertexAttrib'
+            'getVertexAttrib',
         ];
         if (isWebGL2RenderingContext) {
             functionsThatShouldReturnNull.push('getInternalformatParameter', 'getQuery', 'getQueryParameter', 'getSamplerParameter', 'getSyncParameter', 'getTransformFeedbackVarying', 'getIndexedParameter', 'getUniformIndices', 'getActiveUniforms', 'getActiveUniformBlockParameter', 'getActiveUniformBlockName');
         }
         for (let ii = 0; ii < functionsThatShouldReturnNull.length; ++ii) {
             const functionName = functionsThatShouldReturnNull[ii];
-            wrappedContext_[functionName] = function (f) {
+            wrappedContext_[functionName] = (function (f) {
                 return function () {
                     loseContextIfTime();
                     if (contextLost_) {
@@ -2211,7 +2289,7 @@ function makeLostContextSimulatingCanvas(canvas) {
                     }
                     return f.apply(ctx, arguments);
                 };
-            }(wrappedContext_[functionName]);
+            })(wrappedContext_[functionName]);
         }
         const isFunctions = [
             'isBuffer',
@@ -2220,14 +2298,14 @@ function makeLostContextSimulatingCanvas(canvas) {
             'isProgram',
             'isRenderbuffer',
             'isShader',
-            'isTexture'
+            'isTexture',
         ];
         if (isWebGL2RenderingContext) {
             isFunctions.push('isQuery', 'isSampler', 'isSync', 'isTransformFeedback', 'isVertexArray');
         }
         for (let ii = 0; ii < isFunctions.length; ++ii) {
             const functionName = isFunctions[ii];
-            wrappedContext_[functionName] = function (f) {
+            wrappedContext_[functionName] = (function (f) {
                 return function () {
                     loseContextIfTime();
                     if (contextLost_) {
@@ -2235,9 +2313,9 @@ function makeLostContextSimulatingCanvas(canvas) {
                     }
                     return f.apply(ctx, arguments);
                 };
-            }(wrappedContext_[functionName]);
+            })(wrappedContext_[functionName]);
         }
-        wrappedContext_.checkFramebufferStatus = function (f) {
+        wrappedContext_.checkFramebufferStatus = (function (f) {
             return function () {
                 loseContextIfTime();
                 if (contextLost_) {
@@ -2245,8 +2323,8 @@ function makeLostContextSimulatingCanvas(canvas) {
                 }
                 return f.apply(ctx, arguments);
             };
-        }(wrappedContext_.checkFramebufferStatus);
-        wrappedContext_.getAttribLocation = function (f) {
+        })(wrappedContext_.checkFramebufferStatus);
+        wrappedContext_.getAttribLocation = (function (f) {
             return function () {
                 loseContextIfTime();
                 if (contextLost_) {
@@ -2254,8 +2332,8 @@ function makeLostContextSimulatingCanvas(canvas) {
                 }
                 return f.apply(ctx, arguments);
             };
-        }(wrappedContext_.getAttribLocation);
-        wrappedContext_.getVertexAttribOffset = function (f) {
+        })(wrappedContext_.getAttribLocation);
+        wrappedContext_.getVertexAttribOffset = (function (f) {
             return function () {
                 loseContextIfTime();
                 if (contextLost_) {
@@ -2263,12 +2341,12 @@ function makeLostContextSimulatingCanvas(canvas) {
                 }
                 return f.apply(ctx, arguments);
             };
-        }(wrappedContext_.getVertexAttribOffset);
+        })(wrappedContext_.getVertexAttribOffset);
         wrappedContext_.isContextLost = function () {
             return contextLost_;
         };
         if (isWebGL2RenderingContext) {
-            wrappedContext_.getFragDataLocation = function (f) {
+            wrappedContext_.getFragDataLocation = (function (f) {
                 return function () {
                     loseContextIfTime();
                     if (contextLost_) {
@@ -2276,8 +2354,8 @@ function makeLostContextSimulatingCanvas(canvas) {
                     }
                     return f.apply(ctx, arguments);
                 };
-            }(wrappedContext_.getFragDataLocation);
-            wrappedContext_.clientWaitSync = function (f) {
+            })(wrappedContext_.getFragDataLocation);
+            wrappedContext_.clientWaitSync = (function (f) {
                 return function () {
                     loseContextIfTime();
                     if (contextLost_) {
@@ -2285,8 +2363,8 @@ function makeLostContextSimulatingCanvas(canvas) {
                     }
                     return f.apply(ctx, arguments);
                 };
-            }(wrappedContext_.clientWaitSync);
-            wrappedContext_.getUniformBlockIndex = function (f) {
+            })(wrappedContext_.clientWaitSync);
+            wrappedContext_.getUniformBlockIndex = (function (f) {
                 return function () {
                     loseContextIfTime();
                     if (contextLost_) {
@@ -2294,7 +2372,7 @@ function makeLostContextSimulatingCanvas(canvas) {
                     }
                     return f.apply(ctx, arguments);
                 };
-            }(wrappedContext_.getUniformBlockIndex);
+            })(wrappedContext_.getUniformBlockIndex);
         }
         return wrappedContext_;
     }
@@ -2313,9 +2391,7 @@ function isNumber$$1(obj) {
 }
 class TSGLContextBase$$1 {
     constructor(gl, immediate = {
-        mesh: new Mesh$$1()
-            .addVertexBuffer('coords', 'ts_TexCoord')
-            .addVertexBuffer('colors', 'ts_Color'),
+        mesh: new Mesh$$1().addVertexBuffer('coords', 'ts_TexCoord').addVertexBuffer('colors', 'ts_Color'),
         mode: -1,
         coord: [0, 0],
         color: [1, 1, 1, 1],
@@ -2436,6 +2512,7 @@ class TSGLContextBase$$1 {
     wcToWindowMatrix() {
         const viewport = this.getParameter(this.VIEWPORT);
         const [x, y, w, h] = viewport;
+        // prettier-ignore
         const viewportToScreenMatrix = new M4([
             w / 2, 0, 0, x + w / 2,
             h / 2, 0, 0, y + h / 2,
@@ -2467,11 +2544,11 @@ class TSGLContextBase$$1 {
     }
     color(...args) {
         this.immediate.color =
-            (1 == args.length && Array.isArray(args[0]))
+            1 == args.length && Array.isArray(args[0])
                 ? args[0]
-                : (1 == args.length && 'number' == typeof args[0])
+                : 1 == args.length && 'number' == typeof args[0]
                     ? hexIntToGLColor(args[0])
-                    : (1 == args.length && 'string' == typeof args[0])
+                    : 1 == args.length && 'string' == typeof args[0]
                         ? chroma(args[0]).gl()
                         : [args[0], args[1], args[2], args[3] || 1];
     }
@@ -2487,9 +2564,11 @@ class TSGLContextBase$$1 {
         if (this.immediate.mode == -1)
             throw new Error('mismatched viewerGL.begin() and viewerGL.end() calls');
         this.immediate.mesh.compile();
-        this.immediate.shader.uniforms({
+        this.immediate.shader
+            .uniforms({
             useTexture: !!TSGLContextBase$$1.gl.getParameter(this.TEXTURE_BINDING_2D),
-        }).drawBuffers(this.immediate.mesh.vertexBuffers, undefined, this.immediate.mode);
+        })
+            .drawBuffers(this.immediate.mesh.vertexBuffers, undefined, this.immediate.mode);
         this.immediate.mode = -1;
     }
     makeCurrent() {
@@ -2514,7 +2593,9 @@ class TSGLContextBase$$1 {
             }
         };
         requestAnimationFrame(update);
-        return () => { keepUpdating = false; };
+        return () => {
+            keepUpdating = false;
+        };
     }
     /**
      * Provide an easy way to get a fullscreen app running, including an
@@ -2539,7 +2620,7 @@ class TSGLContextBase$$1 {
         const right = options.paddingRight || 0;
         const bottom = options.paddingBottom || 0;
         if (!document.body) {
-            throw new Error('document.body doesn\'t exist yet (call viewerGL.fullscreen() from ' +
+            throw new Error("document.body doesn't exist yet (call viewerGL.fullscreen() from " +
                 'window.onload() or from inside the <body> tag)');
         }
         document.body.appendChild(this.canvas);
@@ -2581,7 +2662,7 @@ class TSGLContextBase$$1 {
             newGL = canvas.getContext('webgl2', options);
             newGL && (newGL.version = 2);
             if (!newGL) {
-                newGL = (canvas.getContext('webgl', options) || canvas.getContext('experimental-webgl', options));
+                newGL = canvas.getContext('webgl', options) || canvas.getContext('experimental-webgl', options);
                 newGL && (newGL.version = 1);
             }
             console.log('getting context');
@@ -2605,7 +2686,7 @@ class TSGLContextBase$$1 {
 }
 TSGLContextBase$$1.MODELVIEW = 0;
 TSGLContextBase$$1.PROJECTION = 1;
-TSGLContextBase$$1.HALF_FLOAT_OES = 0x8D61;
+TSGLContextBase$$1.HALF_FLOAT_OES = 0x8d61;
 var TSGLContext;
 (function (TSGLContext$$1) {
     /**
@@ -2634,6 +2715,7 @@ TSGLContextBase$$1.prototype.HALF_FLOAT_OES = TSGLContextBase$$1.HALF_FLOAT_OES;
  * a - b
  */
 function pushQuad$$1(triangles, flipped, a, b, c, d) {
+    // prettier-ignore
     if (flipped) {
         triangles.push(a, c, b, b, c, d);
     }

@@ -1,6 +1,6 @@
 /// <reference path="../types.d.ts" />
-import { TSGLContext,  } from 'tsgl'
-import { V3, V } from 'ts3dutils'
+import { V, V3 } from 'ts3dutils'
+import { TSGLContext } from 'tsgl'
 
 /**
  * OpenGL-style immediate mode.
@@ -17,8 +17,8 @@ export function immediateMode(gl: TSGLContext) {
 	gl.enable(gl.DEPTH_TEST)
 	gl.clearColor(1, 1, 1, 0)
 
-	return gl.animate(function (abs, _diff) {
-		const angleDeg = abs / 1000 * 45
+	return gl.animate(function(abs, _diff) {
+		const angleDeg = (abs / 1000) * 45
 		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 		gl.loadIdentity()
 		// gl.translate(0, 0, -5)

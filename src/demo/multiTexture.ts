@@ -1,6 +1,6 @@
 /// <reference path="../types.d.ts" />
-import { Mesh, Texture, Shader, TSGLContext } from 'tsgl'
-import { V3, V } from 'ts3dutils'
+import { V, V3 } from 'ts3dutils'
+import { Mesh, Shader, Texture, TSGLContext } from 'tsgl'
 
 /**
  * Blend two textures while rendering them to a quad.
@@ -9,7 +9,8 @@ export function multiTexture(gl: TSGLContext) {
 	const mesh = Mesh.plane()
 	const texture = Texture.fromURLSwitch('texture.png')
 	const texture2 = Texture.fromURLSwitch('texture2.png')
-	const shader = Shader.create<{ texture: 'SAMPLER_2D', texture2: 'SAMPLER_2D' }, {}>(`
+	const shader = Shader.create<{ texture: 'SAMPLER_2D'; texture2: 'SAMPLER_2D' }, {}>(
+		`
 	attribute vec2 ts_TexCoord;
 	attribute vec4 ts_Vertex;
 	uniform mat4 ts_ModelViewProjectionMatrix;
@@ -18,7 +19,8 @@ export function multiTexture(gl: TSGLContext) {
     coord = ts_TexCoord;
     gl_Position = ts_ModelViewProjectionMatrix * ts_Vertex;
   }
-`, `
+`,
+		`
 	precision highp float;
   uniform sampler2D texture;
   uniform sampler2D texture2;
@@ -27,7 +29,8 @@ export function multiTexture(gl: TSGLContext) {
     //gl_FragColor = vec4(coord.x, coord.y, 0, 1);
     gl_FragColor = texture2D(texture, coord) - texture2D(texture2, coord);
   }
-`)
+`,
+	)
 	gl.clearColor(1, 1, 1, 1)
 
 	// setup camera
@@ -39,8 +42,8 @@ export function multiTexture(gl: TSGLContext) {
 
 	gl.enable(gl.DEPTH_TEST)
 
-	return gl.animate(function (abs, _diff) {
-		const angleDeg = abs / 1000 * 45
+	return gl.animate(function(abs, _diff) {
+		const angleDeg = (abs / 1000) * 45
 		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 		gl.loadIdentity()
 
@@ -50,9 +53,11 @@ export function multiTexture(gl: TSGLContext) {
 
 		texture.bind(0)
 		texture2.bind(1)
-		shader.uniforms({
-			texture: 0,
-			texture2: 1,
-		}).draw(mesh)
+		shader
+			.uniforms({
+				texture: 0,
+				texture2: 1,
+			})
+			.draw(mesh)
 	})
 }

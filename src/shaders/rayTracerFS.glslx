@@ -63,7 +63,9 @@ TriangleHitTest intersectTriangle(vec3 rayOrigin, vec3 rayVector, vec3 vertex0, 
         return TriangleHitTest(t, rayOrigin + rayVector * t, u, v);
     }
     else // This means that there is a line intersection but not a ray intersection.
-        return INFINITY_HIT;
+    {
+		return INFINITY_HIT;
+	}
 }
 
 // use texelFetch because we don't want to interpolate values

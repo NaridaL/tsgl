@@ -1,11 +1,11 @@
 /// <reference path="../types.d.ts" />
 
-import { arrayFromFunction, clamp, DEG, V, V3, Tuple2 } from 'ts3dutils'
+import { arrayFromFunction, clamp, DEG, Tuple2, V, V3 } from 'ts3dutils'
 
-import { Mesh, Shader, Texture, TSGLContext, isWebGL2RenderingContext } from 'tsgl'
+import { isWebGL2RenderingContext, Mesh, Shader, Texture, TSGLContext } from 'tsgl'
 
-import rayTracerVS from '../shaders/rayTracerVS.glslx'
 import rayTracerFS from '../shaders/rayTracerFS.glslx'
+import rayTracerVS from '../shaders/rayTracerVS.glslx'
 
 /**
  * Realtime GPU ray tracing including reflection.
@@ -43,7 +43,6 @@ export async function rayTracing(gl: TSGLContext) {
 	const sphereCenters = arrayFromFunction(8, i => [V(0.0, 1.6, 0.0), V(3, 3, 3), V(-3, 3, 3)][i] || V3.O)
 	const sphereRadii = arrayFromFunction(8, i => [1.5, 0.5, 0.5][i] || 0)
 
-
 	// texture for ray-traced mesh
 	const floorTexture = await Texture.fromURL('./mandelbrot.jpg')
 
@@ -70,7 +69,7 @@ export async function rayTracing(gl: TSGLContext) {
 
 	let lastPos = V3.O
 	// scene rotation
-	gl.canvas.onmousemove = function (e) {
+	gl.canvas.onmousemove = function(e) {
 		const pagePos = V(e.pageX, e.pageY)
 		const delta = lastPos.to(pagePos)
 		if (e.buttons & 1) {
@@ -89,13 +88,12 @@ export async function rayTracing(gl: TSGLContext) {
 	shader.uniforms({
 		'sphereCenters[0]': sphereCenters,
 		'sphereRadii[0]': sphereRadii,
-		'vertices': 0,
-		'triangleTexture': 1,
-		'texCoords': 2
+		vertices: 0,
+		triangleTexture: 1,
+		texCoords: 2,
 	})
 
-	return gl.animate(function (_abs, _diff) {
-
+	return gl.animate(function(_abs, _diff) {
 		// Camera setup
 		gl.matrixMode(gl.MODELVIEW)
 		gl.loadIdentity()
@@ -123,7 +121,5 @@ export async function rayTracing(gl: TSGLContext) {
 		gl.end()
 		gl.disable(gl.BLEND)
 	})
-
 }
-(rayTracing as any).info = 'LMB-drag to rotate camera.'
-
+;(rayTracing as any).info = 'LMB-drag to rotate camera.'
