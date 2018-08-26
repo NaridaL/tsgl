@@ -1,4 +1,4 @@
-var demo = (function (exports,chroma) {
+var demo = (function (exports,tosource,chroma) {
     'use strict';
 
     chroma = chroma && chroma.hasOwnProperty('default') ? chroma['default'] : chroma;
@@ -158,7 +158,7 @@ var demo = (function (exports,chroma) {
             return new Vector(e);
         }
         static random(dims) {
-            return Vector.fromFunction(dims, (i) => Math.random());
+            return Vector.fromFunction(dims, i => Math.random());
         }
         static from(...args) {
             assert(args[0] instanceof Float64Array || args.every(a => 'number' == typeof a), 'args[0] instanceof Float64Array || args.every(a => "number" == typeof a)');
@@ -181,6 +181,71 @@ var demo = (function (exports,chroma) {
                 n[i] = +(i == dir); // +true === 1, +false === 0
             }
             return new Vector(n);
+        }
+        /**
+         * Pack an array of Vectors into an array of numbers (Float32Array by default).
+         *
+         * @param vectors source array
+         * @param dest destination array. If provided, must be large enough to fit v3count items.
+         * @param srcStart starting index in source array
+         * @param destStart starting index in destination array
+         * @param vectorCount Number of V3s to copy.
+         * @returns Packed array.
+         */
+        static pack(vectors, dest, srcStart = 0, destStart = 0, vectorCount = vectors.length - srcStart) {
+            //assert (v3arr.every(v3 => v3 instanceof V3), 'v3arr.every(v3 => v3 instanceof V3)')
+            const dim = vectors[0].dim();
+            const result = dest || new Float32Array(dim * vectorCount); // TODO
+            assert(result.length - destStart >= vectorCount * dim, 'dest.length - destStart >= v3count * 3', result.length, destStart, vectorCount * 3);
+            let i = vectorCount, srcIndex = srcStart, destIndex = destStart;
+            while (i--) {
+                const v = vectors[srcIndex++];
+                for (let d = 0; d < dim; d++) {
+                    result[destIndex++] = v.v[d];
+                }
+            }
+            return result;
+        }
+        static lerp(a, b, t) {
+            assert(a.dim() == b.dim());
+            const n = new Float64Array(a.v.length);
+            let i = a.v.length;
+            while (i--) {
+                n[i] = a.v[i] * (1 - t) + b.v[i] * t;
+            }
+            return new Vector(n);
+        }
+        static add(...vs) {
+            const dim = vs[0].v.length;
+            const result = new Float64Array(dim);
+            let i = vs.length;
+            while (i--) {
+                let d = dim;
+                while (d--) {
+                    result[d] += vs[i].v[d];
+                }
+            }
+            return new Vector(result);
+        }
+        /**
+         * Create a new 4D Vector from a V3 and a weight.
+         * @param v3
+         * @param weight
+         */
+        static fromV3AndWeight(v3, weight) {
+            return new Vector(new Float64Array([v3.x * weight, v3.y * weight, v3.z * weight, weight]));
+        }
+        get x() {
+            return this.v[0];
+        }
+        get y() {
+            return this.v[1];
+        }
+        get z() {
+            return this.v[2];
+        }
+        get w() {
+            return this.v[3];
         }
         [Symbol.iterator]() {
             return this.v[Symbol.iterator]();
@@ -267,6 +332,20 @@ var demo = (function (exports,chroma) {
                 return false;
             let i = this.v.length;
             while (i--) {
+                if (this.v[i] !== obj.v[i])
+                    return false;
+            }
+            return true;
+        }
+        like(obj) {
+            if (obj === this)
+                return true;
+            if (obj.constructor !== Vector)
+                return false;
+            if (this.v.length != obj.v.length)
+                return false;
+            let i = this.v.length;
+            while (i--) {
                 if (!eq(this.v[i], obj.v[i]))
                     return false;
             }
@@ -276,35 +355,24 @@ var demo = (function (exports,chroma) {
             return new Vector(this.v.map(f));
         }
         toString(roundFunction) {
-            roundFunction = roundFunction || ((v) => +v.toFixed(6));
+            roundFunction = roundFunction || (v => +v.toFixed(6));
             return 'Vector(' + this.v.map(roundFunction).join(', ') + ')';
         }
-        /*
-         get x() {
-         return this.v[0]
-         },
-         get y() {
-         return this.v[1]
-         },
-         get z() {
-         return this.v[2]
-         },
-         get w() {
-         return this.v[3]
-         },
-         */
+        toSource() {
+            return callsce('VV', ...this.v);
+        }
         angleTo(vector) {
             assertInst(Vector, vector);
             assert(!this.isZero(), '!this.likeO()');
             assert(!vector.isZero(), '!vector.likeO()');
-            return Math.acos(this.dot(vector) / this.length() / vector.length());
+            return Math.acos(clamp(this.dot(vector) / this.length() / vector.length(), -1, 1));
         }
         /**
-         Returns true iff this is parallel to vector, using equals
-         Throw a DebugError
-         if vector is not a Vector or
-         if this has a length of 0 or
-         if vector has a length of 0
+         * Returns true iff this is parallel to vector, using eq
+         * Throw a DebugError
+         * - if vector is not a Vector or
+         * - if this has a length of 0 or
+         * - if vector has a length of 0
          */
         isParallelTo(vector) {
             assertInst(Vector, vector);
@@ -321,13 +389,12 @@ var demo = (function (exports,chroma) {
             return eq0(this.dot(vector));
         }
         /**
-         Returns true iff the length of this vector is 0, as returned by NLA.isZero.
-         Definition: Vector.prototype.isZero = () => NLA.isZero(this.length())
+         * Returns true iff the length of this vector is 0, as returned by NLA.isZero.
+         * Definition: Vector.prototype.isZero = () => NLA.isZero(this.length())
          */
         isZero() {
             return eq0(this.length());
         }
-        // Returns a new unit Vector (.length() === 1) with the same direction as this vector. Throws a
         /*/ Returns the length of this Vector, i.e. the euclidian norm.*/
         length() {
             return Math.hypot.apply(undefined, this.v);
@@ -342,13 +409,21 @@ var demo = (function (exports,chroma) {
             }
             return result;
         }
-        // NLA_DEBUGError if this has a length of 0.
-        normalized() {
+        /**
+         * Returns a new unit Vector (.length() === 1) with the same direction as this vector. Throws a
+         */
+        unit() {
             const length = this.length();
             if (eq0(length)) {
                 throw new Error('cannot normalize zero vector');
             }
             return this.div(this.length());
+        }
+        /**
+         * Documentation stub. You want {@link unit}
+         */
+        normalized() {
+            throw new Error('documentation stub. use .unit()');
         }
         asRowMatrix() {
             return new Matrix(this.v.length, 1, this.v);
@@ -357,13 +432,17 @@ var demo = (function (exports,chroma) {
             return new Matrix(1, this.v.length, this.v);
         }
         /**
-         Returns a new Vector which is the projection of this vector onto the passed vector.
-         Examples
-         NLA.V(3, 4).projectedOn(NLA.V(1, 0)) // returns NLA.V(3, 0)
-         NLA.V(3, 4).projectedOn(NLA.V(2, 0)) // returns NLA.V(3, 0)
-         NLA.V(3, 4).projectedOn(NLA.V(-1, 0)) // returns NLA.V(-3, 0)
-         NLA.V(3, 4).projectedOn(NLA.V(0, 1)) // returns NLA.V(0, 4)
-         NLA.V(3, 4).projectedOn(NLA.V(1, 1)) // returns
+         * Returns a new Vector which is the projection of this vector onto the passed vector.
+         * @example
+         * VV(3, 4).projectedOn(VV(1, 0)) // returns VV(3, 0)
+         * @example
+         * VV(3, 4).projectedOn(VV(2, 0)) // returns VV(3, 0)
+         * @example
+         * VV(3, 4).projectedOn(VV(-1, 0)) // returns VV(-3, 0)
+         * @example
+         * VV(3, 4).projectedOn(VV(0, 1)) // returns VV(0, 4)
+         * @example
+         * VV(3, 4).projectedOn(VV(1, 1)) // returns
          */
         projectedOn(b) {
             assertInst(Vector, b);
@@ -375,10 +454,13 @@ var demo = (function (exports,chroma) {
             // https://en.wikipedia.org/wiki/Vector_projection#Vector_projection_2
             return this.minus(b.times(this.dot(b) / b.dot(b)));
         }
+        to(a) {
+            return a.minus(this);
+        }
         /**
-         Returns true iff the length() of this vector is equal to 'length', using equals
-         E.g. NLA.V(3, 4).hasLength(5) === true
-         NLA.V(1, 1).hasLength(1) === false
+         * Returns true iff the length() of this vector is equal to 'length', using equals
+         * E.g. NLA.V(3, 4).hasLength(5) === true
+         * NLA.V(1, 1).hasLength(1) === false
          */
         hasLength(length) {
             assertNumbers(length);
@@ -388,21 +470,36 @@ var demo = (function (exports,chroma) {
             //assert(this.dim() == 3)
             return new V3(this.v[0], this.v[1], this.v[2]);
         }
+        /**
+         * Project into 3 dimensions.
+         */
+        p3() {
+            assert(this.v.length == 4);
+            const w = this.v[3];
+            return new V3(this.v[0] / w, this.v[1] / w, this.v[2] / w);
+        }
+        transposed() {
+            return new Matrix(this.v.length, 1, this.v);
+        }
+    }
+    function VV(...values) {
+        return new Vector(new Float64Array(values));
     }
 
     class Matrix {
         constructor(width, height, m) {
-            assert(width * height == m.length, 'width * height == m.length', width, height, m.length);
-            this.m = m;
             this.width = width;
             this.height = height;
+            this.m = m;
+            assertInts(width, height);
+            assertf(() => 0 < width);
+            assertf(() => 0 < height);
+            assert(width * height == m.length, 'width * height == m.length', width, height, m.length);
         }
         static random(width, height) {
-            assertNumbers(width, height);
-            return Matrix.fromFunction(width, height, (i, j) => Math.random());
+            return Matrix.fromFunction(width, height, () => Math.random());
         }
         static fromFunction(width, height, f) {
-            assertNumbers(width, height);
             const m = new Float64Array(height * width);
             let elIndex = height * width;
             while (elIndex--) {
@@ -411,23 +508,29 @@ var demo = (function (exports,chroma) {
             return new Matrix(width, height, m);
         }
         static identityN(dim) {
-            assertNumbers(dim);
+            assertInts(dim);
             const m = new Float64Array(dim * dim);
             // Float64Arrays are init to 0
             let elIndex = dim * (dim + 1);
             while (elIndex) {
-                elIndex -= (dim + 1);
+                elIndex -= dim + 1;
                 m[elIndex] = 1;
             }
             return new Matrix(dim, dim, m);
         }
+        /**
+         * Create new dim x dim matrix equal to an identity matrix with rows/colums i and k swapped. Note that i and k
+         * are 0-indexed.
+         */
         static permutation(dim, i, k) {
-            assertNumbers(dim, i, k);
+            assertInts(dim, i, k);
+            assertf(() => 0 <= i && i < dim);
+            assertf(() => 0 <= k && k < dim);
             const m = new Float64Array(dim * dim);
             // Float64Array are init to 0
             let elIndex = dim * (dim + 1);
             while (elIndex) {
-                elIndex -= (dim + 1);
+                elIndex -= dim + 1;
                 m[elIndex] = 1;
             }
             m[i * dim + i] = 0;
@@ -436,32 +539,29 @@ var demo = (function (exports,chroma) {
             m[k * dim + i] = 1;
             return new Matrix(dim, dim, m);
         }
-        static fromRowArrays(...args) {
-            return Matrix.fromRowArrays2(args);
-        }
-        static fromRowArrays2(arrays) {
-            if (0 == arrays.length) {
+        static fromRowArrays(...rowArrays) {
+            if (0 == rowArrays.length) {
                 throw new Error('cannot have 0 vector');
             }
-            const height = arrays.length;
-            const width = arrays[0].length;
+            const height = rowArrays.length;
+            const width = rowArrays[0].length;
             const m = new Float64Array(height * width);
-            arrayCopy(arrays[0], 0, m, 0, width);
+            arrayCopy(rowArrays[0], 0, m, 0, width);
             for (let rowIndex = 1; rowIndex < height; rowIndex++) {
-                if (arrays[rowIndex].length != width) {
+                if (rowArrays[rowIndex].length != width) {
                     throw new Error('all row arrays must be the same length');
                 }
-                arrayCopy(arrays[rowIndex], 0, m, rowIndex * width, width);
+                arrayCopy(rowArrays[rowIndex], 0, m, rowIndex * width, width);
             }
-            return new Matrix(width, height, m);
+            return this.new(width, height, m);
         }
         static fromColVectors(colVectors) {
-            return Matrix.fromColArrays(colVectors.map((v) => v.v));
+            return Matrix.fromColArrays(...colVectors.map(v => v.v));
         }
         static forWidthHeight(width, height) {
             return new Matrix(width, height, new Float64Array(width * height));
         }
-        static fromColArrays(colArrays) {
+        static fromColArrays(...colArrays) {
             if (0 == colArrays.length) {
                 throw new Error('cannot have 0 vector');
             }
@@ -475,11 +575,20 @@ var demo = (function (exports,chroma) {
                 }
                 arrayCopyStep(colArrays[colIndex], 0, 1, m, colIndex, width, height);
             }
-            return new Matrix(width, height, m);
+            return this.new(width, height, m);
+        }
+        static product(...args) {
+            const [ms, result] = Array.isArray(args[0])
+                ? [args[0], args[1]]
+                : [args, undefined];
+            if (0 == ms.length)
+                throw new Error("Can't guess matrix size.");
+            if (1 == ms.length)
+                return Matrix.copy(ms[0], result);
+            return Matrix.copy(ms.reduce((a, b) => a.times(b)), result);
         }
         /**
          * Numerically calculate all the partial derivatives of f at x0.
-         *
          *
          * @param f
          * @param x0
@@ -499,17 +608,35 @@ var demo = (function (exports,chroma) {
             }
             return jacobi;
         }
-        e(rowIndex, colIndex) {
-            assertNumbers(rowIndex, colIndex);
-            if (rowIndex >= this.height || colIndex >= this.width) {
-                throw new Error('index ' + rowIndex + ', ' + colIndex + ' is out of bounds (' + this.width + ' x ' + this.height + ')');
+        static copy(src, result = src.new()) {
+            assertInst(Matrix, src, result);
+            assert(src.width == result.width);
+            assert(src.height == result.height);
+            assert(result != src, 'result != src');
+            const s = src.m, d = result.m;
+            let i = s.length;
+            while (i--) {
+                d[i] = s[i];
             }
+            return result;
+        }
+        static new(width, height, m) {
+            return new Matrix(width, height, m);
+        }
+        copy() {
+            return Matrix.copy(this);
+        }
+        e(rowIndex, colIndex) {
+            assertInts(rowIndex, colIndex);
+            assert(0 <= rowIndex && rowIndex < this.height, 'rowIndex out of bounds ' + rowIndex);
+            assert(0 <= colIndex && colIndex < this.width, 'colIndex out of bounds ' + colIndex);
             return this.m[rowIndex * this.width + colIndex];
         }
         setEl(rowIndex, colIndex, val) {
-            assertNumbers(rowIndex, colIndex, val);
+            assertInts(rowIndex, colIndex);
             assert(0 <= rowIndex && rowIndex < this.height, 'rowIndex out of bounds ' + rowIndex);
             assert(0 <= colIndex && colIndex < this.width, 'colIndex out of bounds ' + colIndex);
+            assertNumbers(val);
             this.m[rowIndex * this.width + colIndex] = val;
         }
         plus(m) {
@@ -530,14 +657,16 @@ var demo = (function (exports,chroma) {
                 r.m[i] = this.m[i] - m.m[i];
             return r;
         }
-        scale(factor) {
+        mulScalar(scalar) {
+            assertNumbers(scalar);
             const r = this.new();
             let i = this.m.length;
             while (i--)
-                r.m[i] = this.m[i] * factor;
+                r.m[i] = this.m[i] * scalar;
             return r;
         }
         divScalar(scalar) {
+            assertNumbers(scalar);
             const r = this.new();
             let i = this.m.length;
             while (i--)
@@ -548,33 +677,42 @@ var demo = (function (exports,chroma) {
             return new Matrix(this.width, this.height, new Float64Array(this.width * this.height));
         }
         toString(f, colNames, rowNames) {
-            f = f || ((v) => v.toFixed(6));
+            f = f || (v => v.toFixed(6));
             assert(typeof f(0) == 'string', '' + typeof f(0));
             assert(!colNames || colNames.length == this.width);
             assert(!rowNames || rowNames.length == this.height);
             const rounded = Array.from(this.m).map(f);
-            const rows = arrayFromFunction(this.height, (rowIndex) => rounded.slice(rowIndex * this.width, (rowIndex + 1) * this.width)); // select matrix row
+            const rows = arrayFromFunction(this.height, rowIndex => rounded.slice(rowIndex * this.width, (rowIndex + 1) * this.width)); // select matrix row
             if (colNames) {
                 rows.unshift(Array.from(colNames));
             }
             if (rowNames) {
                 rows.forEach((row, rowIndex) => row.unshift(rowNames[rowIndex - (colNames ? 1 : 0)] || ''));
             }
-            const colWidths = arrayFromFunction(this.width, (colIndex) => rows.map(row => row[colIndex].length).max());
-            return rows.map((row, rowIndex) => row.map((x, colIndex) => {
+            const colWidths = arrayFromFunction(this.width, colIndex => rows.map(row => row[colIndex].length).max());
+            return rows
+                .map((row, rowIndex) => row
+                .map((x, colIndex) => {
                 // pad numbers with spaces to col width
-                const padder = rowIndex == 0 && colNames || colIndex == 0 && rowNames
+                const padder = (rowIndex == 0 && colNames) || (colIndex == 0 && rowNames)
                     ? String.prototype.padEnd
                     : String.prototype.padStart;
                 return padder.call(x, colWidths[colIndex]);
-            }).join('  ')).map(x => x + '\n').join(''); // join rows
+            })
+                .join('  '))
+                .map(x => x + '\n')
+                .join(''); // join rows
         }
         row(rowIndex) {
+            assertInts(rowIndex);
+            assert(0 <= rowIndex && rowIndex < this.height, 'rowIndex out of bounds ' + rowIndex);
             const v = new Float64Array(this.width);
             arrayCopy(this.m, rowIndex * this.width, v, 0, this.width);
             return new Vector(v);
         }
         col(colIndex) {
+            assertInts(colIndex);
+            assert(0 <= colIndex && colIndex < this.width, 'colIndex out of bounds ' + colIndex);
             const v = new Float64Array(this.height);
             arrayCopyStep(this.m, colIndex, this.width, v, 0, 1, this.height);
             return new Vector(v);
@@ -597,10 +735,8 @@ var demo = (function (exports,chroma) {
             }
             return true;
         }
-        equalsMatrix(matrix, precision) {
-            precision = precision || NLA_PRECISION;
-            if (!(matrix instanceof Matrix))
-                throw new Error('not a matrix');
+        equalsMatrix(matrix, precision = NLA_PRECISION) {
+            assertInst(Matrix, matrix);
             if (this.width != matrix.width || this.height != matrix.height)
                 return false;
             let elIndex = this.m.length;
@@ -629,7 +765,10 @@ var demo = (function (exports,chroma) {
             return true;
         }
         isOrthogonal() {
-            return this.isSquare() && this.transposed().times(this).equalsMatrix(Matrix.identityN(this.width));
+            return (this.isSquare() &&
+                this.transposed()
+                    .times(this)
+                    .equalsMatrix(Matrix.identityN(this.width)));
         }
         /**
          * Returns L, U, P such that L * U == P * this
@@ -638,7 +777,7 @@ var demo = (function (exports,chroma) {
             assertf(() => this.isSquare(), this.dim().toSource());
             const dim = this.width;
             const uRowArrays = this.asRowArrays(Float64Array);
-            const lRowArrays = arrayFromFunction(dim, (row) => new Float64Array(dim));
+            const lRowArrays = arrayFromFunction(dim, row => new Float64Array(dim));
             const pRowArrays = Matrix.identityN(dim).asRowArrays(Float64Array);
             let currentRowIndex = 0;
             for (let colIndex = 0; colIndex < dim; colIndex++) {
@@ -677,15 +816,15 @@ var demo = (function (exports,chroma) {
                 currentRowIndex++; // this doesn't increase if pivot was zero
             }
             return {
-                L: Matrix.fromRowArrays2(lRowArrays),
-                U: Matrix.fromRowArrays2(uRowArrays),
-                P: Matrix.fromRowArrays2(pRowArrays),
+                L: Matrix.fromRowArrays(...lRowArrays),
+                U: Matrix.fromRowArrays(...uRowArrays),
+                P: Matrix.fromRowArrays(...pRowArrays),
             };
         }
         gauss() {
             const width = this.width, height = this.height;
             const uRowArrays = this.asRowArrays(Float64Array);
-            const lRowArrays = arrayFromFunction(height, (row) => new Float64Array(width));
+            const lRowArrays = arrayFromFunction(height, row => new Float64Array(width));
             const pRowArrays = Matrix.identityN(height).asRowArrays(Float64Array);
             let currentRowIndex = 0;
             for (let colIndex = 0; colIndex < width; colIndex++) {
@@ -724,12 +863,22 @@ var demo = (function (exports,chroma) {
                 currentRowIndex++; // this doesn't increase if pivot was zero
             }
             return {
-                L: Matrix.fromRowArrays2(lRowArrays),
-                U: Matrix.fromRowArrays2(uRowArrays),
-                P: Matrix.fromRowArrays2(pRowArrays),
+                L: Matrix.fromRowArrays(...lRowArrays),
+                U: Matrix.fromRowArrays(...uRowArrays),
+                P: Matrix.fromRowArrays(...pRowArrays),
             };
         }
         qrDecompositionGivensRotation() {
+            // function sigma(c: number, s: number) {
+            // 	if (0 == c) {
+            // 		return 1
+            // 	}
+            // 	if (Math.abs(s) < Math.abs(c)) {
+            // 		return 0.5 * Math.sign(c) * s
+            // 	}
+            // 	return (2 * Math.sign(s)) / c
+            // }
+            const R = this.copy();
             function matrixForCS(dim, i, k, c, s) {
                 const m = Matrix.identityN(dim);
                 m.setEl(i, i, c);
@@ -743,20 +892,20 @@ var demo = (function (exports,chroma) {
                 // find largest value in colIndex
                 for (let rowIndex = colIndex + 1; rowIndex < this.height; rowIndex++) {
                     //console.log('row ', rowIndex, 'col ', colIndex)
-                    const xi = this.e(colIndex, colIndex);
-                    const xk = this.e(rowIndex, colIndex);
+                    const xi = R.e(colIndex, colIndex);
+                    const xk = R.e(rowIndex, colIndex);
                     if (xk == 0) {
                         continue;
                     }
-                    const r = Math.sqrt(xi * xi + xk * xk);
+                    const r = Math.hypot(xi, xk);
                     const c = xi / r;
                     const s = xk / r;
                     // apply transformation on every column:
                     for (let col2 = colIndex; col2 < this.width; col2++) {
-                        const x1 = this.e(colIndex, col2) * c + this.e(rowIndex, col2) * s;
-                        const x2 = this.e(rowIndex, col2) * c - this.e(colIndex, col2) * s;
-                        this.setEl(colIndex, col2, x1);
-                        this.setEl(rowIndex, col2, x2);
+                        const x1 = R.e(colIndex, col2) * c + R.e(rowIndex, col2) * s;
+                        const x2 = R.e(rowIndex, col2) * c - R.e(colIndex, col2) * s;
+                        R.setEl(colIndex, col2, x1);
+                        R.setEl(rowIndex, col2, x2);
                     }
                     //console.log('r ', r, 'c ', c, 's ', s, 'sigma', sigma(c, s))
                     //console.log(this.toString(),'cs\n', matrixForCS(this.height, colIndex, rowIndex, c, s).toString())
@@ -765,18 +914,18 @@ var demo = (function (exports,chroma) {
             }
             //console.log(qTransposed.transposed().toString(), this.toString(),
             // qTransposed.transposed().times(this).toString())
-            return { Q: qTransposed.transposed(), R: this };
+            return { Q: qTransposed.transposed(), R };
         }
         isPermutation() {
             if (!this.isSquare())
                 return false;
-            if (this.m.some((value) => !eq0(value) && !eq(1, value)))
+            if (this.m.some(value => !eq0(value) && !eq(1, value)))
                 return false;
             const rows = this.asRowArrays(Array);
-            if (rows.some((row) => row.filter((value) => eq(1, value)).length != 1))
+            if (rows.some(row => row.filter(value => eq(1, value)).length != 1))
                 return false;
             const cols = this.asColArrays(Array);
-            if (cols.some((col) => col.filter((value) => eq(1, value)).length != 1))
+            if (cols.some(col => col.filter(value => eq(1, value)).length != 1))
                 return false;
             return true;
         }
@@ -791,8 +940,7 @@ var demo = (function (exports,chroma) {
         isIdentity(precision) {
             return this.isLowerUnitriangular(precision) && this.isUpperTriangular(precision);
         }
-        isUpperTriangular(precision) {
-            precision = 'number' == typeof precision ? precision : NLA_PRECISION;
+        isUpperTriangular(precision = NLA_PRECISION) {
             if (!this.isSquare())
                 return false;
             for (let rowIndex = 1; rowIndex < this.height; rowIndex++) {
@@ -804,21 +952,32 @@ var demo = (function (exports,chroma) {
             }
             return true;
         }
+        isSymmetric(precision = NLA_PRECISION) {
+            if (!this.isSquare())
+                return false;
+            for (let rowIndex = 0; rowIndex < this.height - 1; rowIndex++) {
+                for (let colIndex = rowIndex + 1; colIndex < this.width; colIndex++) {
+                    const a = this.m[rowIndex * this.width + colIndex];
+                    const b = this.m[colIndex * this.width + rowIndex];
+                    if (!eq(a, b, precision)) {
+                        return false;
+                    }
+                }
+            }
+            return true;
+        }
         /**
          * Returns x, so that this * x = b
          * More efficient than calculating the inverse for few (~ <= this.height) values
          */
         solveLinearSystem(b) {
-            const lup = this.luDecomposition();
-            // console.log(lup.L.toString())
-            // console.log(lup.U.toString())
-            // console.log(lup.P.toString())
-            const y = lup.L.solveForwards(lup.P.timesVector(b));
-            const x = lup.U.solveBackwards(y);
+            assertInst(Vector, b);
+            const { L, U, P } = this.luDecomposition();
+            const y = L.solveForwards(P.timesVector(b));
+            const x = U.solveBackwards(y);
             return x;
         }
-        isLowerUnitriangular(precision) {
-            precision = 'number' == typeof precision ? precision : NLA_PRECISION;
+        isLowerUnitriangular(precision = NLA_PRECISION) {
             if (!this.isSquare())
                 return false;
             for (let rowIndex = 0; rowIndex < this.height - 1; rowIndex++) {
@@ -831,12 +990,12 @@ var demo = (function (exports,chroma) {
             }
             return true;
         }
-        isLowerTriangular() {
+        isLowerTriangular(precision = NLA_PRECISION) {
             if (!this.isSquare())
                 return false;
             for (let rowIndex = 0; rowIndex < this.height - 1; rowIndex++) {
                 for (let colIndex = rowIndex + 1; colIndex < this.width; colIndex++) {
-                    if (!eq0(this.m[rowIndex * this.width + colIndex])) {
+                    if (!eq0(this.m[rowIndex * this.width + colIndex], precision)) {
                         return false;
                     }
                 }
@@ -895,11 +1054,8 @@ var demo = (function (exports,chroma) {
          */
         rank() {
             const U = this.gauss().U;
-            //console.log(R.toString())
             let rowIndex = this.height;
-            while (rowIndex-- && U.row(rowIndex).isZero()) {
-                console.log('RANK' + U.row(rowIndex).toString() + U.row(rowIndex).isZero());
-            }
+            while (rowIndex-- && U.row(rowIndex).isZero()) { }
             return rowIndex + 1;
         }
         rowsIndependent() {
@@ -908,39 +1064,26 @@ var demo = (function (exports,chroma) {
         colsIndependent() {
             return this.width == this.rank();
         }
-        asRowArrays(arrayConstructor) {
-            arrayConstructor = arrayConstructor || Float64Array;
-            let rowIndex = this.height;
-            const result = new Array(this.height);
-            while (rowIndex--) {
-                result[rowIndex] = this.rowArray(rowIndex, arrayConstructor);
-            }
-            return result;
+        asRowArrays(arrayConstructor = Float64Array) {
+            return arrayFromFunction(this.height, rowIndex => this.rowArray(rowIndex, arrayConstructor));
         }
-        asColArrays(arrayConstructor) {
-            arrayConstructor = arrayConstructor || Float64Array;
-            let colIndex = this.width;
-            const result = new Array(this.width);
-            while (colIndex--) {
-                result[colIndex] = this.colArray(colIndex, arrayConstructor);
-            }
-            return result;
+        asColArrays(arrayConstructor = Float64Array) {
+            return arrayFromFunction(this.width, colIndex => this.colArray(colIndex, arrayConstructor));
         }
-        rowArray(rowIndex, arrayConstructor) {
-            arrayConstructor = arrayConstructor || Float64Array;
+        rowArray(rowIndex, arrayConstructor = Float64Array) {
             const result = new arrayConstructor(this.width);
-            arrayCopy(this.m, rowIndex * this.width, result, 0, this.width);
+            return arrayCopy(this.m, rowIndex * this.width, result, 0, this.width);
             return result;
         }
-        colArray(colIndex, arrayConstructor) {
-            arrayConstructor = arrayConstructor || Float64Array;
+        colArray(colIndex, arrayConstructor = Float64Array) {
             const result = new arrayConstructor(this.width);
             arrayCopyStep(this.m, colIndex, this.height, result, 0, 1, this.height);
             return result;
         }
         subMatrix(firstColIndex, subWidth, firstRowIndex, subHeight) {
-            assert(firstColIndex + subWidth > this.width || firstRowIndex + subHeight > this.height);
-            const m = new Float64Array(this.height);
+            assert(0 < firstColIndex && 0 < subWidth && 0 < firstRowIndex && 0 < subHeight);
+            assert(firstColIndex + subWidth <= this.width && firstRowIndex + subHeight <= this.height);
+            const m = new Float64Array(subWidth * subHeight);
             arrayCopyBlocks(this.m, firstColIndex, this.width, m, 0, subWidth, subHeight, subWidth);
             return new Matrix(subWidth, subHeight, m);
         }
@@ -952,15 +1095,35 @@ var demo = (function (exports,chroma) {
             return this.width == matrix.width && this.height == matrix.height;
         }
         inversed() {
-            const lup = this.luDecomposition();
-            const y = lup.L.solveForwardsMatrix(lup.P);
-            console.log(y);
-            const inverse = lup.U.solveBackwardsMatrix(y);
+            if (this.isSquare()) {
+                if (2 == this.width)
+                    return this.inversed2();
+                if (3 == this.width)
+                    return this.inversed3();
+                if (4 == this.width)
+                    return this.inversed4();
+            }
+            const { L, U, P } = this.luDecomposition();
+            const y = L.solveForwardsMatrix(P);
+            const inverse = U.solveBackwardsMatrix(y);
             return inverse;
         }
-        inversed3() {
+        inversed2() {
+            assertf(() => 2 == this.width && 2 == this.height);
+            const result = Matrix.forWidthHeight(2, 2), m = this.m, r = result.m;
+            const det = m[0] * m[3] - m[1] * r[2];
+            r[0] = m[3] / det;
+            r[1] = -m[2] / det;
+            r[2] = -m[1] / det;
+            r[3] = m[0] / det;
+            return result;
+        }
+        inversed3(result = Matrix.forWidthHeight(3, 3)) {
+            assertInst(Matrix, result);
             assertf(() => 3 == this.width && 3 == this.height);
-            const result = Matrix.forWidthHeight(3, 3), m = this.m, r = result.m;
+            assertf(() => 3 == result.width && 3 == result.height);
+            assert(() => this != result);
+            const m = this.m, r = result.m;
             r[0] = m[4] * m[8] - m[5] * m[7];
             r[1] = -m[1] * m[8] + m[2] * m[7];
             r[2] = m[1] * m[5] - m[2] * m[4];
@@ -977,14 +1140,56 @@ var demo = (function (exports,chroma) {
             }
             return result;
         }
-        inversed2() {
-            assertf(() => 2 == this.width && 2 == this.height);
-            const result = Matrix.forWidthHeight(2, 2), m = this.m, r = result.m;
-            const det = m[0] * m[3] - m[1] * r[2];
-            r[0] = m[3] / det;
-            r[1] = -m[2] / det;
-            r[2] = -m[1] / det;
-            r[3] = m[0] / det;
+        // prettier-ignore
+        inversed4(result = Matrix.forWidthHeight(4, 4)) {
+            assertInst(Matrix, result);
+            assertf(() => 4 == this.width && 4 == this.height);
+            assertf(() => 4 == result.width && 4 == result.height);
+            assert(() => this != result);
+            const m = this.m, r = result.m;
+            // first compute transposed cofactor matrix:
+            // cofactor of an element is the determinant of the 3x3 matrix gained by removing the column and row belonging
+            // to the element
+            r[0] = m[5] * m[10] * m[15] - m[5] * m[14] * m[11] - m[6] * m[9] * m[15]
+                + m[6] * m[13] * m[11] + m[7] * m[9] * m[14] - m[7] * m[13] * m[10];
+            r[1] = -m[1] * m[10] * m[15] + m[1] * m[14] * m[11] + m[2] * m[9] * m[15]
+                - m[2] * m[13] * m[11] - m[3] * m[9] * m[14] + m[3] * m[13] * m[10];
+            r[2] = m[1] * m[6] * m[15] - m[1] * m[14] * m[7] - m[2] * m[5] * m[15]
+                + m[2] * m[13] * m[7] + m[3] * m[5] * m[14] - m[3] * m[13] * m[6];
+            r[3] = -m[1] * m[6] * m[11] + m[1] * m[10] * m[7] + m[2] * m[5] * m[11]
+                - m[2] * m[9] * m[7] - m[3] * m[5] * m[10] + m[3] * m[9] * m[6];
+            r[4] = -m[4] * m[10] * m[15] + m[4] * m[14] * m[11] + m[6] * m[8] * m[15]
+                - m[6] * m[12] * m[11] - m[7] * m[8] * m[14] + m[7] * m[12] * m[10];
+            r[5] = m[0] * m[10] * m[15] - m[0] * m[14] * m[11] - m[2] * m[8] * m[15]
+                + m[2] * m[12] * m[11] + m[3] * m[8] * m[14] - m[3] * m[12] * m[10];
+            r[6] = -m[0] * m[6] * m[15] + m[0] * m[14] * m[7] + m[2] * m[4] * m[15]
+                - m[2] * m[12] * m[7] - m[3] * m[4] * m[14] + m[3] * m[12] * m[6];
+            r[7] = m[0] * m[6] * m[11] - m[0] * m[10] * m[7] - m[2] * m[4] * m[11]
+                + m[2] * m[8] * m[7] + m[3] * m[4] * m[10] - m[3] * m[8] * m[6];
+            r[8] = m[4] * m[9] * m[15] - m[4] * m[13] * m[11] - m[5] * m[8] * m[15]
+                + m[5] * m[12] * m[11] + m[7] * m[8] * m[13] - m[7] * m[12] * m[9];
+            r[9] = -m[0] * m[9] * m[15] + m[0] * m[13] * m[11] + m[1] * m[8] * m[15]
+                - m[1] * m[12] * m[11] - m[3] * m[8] * m[13] + m[3] * m[12] * m[9];
+            r[10] = m[0] * m[5] * m[15] - m[0] * m[13] * m[7] - m[1] * m[4] * m[15]
+                + m[1] * m[12] * m[7] + m[3] * m[4] * m[13] - m[3] * m[12] * m[5];
+            r[11] = -m[0] * m[5] * m[11] + m[0] * m[9] * m[7] + m[1] * m[4] * m[11]
+                - m[1] * m[8] * m[7] - m[3] * m[4] * m[9] + m[3] * m[8] * m[5];
+            r[12] = -m[4] * m[9] * m[14] + m[4] * m[13] * m[10] + m[5] * m[8] * m[14]
+                - m[5] * m[12] * m[10] - m[6] * m[8] * m[13] + m[6] * m[12] * m[9];
+            r[13] = m[0] * m[9] * m[14] - m[0] * m[13] * m[10] - m[1] * m[8] * m[14]
+                + m[1] * m[12] * m[10] + m[2] * m[8] * m[13] - m[2] * m[12] * m[9];
+            r[14] = -m[0] * m[5] * m[14] + m[0] * m[13] * m[6] + m[1] * m[4] * m[14]
+                - m[1] * m[12] * m[6] - m[2] * m[4] * m[13] + m[2] * m[12] * m[5];
+            r[15] = m[0] * m[5] * m[10] - m[0] * m[9] * m[6] - m[1] * m[4] * m[10]
+                + m[1] * m[8] * m[6] + m[2] * m[4] * m[9] - m[2] * m[8] * m[5];
+            // calculate determinant using laplace expansion (cf https://en.wikipedia.org/wiki/Laplace_expansion),
+            // as we already have the cofactors. We multiply a column by a row as the cofactor matrix is transposed.
+            const det = m[0] * r[0] + m[1] * r[4] + m[2] * r[8] + m[3] * r[12];
+            // assert(!isZero(det), 'det may not be zero, i.e. the matrix is not invertible')
+            let i = 16;
+            while (i--) {
+                r[i] /= det;
+            }
             return result;
         }
         canMultiply(matrix) {
@@ -1047,7 +1252,6 @@ var demo = (function (exports,chroma) {
             while (tRowIndex--) {
                 let tColIndex = Math.min(tRowIndex, w);
                 while (tColIndex--) {
-                    console.log('col', tColIndex, 'row', tRowIndex);
                     const temp = tM[tRowIndex * w + tColIndex];
                     tM[tRowIndex * w + tColIndex] = tM[tColIndex * h + tRowIndex];
                     tM[tColIndex * h + tRowIndex] = temp;
@@ -1144,6 +1348,7 @@ var demo = (function (exports,chroma) {
         }
         getDependentRowIndexes(gauss = this.gauss()) {
             const { L, U, P } = gauss;
+            // rows which end up as zero vectors in U are not linearly independent
             const dependents = new Array(this.height);
             let uRowIndex = this.height;
             while (uRowIndex--) {
@@ -1155,6 +1360,7 @@ var demo = (function (exports,chroma) {
                     break;
                 }
             }
+            // figure out from which other rows the rows which end up as zero vectors are created by
             let lRowIndex = this.height;
             while (lRowIndex--) {
                 if (dependents[lRowIndex]) {
@@ -1170,13 +1376,24 @@ var demo = (function (exports,chroma) {
             console.log('L\n', L.toString(x => '' + x));
             console.log('U\n', U.toString(x => '' + x));
             console.log('P\n', P.toString(x => '' + x));
+            // gauss algorithm permutes the order of the rows, so map our results back to the original indices
             const indexMap = P.permutationAsIndexMap();
             const dependentRowIndexes = dependents.map((b, index) => b && indexMap[index]).filter(x => x != undefined);
             return dependentRowIndexes;
         }
+        lerp(b, t, result = this.new()) {
+            assertInst(Matrix, b, result);
+            assertNumbers(t);
+            assert(this.width == b.width && this.height == b.height);
+            const s = 1 - t;
+            let i = this.m.length;
+            while (i--) {
+                result.m[i] = s * this.m[i] + t * b.m[i];
+            }
+            return result;
+        }
     }
-
-    const { abs, PI, sign } = Math;
+    const PI = Math.PI;
     const TAU = 2 * PI;
     /** @define {boolean} */
     const NLA_DEBUG = true;
@@ -1187,7 +1404,12 @@ var demo = (function (exports,chroma) {
         {
             for (let i = 0; i < arguments.length; i++) {
                 if (!(arguments[i] instanceof V3 || arguments[i] instanceof Vector)) {
-                    throw new Error('assertVectors arguments[' + (i) + '] is not a vector. ' + typeof arguments[i] + ' == typeof ' + arguments[i]);
+                    throw new Error('assertVectors arguments[' +
+                        i +
+                        '] is not a vector. ' +
+                        typeof arguments[i] +
+                        ' == typeof ' +
+                        arguments[i]);
                 }
             }
         }
@@ -1197,7 +1419,13 @@ var demo = (function (exports,chroma) {
         {
             for (let i = 0; i < objs.length; i++) {
                 if (!(objs[i] instanceof what)) {
-                    throw new Error('assertInst objs[' + (i) + '] is not a ' + what.prototype.name + '. ' + objs[i].constructor.name + objs[i]);
+                    throw new Error('assertInst objs[' +
+                        i +
+                        '] is not a ' +
+                        what.prototype.name +
+                        '. ' +
+                        objs[i].constructor.name +
+                        objs[i]);
                 }
             }
         }
@@ -1207,7 +1435,17 @@ var demo = (function (exports,chroma) {
         {
             for (let i = 0; i < numbers.length; i++) {
                 if ('number' !== typeof numbers[i]) {
-                    throw new Error('assertNumbers arguments[' + (i) + '] is not a number. ' + typeof numbers[i] + ' == typeof ' + numbers[i]);
+                    throw new Error(`assertNumbers arguments[${i}] is not a number. ${typeof numbers[i]} == typeof ${numbers[i]}`);
+                }
+            }
+        }
+        return true;
+    }
+    function assertInts(...numbers) {
+        {
+            for (let i = 0; i < numbers.length; i++) {
+                if ('number' !== typeof numbers[i] || numbers[i] % 1 !== 0) {
+                    throw new Error(`assertNumbers arguments[${i}] is not an int. ${typeof numbers[i]} == typeof ${numbers[i]}`);
                 }
             }
         }
@@ -1215,15 +1453,16 @@ var demo = (function (exports,chroma) {
     }
     function assert(value, ...messages) {
         if (!value) {
-            throw new Error('assert failed: '
-                + messages.map(message => ('function' === typeof message ? message() : message || '')).join('\n'));
+            throw new Error('assert failed: ' +
+                messages.map(message => ('function' === typeof message ? message() : message || '')).join('\n'));
         }
         return true;
     }
     function assertf(f, ...messages) {
         if (!f()) {
-            throw new Error('assertf failed: ' + f.toString()
-                + messages.map(message => ('function' === typeof message ? message() : message || '')).join('\n'));
+            throw new Error('assertf failed: ' +
+                f.toString() +
+                messages.map(message => ('function' === typeof message ? message() : message || '')).join('\n'));
         }
     }
     function lerp(a, b, t) {
@@ -1261,52 +1500,63 @@ var demo = (function (exports,chroma) {
         }
         // Shift
         let vs = value.toString().split('e');
-        value = f(+(vs[0] + 'e' + (vs[1] ? (+vs[1] - exp) : -exp)));
+        value = f(+(vs[0] + 'e' + (vs[1] ? +vs[1] - exp : -exp)));
         // Shift back
         vs = value.toString().split('e');
-        return +(vs[0] + 'e' + (vs[1] ? (+vs[1] + exp) : exp));
+        return +(vs[0] + 'e' + (vs[1] ? +vs[1] + exp : exp));
     }
     const round10 = decimalAdjust.bind(undefined, Math.round);
     const floor10 = decimalAdjust.bind(undefined, Math.floor);
     const ceil10 = decimalAdjust.bind(undefined, Math.ceil);
-    function repeatString(count, str) {
-        if (count == 0) {
-            return '';
-        }
-        count *= str.length;
-        const halfCharLength = count / 2;
-        let result = str;
-        // double the input until it is long enough.
-        while (result.length <= halfCharLength) {
-            result += result;
-        }
-        // use substring to hit the precise length target without
-        // using extra memory
-        return result + result.substring(0, count - result.length);
-    }
     function arraySwap(arr, i, j) {
         const temp = arr[i];
         arr[i] = arr[j];
         arr[j] = temp;
     }
     function arrayCopy(src, sstart, dst, dstart, length) {
+        assertInts(sstart, dstart, length);
         dstart += length;
         length += sstart;
         while (length-- > sstart) {
             dst[--dstart] = src[length];
         }
+        return dst;
     }
     function clamp(val, min, max) {
         assertNumbers(val, min, max);
         return Math.max(min, Math.min(max, val));
     }
+    /**
+     * Copies a number of items from one array to another, with a definable step size between items in the source and
+     * destination array.
+     *
+     * @param src The source array.
+     * @param sstart The location of the first item in the source array.
+     * @param sstep The offset between items in the source array.
+     * @param dst The destination array.
+     * @param dstart The location of the first item in the destination array.
+     * @param dstep The offset between items in the destination array.
+     * @param count The number of items to copy.
+     */
     function arrayCopyStep(src, sstart, sstep, dst, dstart, dstep, count) {
         let srcIndex = sstart + count * sstep;
         let dIndex = dstart + count * dstep;
         while (srcIndex > sstart) {
-            dst[dIndex -= dstep] = src[srcIndex -= sstep];
+            dst[(dIndex -= dstep)] = src[(srcIndex -= sstep)];
         }
     }
+    /**
+     * Copies a number of contiguous, evenly-spaced blocks from one array to another.
+     *
+     * @param src The source array.
+     * @param sstart The start of the first block in the source array.
+     * @param sstep The offset from the start of one block to the start of the next block in the source array.
+     * @param dst The destination array.
+     * @param dstart The start of the first block in the destination array.
+     * @param dstep The offset from the start of one block to the start of the next block in the destination array.
+     * @param blockSize The length of one block.
+     * @param blockCount The number of blocks to copy.
+     */
     function arrayCopyBlocks(src, sstart, sstep, dst, dstart, dstep, blockSize, blockCount) {
         for (let i = 0; i < blockCount; i++) {
             arrayCopy(src, sstart + sstep * i, dst, dstart + dstep * i, blockSize);
@@ -1318,33 +1568,30 @@ var demo = (function (exports,chroma) {
         const a = new Array(length);
         let elIndex = length;
         while (elIndex--) {
-            a[elIndex] = f(elIndex);
+            a[elIndex] = f(elIndex, length);
         }
         return a;
     }
-    function addOwnProperties(target, props) {
+    function addOwnProperties(target, props, ...exclude) {
         Object.getOwnPropertyNames(props).forEach(key => {
             //console.log(props, key)
-            if (target.hasOwnProperty(key)) {
-                console.warn('target ', target, ' already has property ', key, target[key]);
+            if (!exclude.includes(key)) {
+                if (target.hasOwnProperty(key)) {
+                    console.warn('target ', target, ' already has property ', key, target[key]);
+                }
+                Object.defineProperty(target, key, Object.getOwnPropertyDescriptor(props, key));
             }
-            Object.defineProperty(target, key, Object.getOwnPropertyDescriptor(props, key));
         });
     }
-    //function defineClass(name, parent, constructor, props, statics) {
-    //	assertf(() => 'function' == typeof constructor, 'function' == typeof constructor)
-    //	constructor.prototype = defineObject(parent && parent.prototype, props)
-    //	constructor.prototype.constructor = constructor
-    //	Object.defineProperty(constructor.prototype, 'name', {value: name})
-    //	statics && addOwnProperties(constructor, statics)
-    //	return constructor
-    //}
     let defaultRoundFunction = (x) => x; // Math.round10(x, -4)
     const MINUS = (a, b) => a - b;
     function floatHashCode(f) {
         return ~~(f * (1 << 28));
     }
-    const DEG = .017453292519943295;
+    /**
+     * One degree in radians. Use like Math.sin(30 * DEG).
+     */
+    const DEG = 0.017453292519943295;
     function time(f) {
         const start = performance.now();
         f();
@@ -1377,6 +1624,41 @@ var demo = (function (exports,chroma) {
         assert(resultLength == index);
         return result;
     };
+    Array.prototype.splicePure = function (start = 0, deleteCount = 0, ...items) {
+        const arrayLength = this.length;
+        const _deleteCount = deleteCount < 0 ? 0 : deleteCount;
+        let _start;
+        if (start < 0) {
+            if (Math.abs(start) > arrayLength) {
+                _start = 0;
+            }
+            else {
+                _start = arrayLength + start;
+            }
+        }
+        else if (start > arrayLength) {
+            _start = arrayLength;
+        }
+        else {
+            _start = start;
+        }
+        const newLength = this.length - _deleteCount + items.length;
+        const result = new Array(newLength);
+        let dst = newLength;
+        let src = this.length;
+        while (src-- > _start + _deleteCount) {
+            result[--dst] = this[src];
+        }
+        src = items.length;
+        while (src--) {
+            result[--dst] = items[src];
+        }
+        src = _start;
+        while (src--) {
+            result[--dst] = items[src];
+        }
+        return result;
+    };
     Array.prototype.equals = function (obj) {
         if (this === obj)
             return true;
@@ -1385,18 +1667,29 @@ var demo = (function (exports,chroma) {
         if (this.length !== obj.length)
             return false;
         for (let i = 0; i < this.length; i++) {
-            if (!this[i].equals(obj[i]))
+            if (!equals(this[i], obj[i]))
                 return false;
         }
         return true;
     };
+    function equals(a, b) {
+        return 'object' === typeof a ? a.equals(b) : a === b;
+    }
     Array.prototype.hashCode = function () {
-        let hashCode = 0;
+        let result = 0;
         for (let i = 0; i < this.length; i++) {
-            hashCode = hashCode * 31 + this[i].hashCode() | 0;
+            result = (result * 31 + hashCode(this[i])) | 0;
         }
-        return hashCode | 0;
+        return result | 0;
     };
+    function hashCode(o) {
+        if ('number' === typeof o || undefined === o) {
+            return o | 0;
+        }
+        else {
+            return null === o ? 0 : o.hashCode();
+        }
+    }
     Array.prototype.mapFilter = function (f) {
         const length = this.length, result = [];
         for (let i = 0; i < length; i++) {
@@ -1467,8 +1760,8 @@ var demo = (function (exports,chroma) {
         return result;
     };
     /**
-     Returns the sum of the absolute values of the components of this vector.
-     E.g. V(1, -2, 3) === abs(1) + abs(-2) + abs(3) === 1 + 2 + 3 === 6
+     * Returns the sum of the absolute values of the components of this vector.
+     * E.g. V(1, -2, 3) === abs(1) + abs(-2) + abs(3) === 1 + 2 + 3 === 6
      */
     Array.prototype.absSum = function () {
         let i = this.length;
@@ -1570,7 +1863,7 @@ var demo = (function (exports,chroma) {
         let currentIndex;
         let currentElement;
         while (minIndex <= maxIndex) {
-            currentIndex = (minIndex + maxIndex) / 2 | 0;
+            currentIndex = ((minIndex + maxIndex) / 2) | 0;
             currentElement = this[currentIndex];
             if (cmp(currentElement, searchElement) < 0) {
                 minIndex = currentIndex + 1;
@@ -1600,6 +1893,13 @@ var demo = (function (exports,chroma) {
             }
         }
         this.splice(minIndex, 0, el);
+    };
+    Array.prototype.firstUnsorted = function (c) {
+        for (let i = 1; i < this.length; i++) {
+            if (c(this[i - 1], this[i]) > 0)
+                return i;
+        }
+        return -1;
     };
     Object.defineProperty(Array.prototype, 'last', {
         get() {
@@ -1636,17 +1936,22 @@ var demo = (function (exports,chroma) {
                 throw new Error();
         }
     }
-    Object.defineProperty(Object.prototype, 'sce', { get: function () { return this.toSource(); } });
-    Object.defineProperty(Object.prototype, 'str', { get: function () { return this.toString(); } });
-    if (!Object.prototype.toSource) {
-        Object.defineProperty(Object.prototype, 'toSource', { value: function () { return JSON.stringify(this, SCE); } });
-    }
+    Object.defineProperty(Object.prototype, 'sce', {
+        get: function () {
+            return this.toSource();
+        },
+    });
+    Object.defineProperty(Object.prototype, 'str', {
+        get: function () {
+            return this.toString();
+        },
+    });
     /**
      * solves x² + px + q = 0
      */
     function pqFormula(p, q) {
         // 4 times the discriminant:in
-        const discriminantX4 = p * p / 4 - q;
+        const discriminantX4 = (p * p) / 4 - q;
         if (discriminantX4 < -NLA_PRECISION) {
             return [];
         }
@@ -1750,8 +2055,8 @@ var demo = (function (exports,chroma) {
         static max(a, b) {
             return new V3(Math.max(a.x, b.x), Math.max(a.y, b.y), Math.max(a.z, b.z));
         }
-        static lerp(a, b, fraction) {
-            return b.minus(a).times(fraction).plus(a);
+        static lerp(a, b, t) {
+            return new V3(a.x * (1 - t) + b.x * t, a.y * (1 - t) + b.y * t, a.z * (1 - t) + b.z * t);
         }
         static fromArray(a) {
             return new V3(a[0], a[1], a[2]);
@@ -1802,7 +2107,7 @@ var demo = (function (exports,chroma) {
         static pack(v3arr, dest, srcStart = 0, destStart = 0, v3count = v3arr.length - srcStart) {
             //assert (v3arr.every(v3 => v3 instanceof V3), 'v3arr.every(v3 => v3 instanceof V3)')
             const result = dest || new Float32Array(3 * v3count); // TODO
-            assert(result.length - destStart >= v3count * 3, 'dest.length - destStart >= v3count * 3');
+            assert(result.length - destStart >= v3count * 3, 'dest.length - destStart >= v3count * 3', result.length, destStart, v3count * 3);
             let i = v3count, srcIndex = srcStart, destIndex = destStart;
             while (i--) {
                 const v = v3arr[srcIndex++];
@@ -1814,13 +2119,13 @@ var demo = (function (exports,chroma) {
         }
         static unpack(packedArray, dest, srcStart = 0, destStart = 0, v3count = (packedArray.length - srcStart) / 3) {
             //assert (v3arr.every(v3 => v3 instanceof V3), 'v3arr.every(v3 => v3 instanceof V3)')
-            const result = dest || new Array(v3count);
-            assert(result.length - destStart >= v3count, 'dest.length - destStart >= v3count');
+            dest = dest || new Array(v3count);
+            assert(dest.length - destStart >= v3count, 'dest.length - destStart >= v3count');
             let i = v3count, srcIndex = srcStart, destIndex = destStart;
             while (i--) {
-                result[destIndex++] = new V3(packedArray[srcIndex++], packedArray[srcIndex++], packedArray[srcIndex++]);
+                dest[destIndex++] = new V3(packedArray[srcIndex++], packedArray[srcIndex++], packedArray[srcIndex++]);
             }
-            return result;
+            return dest;
         }
         static packXY(v3arr, dest, srcStart = 0, destStart = 0, v3count = v3arr.length - srcStart) {
             //assert (v3arr.every(v3 => v3 instanceof V3), 'v3arr.every(v3 => v3 instanceof V3)')
@@ -1834,7 +2139,7 @@ var demo = (function (exports,chroma) {
             }
             return result;
         }
-        static unpackXY(src, dest, srcStart = 0, destStart = 0, v3count = Math.min(src.length / 2, dest && dest.length || Infinity) - destStart) {
+        static unpackXY(src, dest, srcStart = 0, destStart = 0, v3count = Math.min(src.length / 2, (dest && dest.length) || Infinity) - destStart) {
             //assert (v3arr.every(v3 => v3 instanceof V3), 'v3arr.every(v3 => v3 instanceof V3)')
             dest = dest || new Array(v3count);
             assert(dest.length - destStart >= v3count, 'dest.length - destStart >= v3count');
@@ -1863,6 +2168,21 @@ var demo = (function (exports,chroma) {
             const ab = a.to(b);
             return a.to(x).dot(ab) / ab.squared();
         }
+        get [0]() {
+            return this.x;
+        }
+        get [1]() {
+            return this.y;
+        }
+        get [2]() {
+            return this.z;
+        }
+        get u() {
+            return this.x;
+        }
+        get v() {
+            return this.y;
+        }
         perturbed(delta = NLA_PRECISION * 0.8) {
             return this.map(x => x + (Math.random() - 0.5) * delta);
         }
@@ -1873,7 +2193,7 @@ var demo = (function (exports,chroma) {
         }
         e(index) {
             assert(index >= 0 && index < 3);
-            return 0 == index ? this.x : (1 == index ? this.y : this.z);
+            return 0 == index ? this.x : 1 == index ? this.y : this.z;
         }
         negated() {
             return new V3(-this.x, -this.y, -this.z);
@@ -1933,7 +2253,7 @@ var demo = (function (exports,chroma) {
         lerp(b, t) {
             assertVectors(b);
             assertNumbers(t);
-            return this.plus(b.minus(this).times(t));
+            return V3.lerp(this, b, t);
         }
         squared() {
             return this.dot(this);
@@ -1976,10 +2296,10 @@ var demo = (function (exports,chroma) {
         }
         nonParallelVector() {
             const abs = this.abs();
-            if ((abs.x <= abs.y) && (abs.x <= abs.z)) {
+            if (abs.x <= abs.y && abs.x <= abs.z) {
                 return V3.X;
             }
-            else if ((abs.y <= abs.x) && (abs.y <= abs.z)) {
+            else if (abs.y <= abs.x && abs.y <= abs.z) {
                 return V3.Y;
             }
             else {
@@ -2000,7 +2320,7 @@ var demo = (function (exports,chroma) {
             return new V3(Math.max(this.x, b.x), Math.max(this.y, b.y), Math.max(this.z, b.z));
         }
         equals(v) {
-            return this == v || this.x == v.x && this.y == v.y && this.z == v.z;
+            return this == v || (this.x == v.x && this.y == v.y && this.z == v.z);
         }
         /**
          *
@@ -2015,11 +2335,6 @@ var demo = (function (exports,chroma) {
         cross(v) {
             return new V3(this.y * v.z - this.z * v.y, this.z * v.x - this.x * v.z, this.x * v.y - this.y * v.x);
         }
-        //noinspection JSMethodCanBeStatic
-        /**
-         * Documentation stub. You want {@link unit}
-         */
-        normalized() { throw new Error('documentation stub. use .unit()'); }
         minElement() {
             return Math.min(this.x, this.y, this.z);
         }
@@ -2072,8 +2387,7 @@ var demo = (function (exports,chroma) {
         }
         toString(roundFunction) {
             roundFunction = roundFunction || defaultRoundFunction;
-            return V3.NAMEMAP.get(this) ||
-                'V(' + [this.x, this.y, this.z].map(roundFunction).join(', ') + ')'; //+ this.id
+            return V3.NAMEMAP.get(this) || 'V(' + [this.x, this.y, this.z].map(roundFunction).join(', ') + ')'; //+ this.id
         }
         angleTo(b) {
             assert(1 == arguments.length);
@@ -2092,7 +2406,7 @@ var demo = (function (exports,chroma) {
          * (A x B) . normal1 = ||A|| * ||B|| * sin(phi) * cos(alpha)
          */
         angleRelativeNormal(vector, normal1) {
-            assertf(() => 2 == arguments.length);
+            assert(2 == arguments.length);
             assertVectors(vector, normal1);
             assertf(() => normal1.hasLength(1));
             //assert(vector.isPerpendicularTo(normal1), 'vector.isPerpendicularTo(normal1)' + vector.sce + normal1.sce)
@@ -2101,11 +2415,11 @@ var demo = (function (exports,chroma) {
             return Math.atan2(this.cross(vector).dot(normal1), this.dot(vector));
         }
         /**
-         Returns true iff this is parallel to vector, i.e. this * s == vector, where s is a pos or neg number, using equals
-         Throw a DebugError
-         if vector is not a Vector or
-         if this has a length of 0 or
-         if vector has a length of 0
+         * Returns true iff this is parallel to vector, i.e. this * s == vector, where s is a positive or negative number,
+         * using eq. Throw a DebugError
+         * - if vector is not a Vector or
+         * - if this has a length of 0 or
+         * - if vector has a length of 0
          */
         isParallelTo(vector) {
             assertVectors(vector);
@@ -2147,6 +2461,10 @@ var demo = (function (exports,chroma) {
         likeO() {
             return this.like(V3.O);
         }
+        /**
+         * eq(this.x, obj.x) && eq(this.y, obj.y) && eq(this.z, obj.z)
+         * @param obj
+         */
         like(obj) {
             if (obj === this)
                 return true;
@@ -2169,6 +2487,12 @@ var demo = (function (exports,chroma) {
             return this.div(this.length());
         }
         /**
+         * Documentation stub. You want {@link unit}
+         */
+        normalized() {
+            throw new Error('documentation stub. use .unit()');
+        }
+        /**
          * Returns a new V3 equal to this scaled so that its length is equal to newLength.
          *
          * Passing a negative newLength will flip the vector.
@@ -2178,13 +2502,14 @@ var demo = (function (exports,chroma) {
             return this.times(newLength / this.length());
         }
         /**
-         Returns a new Vector which is the projection of this vector onto the passed vector.
-         Examples
-         V(3, 4).projectedOn(V(1, 0)) // returns V(3, 0)
-         V(3, 4).projectedOn(V(2, 0)) // returns V(3, 0)
-         V(3, 4).projectedOn(V(-1, 0)) // returns V(-3, 0)
-         V(3, 4).projectedOn(V(0, 1)) // returns V(0, 4)
-         V(3, 4).projectedOn(V(1, 1)) // returns
+         * Returns a new Vector which is the projection of this vector onto the passed vector.
+         * Examples
+         *
+         * 	V(3, 4).projectedOn(V(1, 0)) // returns V(3, 0)
+         * 	V(3, 4).projectedOn(V(2, 0)) // returns V(3, 0)
+         * 	V(3, 4).projectedOn(V(-1, 0)) // returns V(-3, 0)
+         * 	V(3, 4).projectedOn(V(0, 1)) // returns V(0, 4)
+         * 	V(3, 4).projectedOn(V(1, 1)) // returns
          */
         projectedOn(b) {
             assertVectors(b);
@@ -2230,26 +2555,22 @@ var demo = (function (exports,chroma) {
             return Math.sqrt(this.dot(this) - Math.pow(this.dot(b1), 2));
         }
         /**
-         Returns true iff the length() of this vector is equal to 'length', using eq
-         E.g. V(3, 4).hasLength(5) === true
-         V(1, 1).hasLength(1) === false
+         * Returns true iff the length() of this vector is equal to 'length', using eq
+         * @example
+         * V(3, 4).hasLength(5) === true
+         * @example
+         * V(1, 1).hasLength(1) === false
          */
         hasLength(length) {
             assertNumbers(length);
             return eq(length, this.length());
         }
         /**
-         Returns the sum of the absolute values of the components of this vector.
-         E.g. V(1, -2, 3) === abs(1) + abs(-2) + abs(3) === 1 + 2 + 3 === 6
+         * Returns the sum of the absolute values of the components of this vector.
+         * E.g. V(1, -2, 3) === abs(1) + abs(-2) + abs(3) === 1 + 2 + 3 === 6
          */
         absSum() {
             return Math.abs(this.x) + Math.abs(this.y) + Math.abs(this.z);
-        }
-        /**
-         * returns max(|x|, |y|, |z|)
-         */
-        maxAbsElement() {
-            return Math.max(Math.abs(this.x), Math.abs(this.y), Math.abs(this.z));
         }
         /**
          * returns min(|x|, |y|, |z|)
@@ -2257,13 +2578,19 @@ var demo = (function (exports,chroma) {
         minAbsElement() {
             return Math.min(Math.abs(this.x), Math.abs(this.y), Math.min(this.z));
         }
+        /**
+         * returns max(|x|, |y|, |z|)
+         */
+        maxAbsElement() {
+            return Math.max(Math.abs(this.x), Math.abs(this.y), Math.abs(this.z));
+        }
         maxAbsDim() {
             const xAbs = Math.abs(this.x), yAbs = Math.abs(this.y), zAbs = Math.abs(this.z);
-            return xAbs >= yAbs ? (xAbs >= zAbs ? 0 : 2) : (yAbs >= zAbs ? 1 : 2);
+            return xAbs >= yAbs ? (xAbs >= zAbs ? 0 : 2) : yAbs >= zAbs ? 1 : 2;
         }
         minAbsDim() {
             const xAbs = Math.abs(this.x), yAbs = Math.abs(this.y), zAbs = Math.abs(this.z);
-            return xAbs < yAbs ? (xAbs < zAbs ? 0 : 2) : (yAbs < zAbs ? 1 : 2);
+            return xAbs < yAbs ? (xAbs < zAbs ? 0 : 2) : yAbs < zAbs ? 1 : 2;
         }
         withElement(dim, el) {
             assert(['x', 'y', 'z'].includes(dim), '' + dim);
@@ -2282,6 +2609,12 @@ var demo = (function (exports,chroma) {
             }
             return ~~((floatHashCode$$1(this.x) * 31 + floatHashCode$$1(this.y)) * 31 + floatHashCode$$1(this.z));
         }
+        /**
+         * as sadjkh akjhs djkahsd kjahs k skjhdakjh dkjash dkjahs kjdhas kj dhkjahsd kjahs dkjahs dkjhas kjdkajs
+         * hdkljhfkjahdslfghal dasd
+         *
+         * * asdjklas dasds
+         */
         hashCodes() {
             //function floatHashCode(f) {
             //	return ~~(f * (1 << 28))
@@ -2293,7 +2626,7 @@ var demo = (function (exports,chroma) {
             // the other 7 can be calculated by adding constants
             const xHC = ~~(this.x * (1 << 28) - 0.5), yHC = ~~(this.y * (1 << 28) - 0.5), zHC = ~~(this.z * (1 << 28) - 0.5), hc = ~~((xHC * 31 + yHC) * 31 + zHC);
             return [
-                ~~(hc),
+                ~~hc,
                 ~~(hc + 961),
                 ~~(hc + 31),
                 ~~(hc + 31 + 961),
@@ -2360,18 +2693,6 @@ var demo = (function (exports,chroma) {
         .set(V3.Z, 'V3.Z')
         .set(V3.XYZ, 'V3.XYZ')
         .set(V3.INF, 'V3.INF');
-    /**
-     * Utility method for creating V3s
-     *
-     * Example usage:
-     *
-     *     V(1, 2, 3)
-     *     V([1, 2, 3])
-     *     V({ x: 1, y: 2, z: 3 })
-     *     V(1, 2) * assumes z=0
-     *     V([1, 2]) // assumes z=0
-     *
-     */
     function V(a, b, c) {
         if (arguments.length == 3) {
             return new V3(parseFloat(a), parseFloat(b), parseFloat(c));
@@ -2380,7 +2701,7 @@ var demo = (function (exports,chroma) {
             return new V3(parseFloat(a), parseFloat(b), 0);
         }
         else if (arguments.length == 1) {
-            if (typeof (a) == 'object') {
+            if (typeof a == 'object') {
                 if (a instanceof V3) {
                     // immutable, so
                     return a;
@@ -2393,7 +2714,7 @@ var demo = (function (exports,chroma) {
                         return new V3(parseFloat(a[0]), parseFloat(a[1]), parseFloat(a[2]));
                     }
                 }
-                else if (('x' in a) && ('y' in a)) {
+                else if ('x' in a && 'y' in a) {
                     return new V3(parseFloat(a.x), parseFloat(a.y), 'z' in a ? parseFloat(a.z) : 0);
                 }
             }
@@ -2455,6 +2776,7 @@ var demo = (function (exports,chroma) {
             //return this.transform(M4.eulerZXZ(alpha, beta, gamma))
         }
         shearX(y, z) {
+            // prettier-ignore
             return this.transform(new M4([
                 1, y, z, 0,
                 0, 1, 0, 0,
@@ -2484,6 +2806,7 @@ var demo = (function (exports,chroma) {
     }
 
     const { PI: PI$1, abs: abs$1 } = Math;
+    // tslint:enable:member-ordering
     class M4 extends Matrix {
         /**
          * Takes 16 arguments in row-major order, which can be passed individually, as a list, or even as
@@ -2496,22 +2819,10 @@ var demo = (function (exports,chroma) {
             }
             else {
                 const flattened = Array.prototype.concat.apply([], arguments);
-                assert(flattened.length == 16, 'flattened.length == 16' + flattened.length);
+                assert(flattened.length == 16, 'flattened.length == 16 ' + flattened.length);
                 m = new Float64Array(flattened);
             }
             super(4, 4, m);
-        }
-        get X() {
-            return this.transformVector(V3.X);
-        }
-        get Y() {
-            return this.transformVector(V3.Y);
-        }
-        get Z() {
-            return this.transformVector(V3.Z);
-        }
-        get O() {
-            return this.transformPoint(V3.O);
         }
         /**
          * Returns the matrix that when multiplied with `matrix` results in the
@@ -2519,50 +2830,33 @@ var demo = (function (exports,chroma) {
          * to avoid allocating a new matrix. This implementation is from the Mesa
          * OpenGL function `__gluInvertMatrixd()` found in `project.c`.
          */
-        static inverse(matrix, result) {
-            assertInst(M4, matrix);
-            !result || assertInst(M4, result);
-            assert(matrix != result, 'matrix != result');
-            result = result || new M4();
-            const m = matrix.m, r = result.m;
-            // first compute transposed cofactor matrix:
-            // cofactor of an element is the determinant of the 3x3 matrix gained by removing the column and row belonging
-            // to the element
-            r[0] = m[5] * m[10] * m[15] - m[5] * m[14] * m[11] - m[6] * m[9] * m[15] + m[6] * m[13] * m[11] + m[7] * m[9] * m[14] - m[7] * m[13] * m[10];
-            r[1] = -m[1] * m[10] * m[15] + m[1] * m[14] * m[11] + m[2] * m[9] * m[15] - m[2] * m[13] * m[11] - m[3] * m[9] * m[14] + m[3] * m[13] * m[10];
-            r[2] = m[1] * m[6] * m[15] - m[1] * m[14] * m[7] - m[2] * m[5] * m[15] + m[2] * m[13] * m[7] + m[3] * m[5] * m[14] - m[3] * m[13] * m[6];
-            r[3] = -m[1] * m[6] * m[11] + m[1] * m[10] * m[7] + m[2] * m[5] * m[11] - m[2] * m[9] * m[7] - m[3] * m[5] * m[10] + m[3] * m[9] * m[6];
-            r[4] = -m[4] * m[10] * m[15] + m[4] * m[14] * m[11] + m[6] * m[8] * m[15] - m[6] * m[12] * m[11] - m[7] * m[8] * m[14] + m[7] * m[12] * m[10];
-            r[5] = m[0] * m[10] * m[15] - m[0] * m[14] * m[11] - m[2] * m[8] * m[15] + m[2] * m[12] * m[11] + m[3] * m[8] * m[14] - m[3] * m[12] * m[10];
-            r[6] = -m[0] * m[6] * m[15] + m[0] * m[14] * m[7] + m[2] * m[4] * m[15] - m[2] * m[12] * m[7] - m[3] * m[4] * m[14] + m[3] * m[12] * m[6];
-            r[7] = m[0] * m[6] * m[11] - m[0] * m[10] * m[7] - m[2] * m[4] * m[11] + m[2] * m[8] * m[7] + m[3] * m[4] * m[10] - m[3] * m[8] * m[6];
-            r[8] = m[4] * m[9] * m[15] - m[4] * m[13] * m[11] - m[5] * m[8] * m[15] + m[5] * m[12] * m[11] + m[7] * m[8] * m[13] - m[7] * m[12] * m[9];
-            r[9] = -m[0] * m[9] * m[15] + m[0] * m[13] * m[11] + m[1] * m[8] * m[15] - m[1] * m[12] * m[11] - m[3] * m[8] * m[13] + m[3] * m[12] * m[9];
-            r[10] = m[0] * m[5] * m[15] - m[0] * m[13] * m[7] - m[1] * m[4] * m[15] + m[1] * m[12] * m[7] + m[3] * m[4] * m[13] - m[3] * m[12] * m[5];
-            r[11] = -m[0] * m[5] * m[11] + m[0] * m[9] * m[7] + m[1] * m[4] * m[11] - m[1] * m[8] * m[7] - m[3] * m[4] * m[9] + m[3] * m[8] * m[5];
-            r[12] = -m[4] * m[9] * m[14] + m[4] * m[13] * m[10] + m[5] * m[8] * m[14] - m[5] * m[12] * m[10] - m[6] * m[8] * m[13] + m[6] * m[12] * m[9];
-            r[13] = m[0] * m[9] * m[14] - m[0] * m[13] * m[10] - m[1] * m[8] * m[14] + m[1] * m[12] * m[10] + m[2] * m[8] * m[13] - m[2] * m[12] * m[9];
-            r[14] = -m[0] * m[5] * m[14] + m[0] * m[13] * m[6] + m[1] * m[4] * m[14] - m[1] * m[12] * m[6] - m[2] * m[4] * m[13] + m[2] * m[12] * m[5];
-            r[15] = m[0] * m[5] * m[10] - m[0] * m[9] * m[6] - m[1] * m[4] * m[10] + m[1] * m[8] * m[6] + m[2] * m[4] * m[9] - m[2] * m[8] * m[5];
-            // calculate determinant using laplace expansion (cf https://en.wikipedia.org/wiki/Laplace_expansion),
-            // as we already have the cofactors. We multiply a column by a row as the cofactor matrix is transposed.
-            const det = m[0] * r[0] + m[1] * r[4] + m[2] * r[8] + m[3] * r[12];
-            // assert(!isZero(det), 'det may not be zero, i.e. the matrix is not invertible')
-            let i = 16;
-            while (i--) {
-                r[i] /= det;
-            }
+        static inverse(matrix, result = new M4()) {
+            return matrix.inversed4(result);
+        }
+        /**
+         * Create new dim x dim matrix equal to an identity matrix with rows/colums i and k swapped. Note that i and k
+         * are 0-indexed.
+         */
+        static permutation4(i, k, result = new M4()) {
+            assertInts(i, k);
+            assertf(() => 0 <= i && i < 4);
+            assertf(() => 0 <= k && k < 4);
+            const m = result.m;
+            M4.identity(result);
+            m[i * 4 + i] = 0;
+            m[k * 4 + k] = 0;
+            m[i * 4 + k] = 1;
+            m[k * 4 + i] = 1;
             return result;
         }
         /**
          * Returns `matrix`, exchanging columns for rows. You can optionally pass an
          * existing matrix in `result` to avoid allocating a new matrix.
          */
-        static transpose(matrix, result) {
+        static transpose(matrix, result = new M4()) {
             assertInst(M4, matrix);
-            !result || assertInst(M4, result);
+            assertInst(M4, result);
             assert(matrix != result, 'matrix != result');
-            result = result || new M4();
             const m = matrix.m, r = result.m;
             r[0] = m[0];
             r[1] = m[4];
@@ -2585,12 +2879,11 @@ var demo = (function (exports,chroma) {
         /**
          * Returns the concatenation of the transforms for `left` and `right`.
          */
-        static multiply(left, right, result) {
+        static multiply(left, right, result = new M4()) {
             assertInst(M4, left, right);
-            !result || assertInst(M4, result);
+            assertInst(M4, result);
             assert(left != result, 'left != result');
             assert(right != result, 'right != result');
-            result = result || new M4();
             const a = left.m, b = right.m, r = result.m;
             r[0] = a[0] * b[0] + a[1] * b[4] + (a[2] * b[8] + a[3] * b[12]);
             r[1] = a[0] * b[1] + a[1] * b[5] + (a[2] * b[9] + a[3] * b[13]);
@@ -2610,22 +2903,30 @@ var demo = (function (exports,chroma) {
             r[15] = a[12] * b[3] + a[13] * b[7] + (a[14] * b[11] + a[15] * b[15]);
             return result;
         }
-        static copy(src, result = new M4()) {
-            assertInst(M4, src, result);
-            assert(result != src, 'result != src');
-            const s = src.m, d = result.m;
-            let i = 16;
-            while (i--) {
-                d[i] = s[i];
+        static product(...args) {
+            const [m4s, result] = Array.isArray(args[0]) ? [args[0], args[1]] : [args, new M4()];
+            if (0 == m4s.length)
+                return M4.identity(result);
+            if (1 == m4s.length)
+                return M4.copy(m4s[0], result);
+            if (2 == m4s.length)
+                return M4.multiply(m4s[0], m4s[1], result);
+            let a = M4.temp0, b = M4.temp1;
+            M4.multiply(m4s[0], m4s[1], a);
+            for (let i = 2; i < m4s.length - 1; i++) {
+                M4.multiply(a, m4s[i], b);
+                [a, b] = [b, a];
             }
-            return result;
+            return M4.multiply(a, m4s.last, result);
         }
         static forSys(e0, e1, e2 = e0.cross(e1), origin = V3.O) {
             assertVectors(e0, e1, e2, origin);
+            // prettier-ignore
             return new M4(e0.x, e1.x, e2.x, origin.x, e0.y, e1.y, e2.y, origin.y, e0.z, e1.z, e2.z, origin.z, 0, 0, 0, 1);
         }
         static forRows(n0, n1, n2, n3 = V3.O) {
             assertVectors(n0, n1, n2, n3);
+            // prettier-ignore
             return new M4(n0.x, n0.y, n0.z, 0, n1.x, n1.y, n1.z, 0, n2.x, n2.y, n2.z, 0, n3.x, n3.y, n3.z, 1);
         }
         /**
@@ -2659,15 +2960,12 @@ var demo = (function (exports,chroma) {
             return result;
         }
         /**
-         ### GL.Matrix.perspective(fov, aspect, near, far[, result])
-
-         */
-        /**
-         * ## hjghfhg jhg hjg jhkg jhg jkh jhg jh gjh {@see V3.O}
+         * Returns a perspective transform matrix, which makes far away objects appear smaller than nearby objects. The
+         * `aspect` argument should be the width divided by the height of your viewport and `fov` is the top-to-bottom angle
+         * of the field of view in degrees. You can optionally pass an existing matrix in `result` to avoid allocating a new
+         * matrix. This emulates the OpenGL function `gluPerspective()`.
          * {@see perspectiveRad}
          * perspectiveRad
-         * ```
-         *  test ```
          * @param fovDegrees in degrees
          * @param aspect aspect ratio = width/height of viewport
          */
@@ -2681,26 +2979,46 @@ var demo = (function (exports,chroma) {
             const x = y * aspect;
             return M4.frustum(-x, x, -y, y, near, far, result);
         }
+        static perspectivePlane(vanishingPlane, result = new M4()) {
+            assertInst(M4, result);
+            const m = result.m;
+            m[0] = 1;
+            m[1] = 0;
+            m[2] = 0;
+            m[3] = 0;
+            m[4] = 0;
+            m[5] = 1;
+            m[6] = 0;
+            m[7] = 0;
+            m[8] = 0;
+            m[9] = 0;
+            m[10] = 1;
+            m[11] = 0;
+            m[12] = vanishingPlane.normal1.x;
+            m[13] = vanishingPlane.normal1.y;
+            m[14] = vanishingPlane.normal1.z;
+            m[15] = -vanishingPlane.w;
+            return result;
+        }
         // the OpenGL function `glFrustum()`.
-        static frustum(left, right, bottom, top, near, far, result) {
+        static frustum(left, right, bottom, top, near, far, result = new M4()) {
             assertNumbers(left, right, bottom, top, near, far);
             assert(0 < near, '0 < near');
             assert(near < far, 'near < far');
-            !result || assertInst(M4, result);
-            result = result || new M4();
+            assertInst(M4, result);
             const m = result.m;
-            m[0] = 2 * near / (right - left);
+            m[0] = (2 * near) / (right - left);
             m[1] = 0;
             m[2] = (right + left) / (right - left);
             m[3] = 0;
             m[4] = 0;
-            m[5] = 2 * near / (top - bottom);
+            m[5] = (2 * near) / (top - bottom);
             m[6] = (top + bottom) / (top - bottom);
             m[7] = 0;
             m[8] = 0;
             m[9] = 0;
             m[10] = -(far + near) / (far - near);
-            m[11] = -2 * far * near / (far - near);
+            m[11] = (-2 * far * near) / (far - near);
             m[12] = 0;
             m[13] = 0;
             m[14] = -1;
@@ -2736,7 +3054,7 @@ var demo = (function (exports,chroma) {
         }
         /**
          * Orthographic/orthogonal projection. Transforms the cuboid with the dimensions X: [left right] Y: [bottom, top]
-         * Z: [near far] to the cuboid X: [-1 1] Y [-1 1] Z [-1, 1]
+         * Z: [near far] to the cuboid X: [-1, 1] Y [-1, 1] Z [-1, 1]
          */
         static ortho(left, right, bottom, top, near, far, result = new M4()) {
             assertNumbers(left, right, bottom, top, near, far);
@@ -2876,11 +3194,9 @@ var demo = (function (exports,chroma) {
          * You can optionally pass an existing matrix in `result` to avoid allocating
          * a new matrix. This emulates the OpenGL function `gluLookAt()`.
          */
-        static lookAt(eye, focus, up, result) {
-            assert(3 == arguments.length || 4 == arguments.length, '3 == arguments.length || 4 == arguments.length');
+        static lookAt(eye, focus, up, result = new M4()) {
             assertVectors(eye, focus, up);
-            !result || assertInst(M4, result);
-            result = result || new M4();
+            assertInst(M4, result);
             const m = result.m;
             const f = eye.minus(focus).unit();
             const s = up.cross(f).unit();
@@ -2909,9 +3225,7 @@ var demo = (function (exports,chroma) {
         static rotateX(radians) {
             assertNumbers(radians);
             const sin = Math.sin(radians), cos = Math.cos(radians);
-            const els = [
-                1, 0, 0, 0, 0, cos, -sin, 0, 0, sin, cos, 0, 0, 0, 0, 1,
-            ];
+            const els = [1, 0, 0, 0, 0, cos, -sin, 0, 0, sin, cos, 0, 0, 0, 0, 1];
             return new M4(els);
         }
         /**
@@ -2919,9 +3233,7 @@ var demo = (function (exports,chroma) {
          */
         static rotateY(radians) {
             const sin = Math.sin(radians), cos = Math.cos(radians);
-            const els = [
-                cos, 0, sin, 0, 0, 1, 0, 0, -sin, 0, cos, 0, 0, 0, 0, 1,
-            ];
+            const els = [cos, 0, sin, 0, 0, 1, 0, 0, -sin, 0, cos, 0, 0, 0, 0, 1];
             return new M4(els);
         }
         /**
@@ -2929,19 +3241,17 @@ var demo = (function (exports,chroma) {
          */
         static rotateZ(radians) {
             const sin = Math.sin(radians), cos = Math.cos(radians);
-            const els = [
-                cos, -sin, 0, 0, sin, cos, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1,
-            ];
+            const els = [cos, -sin, 0, 0, sin, cos, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
             return new M4(els);
         }
         /**
          * New rotation matrix such that result.transformVector(a).isParallelTo(b) through smallest rotation.
          * Performs no scaling.
          */
-        static rotateAB(a, b, result) {
+        static rotateAB(a, b, result = new M4()) {
             // see http://inside.mines.edu/fs_home/gmurray/ArbitraryAxisRotation/
             assertVectors(a, b);
-            !result || assertInst(M4, result);
+            assertInst(M4, result);
             const rotationAxis = a.cross(b), rotationAxisLength = rotationAxis.length();
             if (eq0(rotationAxisLength)) {
                 return M4.identity(result);
@@ -2953,12 +3263,11 @@ var demo = (function (exports,chroma) {
          * Matrix for rotation about arbitrary line defined by an anchor point and direction.
          * rotationAxis does not need to be unit
          */
-        static rotateLine(rotationAnchor, rotationAxis, radians, result) {
+        static rotateLine(rotationAnchor, rotationAxis, radians, result = new M4()) {
             // see http://inside.mines.edu/fs_home/gmurray/ArbitraryAxisRotation/
             assertVectors(rotationAnchor, rotationAxis);
             assertNumbers(radians);
-            !result || assertInst(M4, result);
-            result = result || new M4();
+            assertInst(M4, result);
             rotationAxis = rotationAxis.unit();
             const ax = rotationAnchor.x, ay = rotationAnchor.y, az = rotationAnchor.z, dx = rotationAxis.x, dy = rotationAxis.y, dz = rotationAxis.z;
             const m = result.m, cos = Math.cos(radians), sin = Math.sin(radians);
@@ -3015,19 +3324,15 @@ var demo = (function (exports,chroma) {
          */
         static project(plane, dir = plane.normal1, result = new M4()) {
             // TODO: doc
-            /**
-             * plane.normal1 DOT (p + lambda * dir) = w (1)
-             * extract lambda:
-             * plane.normal1 DOT p + lambda * plane.normal1 DOT dir = w
-             * lambda = (w - plane.normal1 DOT p) / plane.normal1 DOT dir
-             * result = p + lambda * dir
-             * result = p + dir * (w - plane.normal1 DOT p) / plane.normal1 DOT dir
-             * result =  w * dir / (plane.normal1 DOT dir) + p - plane.normal1 DOT p * dir / (plane.normal1 DOT dir) *
-             *
-
-             a + d * (w - n . a) / (nd)
-             a + dw - d * na
-             */
+            // plane.normal1 DOT (p + lambda * dir) = w (1)
+            // extract lambda:
+            // plane.normal1 DOT p + lambda * plane.normal1 DOT dir = w
+            // lambda = (w - plane.normal1 DOT p) / plane.normal1 DOT dir
+            // result = p + lambda * dir
+            // result = p + dir * (w - plane.normal1 DOT p) / plane.normal1 DOT dir
+            // result =  w * dir / (plane.normal1 DOT dir) + p - plane.normal1 DOT p * dir / (plane.normal1 DOT dir) *
+            //  a + d * (w - n . a) / (nd)
+            //  a + dw - d * na
             assertVectors(dir, plane.normal1);
             assertInst(M4, result);
             const w = plane.w;
@@ -3090,21 +3395,6 @@ var demo = (function (exports,chroma) {
             m[15] = 1;
             return result;
         }
-        /**
-         Returns a perspective transform matrix, which makes far away objects appear smaller than nearby objects. The `aspect` argument should be the width divided by the height of your viewport and `fov` is the top-to-bottom angle of the field of view in degrees. You can optionally pass an existing matrix in `result` to avoid allocating a new matrix. This emulates the OpenGL function `gluPerspective()`.
-         */
-        static multiplyMultiple(...m4s) {
-            if (0 == m4s.length)
-                return M4.identity();
-            let temp = M4.identity(), result = m4s[0].copy();
-            for (let i = 1; i < m4s.length; i++) {
-                M4.multiply(result, m4s[i], temp);
-                {
-                    [temp, result] = [result, temp];
-                }
-            }
-            return result;
-        }
         static pointInversion(p, result = new M4()) {
             assertVectors(p);
             assertInst(M4, result);
@@ -3127,6 +3417,41 @@ var demo = (function (exports,chroma) {
             m[15] = 1;
             return result;
         }
+        static new(width, height, m) {
+            assert(4 == width && 4 == height);
+            return new M4(...m);
+        }
+        get X() {
+            return this.transformVector(V3.X);
+        }
+        get Y() {
+            return this.transformVector(V3.Y);
+        }
+        get Z() {
+            return this.transformVector(V3.Z);
+        }
+        get O() {
+            return this.getTranslation();
+        }
+        isMirror(precision = NLA_PRECISION) {
+            const m = this.m;
+            const nx = Math.sqrt((1 - m[0]) / 2);
+            const ny = Math.sqrt((1 - m[5]) / 2);
+            const nz = Math.sqrt((1 - m[10]) / 2);
+            return (eq(m[1], -2.0 * ny * nx, precision) &&
+                eq(m[2], -2.0 * nz * nx, precision) &&
+                eq(m[4], -2.0 * nx * ny, precision) &&
+                eq(m[6], -2.0 * nz * ny, precision) &&
+                eq(m[8], -2.0 * nx * nz, precision) &&
+                eq(m[9], -2.0 * ny * nz, precision) &&
+                eq(m[12], 0, precision) &&
+                eq(m[13], 0, precision) &&
+                eq(m[14], 0, precision) &&
+                eq(m[15], 1, precision) &&
+                eq(m[3] * ny, m[7] * nx, precision) &&
+                eq(m[7] * nz, m[11] * ny, precision) &&
+                eq(m[11] * nx, m[3] * nz, precision));
+        }
         // ### GL.Matrix.frustum(left, right, bottom, top, near, far[, result])
         //
         // Sets up a viewing frustum, which is shaped like a truncated pyramid with the
@@ -3135,8 +3460,8 @@ var demo = (function (exports,chroma) {
         /**
          * Returns a new M4 which is equal to the inverse of this.
          */
-        inversed() {
-            return M4.inverse(this);
+        inversed(result) {
+            return M4.inverse(this, result);
         }
         /**
          * Matrix trace is defined as the sum of the elements of the main diagonal.
@@ -3144,8 +3469,9 @@ var demo = (function (exports,chroma) {
         trace() {
             return this.m[0] + this.m[5] + this.m[10] + this.m[15];
         }
-        as3x3() {
-            const result = M4.copy(this), m = result.m;
+        as3x3(result) {
+            result = M4.copy(this, result);
+            const m = result.m;
             m[3] = m[7] = m[11] = m[12] = m[13] = m[14] = 0;
             m[15] = 1;
             return result;
@@ -3194,8 +3520,15 @@ var demo = (function (exports,chroma) {
                 assertf(() => 1 == mats[1].rank());
                 // mat[0] has rank 2, mat[1] has rank 1
                 const gauss0 = mats[0].gauss().U;
-                const eigenVector0 = gauss0.row(0).cross(gauss0.row(1)).V3().unit();
-                const planeNormal = mats[1].gauss().U.row(0).V3();
+                const eigenVector0 = gauss0
+                    .row(0)
+                    .cross(gauss0.row(1))
+                    .V3()
+                    .unit();
+                const planeNormal = mats[1]
+                    .gauss()
+                    .U.row(0)
+                    .V3();
                 const eigenVector1 = planeNormal.getPerpendicular().unit();
                 const eigenVector2 = eigenVector0.cross(eigenVector1).rejectedFrom(planeNormal);
                 return [eigenVector0, eigenVector1, eigenVector2];
@@ -3206,7 +3539,11 @@ var demo = (function (exports,chroma) {
                 // the point V3.O
                 return mats.map(mat => {
                     const gauss = mat.gauss().U;
-                    return gauss.row(0).cross(gauss.row(1)).V3().unit();
+                    return gauss
+                        .row(0)
+                        .cross(gauss.row(1))
+                        .V3()
+                        .unit();
                 });
             }
             throw new Error('there cannot be more than 3 eigen values');
@@ -3230,7 +3567,9 @@ var demo = (function (exports,chroma) {
             console.log(S.str);
             for (let it = 0; it < 16; it++) {
                 console.log('blahg\n', V$$1.times(S).times(V$$1.transposed()).str);
-                assert(V$$1.times(S).times(V$$1.transposed()).likeM4(A.transposed().times(A)), V$$1.times(S).times(V$$1.transposed()).str, A.transposed().times(A).str);
+                assert(V$$1.times(S)
+                    .times(V$$1.transposed())
+                    .likeM4(A.transposed().times(A)), V$$1.times(S).times(V$$1.transposed()).str, A.transposed().times(A).str);
                 let maxOffDiagonal = 0, maxOffDiagonalIndex = 1, j = 10;
                 while (j--) {
                     const val = Math.abs(S.m[j]);
@@ -3241,19 +3580,22 @@ var demo = (function (exports,chroma) {
                 }
                 const i = Math.floor(maxOffDiagonalIndex / 4), k = maxOffDiagonalIndex % 4;
                 const a_ii = S.m[5 * i], a_kk = S.m[5 * k], a_ik = S.m[maxOffDiagonalIndex];
-                const phi = a_ii === a_kk ? PI$1 / 4 : Math.atan(2 * a_ik / (a_ii - a_kk)) / 2;
+                const phi = a_ii === a_kk ? PI$1 / 4 : Math.atan((2 * a_ik) / (a_ii - a_kk)) / 2;
                 console.log(maxOffDiagonalIndex, i, k, 'phi', phi);
                 const cos = Math.cos(phi), sin = Math.sin(phi);
                 const givensRotation = matrixForCS(i, k, cos, -sin);
-                assert(givensRotation.transposed().times(givensRotation).likeIdentity());
+                assert(givensRotation
+                    .transposed()
+                    .times(givensRotation)
+                    .likeIdentity());
                 console.log(givensRotation.str);
                 V$$1 = V$$1.times(givensRotation);
-                S = M4.multiplyMultiple(givensRotation.transposed(), S, givensRotation);
+                S = M4.product(givensRotation.transposed(), S, givensRotation);
                 console.log(S.str);
             }
-            const sigma = S.map((el, elIndex) => elIndex % 5 == 0 ? Math.sqrt(el) : 0);
+            const sigma = S.map((el, elIndex) => (elIndex % 5 == 0 ? Math.sqrt(el) : 0));
             return {
-                U: M4.multiplyMultiple(A, V$$1, sigma.map((el, elIndex) => elIndex % 5 == 0 ? 1 / el : 0)),
+                U: M4.product(A, V$$1, sigma.map((el, elIndex) => (elIndex % 5 == 0 ? 1 / el : 0))),
                 SIGMA: sigma,
                 VSTAR: V$$1.transposed(),
             };
@@ -3268,8 +3610,8 @@ var demo = (function (exports,chroma) {
         /**
          * Returns a new M4 equal to the transpose of this.
          */
-        transposed() {
-            return M4.transpose(this);
+        transposed(result) {
+            return M4.transpose(this, result);
         }
         /**
          * Returns a new M4 which equal to (this * matrix) (in that order)
@@ -3278,17 +3620,37 @@ var demo = (function (exports,chroma) {
             return M4.multiply(this, matrix);
         }
         /**
+         * In a perspective projection, parallel lines meet in a vanishing point.
+         *
+         * Returns undefined if there is no vanishing point, either because this is not a perspective transform,
+         * or because the passed dir is perpendicular to the projections direction.
+         *
+         * @param dir
+         */
+        vanishingPoint(dir) {
+            assertVectors(dir);
+            const m = this.m;
+            const vx = dir.x, vy = dir.y, vz = dir.z;
+            const w = vx * m[12] + vy * m[13] + vz * m[14];
+            if (eq0(w))
+                return undefined;
+            const x = vx * m[0] + vy * m[1] + vz * m[2];
+            const y = vx * m[4] + vy * m[5] + vz * m[6];
+            const z = vx * m[8] + vy * m[9] + vz * m[10];
+            return new V3(x / w, y / w, z / w);
+        }
+        /**
          * Transforms the vector as a point with a w coordinate of 1. This means translations will have an effect, for
          * example.
          */
         transformPoint(v) {
             assertVectors(v);
             const m = this.m;
-            const vx = v.x, vy = v.y, vz = v.z, vw = 1;
-            const x = vx * m[0] + vy * m[1] + vz * m[2] + vw * m[3];
-            const y = vx * m[4] + vy * m[5] + vz * m[6] + vw * m[7];
-            const z = vx * m[8] + vy * m[9] + vz * m[10] + vw * m[11];
-            const w = vx * m[12] + vy * m[13] + vz * m[14] + vw * m[15];
+            const vx = v.x, vy = v.y, vz = v.z;
+            const x = vx * m[0] + vy * m[1] + vz * m[2] + m[3];
+            const y = vx * m[4] + vy * m[5] + vz * m[6] + m[7];
+            const z = vx * m[8] + vy * m[9] + vz * m[10] + m[11];
+            const w = vx * m[12] + vy * m[13] + vz * m[14] + m[15];
             // scale such that fourth element becomes 1:
             return new V3(x / w, y / w, z / w);
         }
@@ -3297,12 +3659,25 @@ var demo = (function (exports,chroma) {
          * example. Will throw an exception if the calculated w component != 0. This occurs for example when attempting
          * to transform a vector with a perspective matrix.
          */
-        transformVector(v) {
+        transformVector(v, checkW = true) {
             assertVectors(v);
             const m = this.m;
             const w = v.x * m[12] + v.y * m[13] + v.z * m[14];
-            assert(w === 0, () => 'w != 0 needs to be true for this to make sense (w =' + w + this.str);
+            checkW && assert(eq0(w), () => 'w === 0 needs to be true for this to make sense (w =' + w + this.str);
             return new V3(m[0] * v.x + m[1] * v.y + m[2] * v.z, m[4] * v.x + m[5] * v.y + m[6] * v.z, m[8] * v.x + m[9] * v.y + m[10] * v.z);
+        }
+        transformVector2(v, anchor) {
+            // v and anchor define a line(t) = anchor + t v
+            // we can view the calculation of the transformed vector as the derivative of the transformed line at t = 0
+            // d/dt (this * line(t)) (0)
+            assertVectors(v, anchor);
+            const transformedAnchor = this.timesVector(VV(anchor.x, anchor.y, anchor.z, 1));
+            const transformedVector = this.timesVector(VV(v.x, v.y, v.z, 0));
+            return transformedVector
+                .times(transformedAnchor.w)
+                .minus(transformedAnchor.times(transformedVector.w))
+                .div(Math.pow(transformedAnchor.w, 2))
+                .V3();
         }
         transformedPoints(vs) {
             return vs.map(v => this.transformPoint(v));
@@ -3313,17 +3688,14 @@ var demo = (function (exports,chroma) {
         new() {
             return new M4();
         }
-        copy() {
-            return M4.copy(this);
-        }
         isRegular() {
             return !eq0(this.determinant());
         }
         isAxisAligned() {
             const m = this.m;
-            return (1 >= +!eq0(m[0]) + +!eq0(m[1]) + +!eq0(m[2]))
-                && (1 >= +!eq0(m[4]) + +!eq0(m[5]) + +!eq0(m[6]))
-                && (1 >= +!eq0(m[8]) + +!eq0(m[9]) + +!eq0(m[10]));
+            return (1 >= +!eq0(m[0]) + +!eq0(m[1]) + +!eq0(m[2]) &&
+                1 >= +!eq0(m[4]) + +!eq0(m[5]) + +!eq0(m[6]) &&
+                1 >= +!eq0(m[8]) + +!eq0(m[9]) + +!eq0(m[10]));
         }
         /**
          * A matrix M is orthogonal iff M * M^T = I
@@ -3378,10 +3750,10 @@ var demo = (function (exports,chroma) {
              | m n o p |
              */
             const $ = this.m, a = $[0], b = $[1], c = $[2], d = $[3], e = $[4], f = $[5], g = $[6], h = $[7], i = $[8], j = $[9], k = $[10], l = $[11], m = $[12], n = $[13], o = $[14], p = $[15], klop = k * p - l * o, jlnp = j * p - l * n, jkno = j * o - k * n, ilmp = i * p - l * m, ikmo = i * o - k * m, ijmn = i * n - j * m;
-            return (a * (f * klop - g * jlnp + h * jkno)
-                - b * (e * klop - g * ilmp + h * ikmo)
-                + c * (e * jlnp - f * ilmp + h * ijmn)
-                - d * (e * jkno - f * ikmo + g * ijmn));
+            return (a * (f * klop - g * jlnp + h * jkno) -
+                b * (e * klop - g * ilmp + h * ikmo) +
+                c * (e * jlnp - f * ilmp + h * ijmn) -
+                d * (e * jkno - f * ikmo + g * ijmn));
         }
         determinant3() {
             const [a, b, c, , d, e, f, , g, h, i] = this.m;
@@ -3406,7 +3778,7 @@ var demo = (function (exports,chroma) {
             return this.determinant() < 0; // TODO: also valid for 4x4?
         }
         /**
-         * Get the translation part of this matrix, i.e. the result of this.transformVector(V3.O)
+         * Get the translation part of this matrix, i.e. the result of this.transformPoint(V3.O)
          */
         getTranslation() {
             const m = this.m, w = m[15];
@@ -3437,35 +3809,48 @@ var demo = (function (exports,chroma) {
          * f g h 0
          * 0 0 0 1
          */
-        is3x3() {
+        like3x3() {
             const m = this.m;
-            return eq(1, m[15])
-                && eq0(m[12]) && eq0(m[13]) && eq0(m[14])
-                && eq0(m[3]) && eq0(m[7]) && eq0(m[11]);
+            return eq(1, m[15]) && eq0(m[12]) && eq0(m[13]) && eq0(m[14]) && eq0(m[3]) && eq0(m[7]) && eq0(m[11]);
         }
         isNoProj() {
             const m = this.m;
             return 0 == m[12] && 0 == m[13] && 0 == m[14] && 1 == m[15];
         }
         likeIdentity() {
-            return this.m.every((val, i) => (i / 4 | 0) == (i % 4) ? eq(1, val) : eq0(val));
+            return this.m.every((val, i) => (((i / 4) | 0) == i % 4 ? eq(1, val) : eq0(val)));
         }
         isIdentity() {
-            return this.m.every((val, i) => (i / 4 | 0) == (i % 4) ? 1 == val : 0 == val);
+            return this.m.every((val, i) => (((i / 4) | 0) == i % 4 ? 1 == val : 0 == val));
         }
-        toString(f) {
-            f = f || ((v) => v.toFixed(6).replace(/([0.])(?=0*$)/g, ' ').toString());
+        toString(f = v => v.toFixed(6).replace(/([0.])(?=0*$)/g, ' ')) {
             assert(typeof f(0) == 'string', '' + typeof f(0));
             // slice this.m to convert it to an Array (from TypeArray)
             const rounded = Array.prototype.slice.call(this.m).map(f);
-            const colWidths = [0, 1, 2, 3].map((colIndex) => rounded.sliceStep(colIndex, 0, 4).map((x) => x.length).max());
-            return [0, 1, 2, 3].map((rowIndex) => rounded
+            const colWidths = [0, 1, 2, 3].map(colIndex => rounded
+                .sliceStep(colIndex, 0, 4)
+                .map(x => x.length)
+                .max());
+            return [0, 1, 2, 3]
+                .map(rowIndex => rounded
                 .slice(rowIndex * 4, rowIndex * 4 + 4) // select matrix row
-                .map((x, colIndex) => repeatString(colWidths[colIndex] - x.length, ' ') + x) // pad numbers with
-                .join(' ')).join('\n'); // join rows
+                .map((x, colIndex) => ' '.repeat(colWidths[colIndex] - x.length) + x) // pad numbers with
+                // spaces to col width
+                .join(' '))
+                .join('\n'); // join rows
         }
+        /**
+         * Wether this matrix is a translation matrix, i.e. of the form
+         * ```
+         * 	1, 0, 0, x,
+         * 	0, 1, 0, y,
+         * 	0, 0, 1, z,
+         * 	0, 0, 0, 1
+         * ```
+         */
         isTranslation() {
             // 2: any value, otherwise same value
+            // prettier-ignore
             const mask = [
                 1, 0, 0, 2,
                 0, 1, 0, 2,
@@ -3474,33 +3859,87 @@ var demo = (function (exports,chroma) {
             ];
             return mask.every((expected, index) => expected == 2 || expected == this.m[index]);
         }
+        /**
+         * Wether this matrix is a translation matrix, i.e. of the form
+         * ```
+         * 	s, 0, 0, 0,
+         * 	0, t, 0, 0,
+         * 	0, 0, v, 0,
+         * 	0, 0, 0, 1
+         * ```
+         */
+        isScaling() {
+            // prettier-ignore
+            const mask = [
+                2, 0, 0, 0,
+                0, 2, 0, 0,
+                0, 0, 2, 0,
+                0, 0, 0, 1
+            ];
+            return mask.every((expected, index) => expected == 2 || expected == this.m[index]);
+        }
+        isZRotation() {
+            // prettier-ignore
+            const mask = [
+                2, 2, 0, 0,
+                2, 2, 0, 0,
+                0, 0, 1, 0,
+                0, 0, 0, 1
+            ];
+            return (mask.every((expected, index) => expected == 2 || expected == this.m[index]) &&
+                (eq(1, Math.pow(this.m[0], 2) + Math.pow(this.m[1], 2)) && this.m[0] == this.m[5] && this.m[1] == -this.m[4]));
+        }
         toSource() {
-            if (this.isIdentity()) {
-                return 'M4.IDENTITY';
+            const name = M4.NAMEMAP.get(this);
+            if (name) {
+                return name;
             }
             else if (this.isTranslation()) {
                 return callsce('M4.translate', this.O);
+            }
+            else if (this.isScaling()) {
+                return callsce('M4.scale', this.m[0], this.m[5], this.m[10]);
             }
             else if (this.isNoProj()) {
                 return !this.O.equals(V3.O)
                     ? callsce('M4.forSys', this.X, this.Y, this.Z, this.O)
                     : callsce('M4.forSys', this.X, this.Y, this.Z);
             }
-            throw new Error();
+            else if (this.isMirror(0)) {
+                const m = this.m;
+                const nx = Math.sqrt((1 - m[0]) / 2);
+                const ny = Math.sqrt((1 - m[5]) / 2);
+                const nz = Math.sqrt((1 - m[10]) / 2);
+                const w = m[3] / 2.0 / nx;
+                return callsce('M4.mirror', { normal1: new V3(nx, ny, nz), w });
+            }
+            else {
+                const m = this.m;
+                // prettier-ignore
+                return 'new M4(' +
+                    '\n\t' + m[0] + ',\t' + m[1] + ',\t' + m[2] + ',\t' + m[3] + ',' +
+                    '\n\t' + m[4] + ',\t' + m[5] + ',\t' + m[6] + ',\t' + m[7] + ',' +
+                    '\n\t' + m[8] + ',\t' + m[9] + ',\t' + m[10] + ',\t' + m[11] + ',' +
+                    '\n\t' + m[12] + ',\t' + m[13] + ',\t' + m[14] + ',\t' + m[15] + ')';
+            }
         }
         xyAreaFactor() {
-            return this.transformVector(V3.X).cross(this.transformVector(V3.Y)).length();
+            return this.transformVector(V3.X)
+                .cross(this.transformVector(V3.Y))
+                .length();
         }
     }
     /**
      * A simple (consists of integers), regular, non-orthogonal matrix, useful mainly for testing.
      * M4.BAR = M4.FOO.inverse()
      */
+    // prettier-ignore
     M4.FOO = new M4(0, 1, 1, 2, 0.3, 0.4, 0.8, 13, 2.1, 3.4, 5.5, 8.9, 0, 0, 0, 1);
     M4.BAR = M4.FOO.inversed();
     M4.IDENTITY = M4.identity();
     M4.YZX = M4.forSys(V3.Y, V3.Z, V3.X);
     M4.ZXY = M4.forSys(V3.Z, V3.X, V3.Y);
+    // prettier-ignore
     M4.IDENTITY3 = new M4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0);
     M4.temp0 = new M4();
     M4.temp1 = new M4();
@@ -3514,7 +3953,85 @@ var demo = (function (exports,chroma) {
         .set(M4.YZX, 'M4.YZX');
     M4.prototype.height = 4;
     M4.prototype.width = 4;
-    Object.assign(M4.prototype, Transformable.prototype);
+    addOwnProperties(M4.prototype, Transformable.prototype, 'constructor');
+
+    const KEYWORD_REGEXP = new RegExp('^(' +
+        'abstract|boolean|break|byte|case|catch|char|class|const|continue|debugger|' +
+        'default|delete|do|double|else|enum|export|extends|false|final|finally|' +
+        'float|for|function|goto|if|implements|import|in|instanceof|int|interface|' +
+        'long|native|new|null|package|private|protected|public|return|short|static|' +
+        'super|switch|synchronized|this|throw|throws|transient|true|try|typeof|' +
+        'undefined|var|void|volatile|while|with' +
+        ')$');
+    function stringIsLegalKey(key) {
+        return /^[a-z_$][0-9a-z_$]*$/gi.test(key) && !KEYWORD_REGEXP.test(key);
+    }
+    const seen = [];
+    function toSource(o, indent = 0) {
+        if (undefined === o)
+            return 'undefined';
+        if (null === o)
+            return 'null';
+        return o.toSource();
+    }
+    function addToSourceMethodToPrototype(clazz, method) {
+        if (!clazz.prototype.toSource) {
+            Object.defineProperty(clazz.prototype, 'toSource', {
+                value: method,
+                writable: true,
+                configurable: true,
+                enumerable: false,
+            });
+        }
+    }
+    addToSourceMethodToPrototype(Boolean, Boolean.prototype.toString);
+    addToSourceMethodToPrototype(Function, Function.prototype.toString);
+    addToSourceMethodToPrototype(Number, Number.prototype.toString);
+    addToSourceMethodToPrototype(RegExp, RegExp.prototype.toString);
+    addToSourceMethodToPrototype(Date, function () {
+        return 'new Date(' + this.getTime() + ')';
+    });
+    addToSourceMethodToPrototype(String, function () {
+        return JSON.stringify(this);
+    });
+    addToSourceMethodToPrototype(Array, function () {
+        if (seen.includes(this)) {
+            return 'CIRCULAR_REFERENCE';
+        }
+        seen.push(this);
+        let result = '[';
+        for (let i = 0; i < this.length; i++) {
+            result += '\n\t' + toSource(this[i]).replace(/\r\n|\n|\r/g, '$&\t');
+            if (i !== this.length - 1) {
+                result += ',';
+            }
+        }
+        result += 0 === this.length ? ']' : '\n]';
+        seen.pop();
+        return result;
+    });
+    addToSourceMethodToPrototype(Object, function () {
+        if (seen.includes(this)) {
+            return 'CIRCULAR_REFERENCE';
+        }
+        seen.push(this);
+        let result = '{';
+        const keys = Object.keys(this).sort();
+        for (let i = 0; i < keys.length; i++) {
+            const k = keys[i];
+            result +=
+                '\n\t' +
+                    (stringIsLegalKey(k) ? k : JSON.stringify(k)) +
+                    ': ' +
+                    toSource(this[k]).replace(/\r\n|\n|\r/g, '$&\t');
+            if (i !== keys.length - 1) {
+                result += ',';
+            }
+        }
+        result += 0 === keys.length ? '}' : '\n}';
+        seen.pop();
+        return result;
+    });
 
     class AABB extends Transformable {
         constructor(min = V3.INF, max = V3.INF.negated()) {
@@ -3563,7 +4080,7 @@ var demo = (function (exports,chroma) {
                 const cond = aabb.min[dim] - this.min[dim] > this.max[dim] - aabb.max[dim];
                 const dimMin = cond ? this.min[dim] : Math.max(this.min[dim], aabb.max[dim]);
                 const dimMax = !cond ? this.max[dim] : Math.min(this.max[dim], aabb.min[dim]);
-                const newRemainingVolume = (dimMax - dimMin) * volume / size[dim];
+                const newRemainingVolume = ((dimMax - dimMin) * volume) / size[dim];
                 if (newRemainingVolume > remainingVolume) {
                     remainingVolume = newRemainingVolume;
                     min = this.min.withElement(dim, dimMin);
@@ -3578,31 +4095,46 @@ var demo = (function (exports,chroma) {
         }
         touchesAABB(aabb) {
             assertInst(AABB, aabb);
-            return !(this.min.x > aabb.max.x || this.max.x < aabb.min.x
-                || this.min.y > aabb.max.y || this.max.y < aabb.min.y
-                || this.min.z > aabb.max.z || this.max.z < aabb.min.z);
+            return !(this.min.x > aabb.max.x ||
+                this.max.x < aabb.min.x ||
+                this.min.y > aabb.max.y ||
+                this.max.y < aabb.min.y ||
+                this.min.z > aabb.max.z ||
+                this.max.z < aabb.min.z);
         }
-        fuzzyTouchesAABB(aabb) {
+        touchesAABBfuzzy(aabb, precisision = NLA_PRECISION) {
             assertInst(AABB, aabb);
-            return !(lt(aabb.max.x, this.min.x) || lt(this.max.x, aabb.min.x)
-                || lt(aabb.max.y, this.min.y) || lt(this.max.y, aabb.min.y)
-                || lt(aabb.max.z, this.min.z) || lt(this.max.z, aabb.min.z));
+            return !(lt(aabb.max.x, this.min.x, precisision) ||
+                lt(this.max.x, aabb.min.x, precisision) ||
+                lt(aabb.max.y, this.min.y, precisision) ||
+                lt(this.max.y, aabb.min.y, precisision) ||
+                lt(aabb.max.z, this.min.z, precisision) ||
+                lt(this.max.z, aabb.min.z, precisision));
         }
         intersectsAABB(aabb) {
             assertInst(AABB, aabb);
-            return !(this.min.x >= aabb.max.x || this.max.x <= aabb.min.x
-                || this.min.y >= aabb.max.y || this.max.y <= aabb.min.y
-                || this.min.z >= aabb.max.z || this.max.z <= aabb.min.z);
+            return !(this.min.x >= aabb.max.x ||
+                this.max.x <= aabb.min.x ||
+                this.min.y >= aabb.max.y ||
+                this.max.y <= aabb.min.y ||
+                this.min.z >= aabb.max.z ||
+                this.max.z <= aabb.min.z);
         }
         intersectsAABB2d(aabb) {
             assertInst(AABB, aabb);
-            return !(this.min.x >= aabb.max.x || this.max.x <= aabb.min.x
-                || this.min.y >= aabb.max.y || this.max.y <= aabb.min.y);
+            return !(this.min.x >= aabb.max.x ||
+                this.max.x <= aabb.min.x ||
+                this.min.y >= aabb.max.y ||
+                this.max.y <= aabb.min.y);
         }
         containsPoint(p) {
             assertVectors(p);
-            return this.min.x <= p.x && this.min.y <= p.y && this.min.z <= p.z
-                && this.max.x >= p.x && this.max.y >= p.y && this.max.z >= p.z;
+            return (this.min.x <= p.x &&
+                this.min.y <= p.y &&
+                this.min.z <= p.z &&
+                this.max.x >= p.x &&
+                this.max.y >= p.y &&
+                this.max.z >= p.z);
         }
         containsSphere(center, radius) {
             assertVectors(center);
@@ -3634,8 +4166,8 @@ var demo = (function (exports,chroma) {
         intersectsLine(line) {
             assertVectors(line.anchor, line.dir1);
             const dir = line.dir1.map(el => el || Number.MIN_VALUE);
-            const minTs = (this.min.minus(line.anchor)).divv(dir);
-            const maxTs = (this.max.minus(line.anchor)).divv(dir);
+            const minTs = this.min.minus(line.anchor).divv(dir);
+            const maxTs = this.max.minus(line.anchor).divv(dir);
             const tMin = minTs.min(maxTs).maxElement(), tMax = minTs.max(maxTs).minElement();
             return tMin <= tMax && !(tMax < line.tMin || line.tMax < tMin);
         }
@@ -3687,6 +4219,12 @@ var demo = (function (exports,chroma) {
         }
         toSource() {
             return this.toString();
+        }
+        /**
+         * Return the matrix which transforms the AABB from V3.O to V3.XYZ to this AABB.
+         */
+        getM4() {
+            return M4.translate(this.min).times(M4.scale(this.size()));
         }
     }
 
@@ -3808,6 +4346,8 @@ var demo = (function (exports,chroma) {
 
     const { cos, sin, PI: PI$2, min, max } = Math;
     const WGL$1 = WebGLRenderingContext;
+    const tempM4_1 = new M4();
+    const tempM4_2 = new M4();
     /**
      * @example new Mesh()
      *        .addIndexBuffer('TRIANGLES')
@@ -3902,24 +4442,32 @@ var demo = (function (exports,chroma) {
             return this;
         }
         concat(...others) {
-            const mesh = new Mesh$$1();
-            [this].concat(others).forEach((oldMesh) => {
-                const startIndex = mesh.vertices ? mesh.vertices.length : 0;
-                Object.getOwnPropertyNames(oldMesh.vertexBuffers).forEach(attribute => {
-                    const bufferName = this.vertexBuffers[attribute].name;
-                    if (!mesh.vertexBuffers[attribute]) {
-                        mesh.addVertexBuffer(bufferName, attribute);
-                    }
-                    mesh[bufferName].push(...oldMesh[bufferName]);
-                });
-                Object.getOwnPropertyNames(oldMesh.indexBuffers).forEach(name => {
-                    if (!mesh.indexBuffers[name]) {
-                        mesh.addIndexBuffer(name);
-                    }
-                    mesh[name].push(...oldMesh[name].map(index => index + startIndex));
-                });
+            const result = new Mesh$$1();
+            const allMeshes = [this].concat(others);
+            Object.getOwnPropertyNames(this.vertexBuffers).forEach(attribute => {
+                assert(others.every(other => !!other.vertexBuffers[attribute]));
+                const bufferName = this.vertexBuffers[attribute].name;
+                if ('ts_Vertex' !== attribute) {
+                    result.addVertexBuffer(bufferName, attribute);
+                }
+                result[bufferName] = allMeshes.map(mesh => mesh[bufferName]).concatenated();
             });
-            return mesh;
+            Object.getOwnPropertyNames(this.indexBuffers).forEach(name => {
+                assert(others.every(other => !!other.indexBuffers[name]));
+                result.addIndexBuffer(name);
+                const newIndexBufferData = new Array(allMeshes.reduce((sum, mesh) => sum + mesh[name].length, 0));
+                let ptr = 0;
+                let startIndex = 0;
+                for (const mesh of allMeshes) {
+                    for (const index of mesh[name]) {
+                        newIndexBufferData[ptr++] = startIndex + index;
+                    }
+                    startIndex += mesh.vertices.length;
+                }
+                result[name] = newIndexBufferData;
+            });
+            result.compile();
+            return result;
         }
         /**
          * Upload all attached buffers to the GPU in preparation for rendering. This doesn't need to be called every
@@ -4020,6 +4568,8 @@ var demo = (function (exports,chroma) {
             return new Blob([buffer], { type: 'application/octet-stream' });
         }
         /**
+         * Returns a new Mesh with transformed vertices.
+         *
          * Transform all vertices by `matrix` and all normals by the inverse transpose of `matrix`.
          *
          * Index buffer data is referenced.
@@ -4030,10 +4580,9 @@ var demo = (function (exports,chroma) {
             if (this.normals) {
                 mesh.addVertexBuffer('normals', 'ts_Normal');
                 const invTrans = m4
-                    .as3x3()
-                    .inversed()
-                    .transposed()
-                    .normalized();
+                    .as3x3(tempM4_1)
+                    .inversed(tempM4_2)
+                    .transposed(tempM4_1);
                 mesh.normals = this.normals.map(n => invTrans.transformVector(n).unit());
                 // mesh.normals.forEach(n => assert(n.hasLength(1)))
             }
@@ -4048,7 +4597,7 @@ var demo = (function (exports,chroma) {
                     mesh[name] = this[name];
                 }
             }
-            this.hasBeenCompiled && mesh.compile();
+            // this.hasBeenCompiled && mesh.compile()
             return mesh;
         }
         /**
@@ -4391,7 +4940,7 @@ var demo = (function (exports,chroma) {
             return mesh;
         }
         static aabb(aabb) {
-            const matrix = M4.multiplyMultiple(M4.translate(aabb.min), M4.scale(aabb.size().max(new V3(NLA_PRECISION, NLA_PRECISION, NLA_PRECISION))));
+            const matrix = M4.product(M4.translate(aabb.min), M4.scale(aabb.size().max(new V3(NLA_PRECISION, NLA_PRECISION, NLA_PRECISION))));
             const mesh = Mesh$$1.cube().transform(matrix);
             // mesh.vertices = aabb.corners()
             mesh.computeNormalLines(20);
@@ -4479,6 +5028,12 @@ var demo = (function (exports,chroma) {
             }
             mesh.compile();
             return mesh;
+        }
+        toJSON() {
+            return {
+                vertices: this.vertices.map(x => x.toArray()),
+                TRIANGLES: this.TRIANGLES,
+            };
         }
     }
     // unique corners of a unit cube. Used by Mesh.cube to generate a cube mesh.
@@ -5682,7 +6237,7 @@ var demo = (function (exports,chroma) {
                 0, 0, 1, 0,
                 0, 0, 0, 1,
             ]);
-            return M4.multiplyMultiple(viewportToScreenMatrix, this.projectionMatrix, this.modelViewMatrix);
+            return M4.product(viewportToScreenMatrix, this.projectionMatrix, this.modelViewMatrix);
         }
         /////////// IMMEDIATE MODE
         // ### Immediate mode
@@ -5809,6 +6364,17 @@ var demo = (function (exports,chroma) {
             windowOnResize();
             return this;
         }
+        getMouseLine(canvasPosXOrE, canvasPosY) {
+            if (canvasPosXOrE instanceof MouseEvent) {
+                return this.getMouseLine(canvasPosXOrE.offsetX, canvasPosXOrE.offsetY);
+            }
+            const ndc1 = V((canvasPosXOrE * 2) / this.canvas.offsetWidth - 1, (-canvasPosY * 2) / this.canvas.offsetHeight + 1, 0);
+            const ndc2 = V((canvasPosXOrE * 2) / this.canvas.offsetWidth - 1, (-canvasPosY * 2) / this.canvas.offsetHeight + 1, 1);
+            const inverseProjectionMatrix = this.projectionMatrix.inversed();
+            const anchor = inverseProjectionMatrix.transformPoint(ndc1);
+            const dir = inverseProjectionMatrix.transformPoint(ndc2).minus(anchor);
+            return { anchor, dir };
+        }
         viewportFill() {
             this.viewport(0, 0, this.canvas.width, this.canvas.height);
         }
@@ -5823,10 +6389,10 @@ var demo = (function (exports,chroma) {
                     }),
                     fetch(jsonURL).then(r => r.json()),
                 ]);
-                const cs = this.textMetrics.chars;
-                const maxY = Object.keys(cs).reduce((a, b) => Math.max(a, cs[b][3]), 0);
-                const minY = Object.keys(cs).reduce((a, b) => Math.min(a, cs[b][3] - cs[b][1]), 0);
-                console.log(maxY, minY);
+                // const cs = this.textMetrics.chars
+                // const maxY = Object.keys(cs).reduce((a, b) => Math.max(a, cs[b][3]), 0)
+                // const minY = Object.keys(cs).reduce((a, b) => Math.min(a, cs[b][3] - cs[b][1]), 0)
+                // console.log(maxY, minY)
             });
         }
         getSDFMeshForString(str) {
@@ -5895,6 +6461,11 @@ var demo = (function (exports,chroma) {
             addOwnProperties(newGL, new TSGLContextBase$$1(newGL));
             //addEventListeners(newGL)
             return newGL;
+        }
+        fixCanvasRes() {
+            this.canvas.width = this.canvas.clientWidth * window.devicePixelRatio;
+            this.canvas.height = this.canvas.clientHeight * window.devicePixelRatio;
+            this.viewport(0, 0, this.canvas.width, this.canvas.height);
         }
     }
     TSGLContextBase$$1.MODELVIEW = 0;
@@ -109499,5 +110070,5 @@ void main() {
 
     return exports;
 
-}({},chroma));
+}({},null,chroma));
 //# sourceMappingURL=demo.js.map

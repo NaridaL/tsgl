@@ -3,6 +3,11 @@
     "module": "commonjs",
     "target": "es5",
     "sourceMap": true,
-    "noEmit": true
-  }
+    "noEmit": true,
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true
+  },
+  "include": [
+    "../node_modules/webgl-strict-types/index.d.ts"
+  ]
 }

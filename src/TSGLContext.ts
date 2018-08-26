@@ -205,7 +205,7 @@ export class TSGLContextBase {
 			0, 0, 1, 0,
 			0, 0, 0, 1,
 		])
-		return M4.multiplyMultiple(viewportToScreenMatrix, this.projectionMatrix, this.modelViewMatrix)
+		return M4.product(viewportToScreenMatrix, this.projectionMatrix, this.modelViewMatrix)
 	}
 
 	/////////// IMMEDIATE MODE
@@ -375,6 +375,27 @@ export class TSGLContextBase {
 		windowOnResize()
 		return this
 	}
+	getMouseLine(e: MouseEvent): { anchor: V3; dir: V3 }
+	getMouseLine(canvasPosX: number, canvasPosY: number): { anchor: V3; dir: V3 }
+	getMouseLine(canvasPosXOrE: number | MouseEvent, canvasPosY?: number): { anchor: V3; dir: V3 } {
+		if (canvasPosXOrE instanceof MouseEvent) {
+			return this.getMouseLine(canvasPosXOrE.offsetX, canvasPosXOrE.offsetY)
+		}
+		const ndc1 = V(
+			(canvasPosXOrE * 2) / this.canvas.offsetWidth - 1,
+			(-canvasPosY! * 2) / this.canvas.offsetHeight + 1,
+			0,
+		)
+		const ndc2 = V(
+			(canvasPosXOrE * 2) / this.canvas.offsetWidth - 1,
+			(-canvasPosY! * 2) / this.canvas.offsetHeight + 1,
+			1,
+		)
+		const inverseProjectionMatrix = this.projectionMatrix.inversed()
+		const anchor = inverseProjectionMatrix.transformPoint(ndc1)
+		const dir = inverseProjectionMatrix.transformPoint(ndc2).minus(anchor)
+		return { anchor, dir }
+	}
 
 	viewportFill() {
 		this.viewport(0, 0, this.canvas.width, this.canvas.height)
@@ -390,10 +411,10 @@ export class TSGLContextBase {
 			}),
 			fetch(jsonURL).then(r => r.json()),
 		])
-		const cs = this.textMetrics.chars
-		const maxY = Object.keys(cs).reduce((a, b) => Math.max(a, cs[b][3]), 0)
-		const minY = Object.keys(cs).reduce((a, b) => Math.min(a, cs[b][3] - cs[b][1]), 0)
-		console.log(maxY, minY)
+		// const cs = this.textMetrics.chars
+		// const maxY = Object.keys(cs).reduce((a, b) => Math.max(a, cs[b][3]), 0)
+		// const minY = Object.keys(cs).reduce((a, b) => Math.min(a, cs[b][3] - cs[b][1]), 0)
+		// console.log(maxY, minY)
 	}
 
 	cachedSDFMeshes: {
@@ -481,6 +502,12 @@ export class TSGLContextBase {
 		addOwnProperties(newGL, new TSGLContextBase(newGL))
 		//addEventListeners(newGL)
 		return newGL
+	}
+
+	fixCanvasRes() {
+		this.canvas.width = this.canvas.clientWidth * window.devicePixelRatio
+		this.canvas.height = this.canvas.clientHeight * window.devicePixelRatio
+		this.viewport(0, 0, this.canvas.width, this.canvas.height)
 	}
 }
 export namespace TSGLContext {

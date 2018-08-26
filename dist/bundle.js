@@ -102,6 +102,8 @@ class Buffer$$1 {
 
 const { cos, sin, PI, min, max } = Math;
 const WGL$1 = WebGLRenderingContext;
+const tempM4_1 = new ts3dutils.M4();
+const tempM4_2 = new ts3dutils.M4();
 /**
  * @example new Mesh()
  *        .addIndexBuffer('TRIANGLES')
@@ -196,24 +198,32 @@ class Mesh$$1 extends ts3dutils.Transformable {
         return this;
     }
     concat(...others) {
-        const mesh = new Mesh$$1();
-        [this].concat(others).forEach((oldMesh) => {
-            const startIndex = mesh.vertices ? mesh.vertices.length : 0;
-            Object.getOwnPropertyNames(oldMesh.vertexBuffers).forEach(attribute => {
-                const bufferName = this.vertexBuffers[attribute].name;
-                if (!mesh.vertexBuffers[attribute]) {
-                    mesh.addVertexBuffer(bufferName, attribute);
-                }
-                mesh[bufferName].push(...oldMesh[bufferName]);
-            });
-            Object.getOwnPropertyNames(oldMesh.indexBuffers).forEach(name => {
-                if (!mesh.indexBuffers[name]) {
-                    mesh.addIndexBuffer(name);
-                }
-                mesh[name].push(...oldMesh[name].map(index => index + startIndex));
-            });
+        const result = new Mesh$$1();
+        const allMeshes = [this].concat(others);
+        Object.getOwnPropertyNames(this.vertexBuffers).forEach(attribute => {
+            ts3dutils.assert(others.every(other => !!other.vertexBuffers[attribute]));
+            const bufferName = this.vertexBuffers[attribute].name;
+            if ('ts_Vertex' !== attribute) {
+                result.addVertexBuffer(bufferName, attribute);
+            }
+            result[bufferName] = allMeshes.map(mesh => mesh[bufferName]).concatenated();
         });
-        return mesh;
+        Object.getOwnPropertyNames(this.indexBuffers).forEach(name => {
+            ts3dutils.assert(others.every(other => !!other.indexBuffers[name]));
+            result.addIndexBuffer(name);
+            const newIndexBufferData = new Array(allMeshes.reduce((sum, mesh) => sum + mesh[name].length, 0));
+            let ptr = 0;
+            let startIndex = 0;
+            for (const mesh of allMeshes) {
+                for (const index of mesh[name]) {
+                    newIndexBufferData[ptr++] = startIndex + index;
+                }
+                startIndex += mesh.vertices.length;
+            }
+            result[name] = newIndexBufferData;
+        });
+        result.compile();
+        return result;
     }
     /**
      * Upload all attached buffers to the GPU in preparation for rendering. This doesn't need to be called every
@@ -314,6 +324,8 @@ class Mesh$$1 extends ts3dutils.Transformable {
         return new Blob([buffer], { type: 'application/octet-stream' });
     }
     /**
+     * Returns a new Mesh with transformed vertices.
+     *
      * Transform all vertices by `matrix` and all normals by the inverse transpose of `matrix`.
      *
      * Index buffer data is referenced.
@@ -324,10 +336,9 @@ class Mesh$$1 extends ts3dutils.Transformable {
         if (this.normals) {
             mesh.addVertexBuffer('normals', 'ts_Normal');
             const invTrans = m4
-                .as3x3()
-                .inversed()
-                .transposed()
-                .normalized();
+                .as3x3(tempM4_1)
+                .inversed(tempM4_2)
+                .transposed(tempM4_1);
             mesh.normals = this.normals.map(n => invTrans.transformVector(n).unit());
             // mesh.normals.forEach(n => assert(n.hasLength(1)))
         }
@@ -342,7 +353,7 @@ class Mesh$$1 extends ts3dutils.Transformable {
                 mesh[name] = this[name];
             }
         }
-        this.hasBeenCompiled && mesh.compile();
+        // this.hasBeenCompiled && mesh.compile()
         return mesh;
     }
     /**
@@ -685,7 +696,7 @@ class Mesh$$1 extends ts3dutils.Transformable {
         return mesh;
     }
     static aabb(aabb) {
-        const matrix = ts3dutils.M4.multiplyMultiple(ts3dutils.M4.translate(aabb.min), ts3dutils.M4.scale(aabb.size().max(new ts3dutils.V3(ts3dutils.NLA_PRECISION, ts3dutils.NLA_PRECISION, ts3dutils.NLA_PRECISION))));
+        const matrix = ts3dutils.M4.product(ts3dutils.M4.translate(aabb.min), ts3dutils.M4.scale(aabb.size().max(new ts3dutils.V3(ts3dutils.NLA_PRECISION, ts3dutils.NLA_PRECISION, ts3dutils.NLA_PRECISION))));
         const mesh = Mesh$$1.cube().transform(matrix);
         // mesh.vertices = aabb.corners()
         mesh.computeNormalLines(20);
@@ -773,6 +784,12 @@ class Mesh$$1 extends ts3dutils.Transformable {
         }
         mesh.compile();
         return mesh;
+    }
+    toJSON() {
+        return {
+            vertices: this.vertices.map(x => x.toArray()),
+            TRIANGLES: this.TRIANGLES,
+        };
     }
 }
 // unique corners of a unit cube. Used by Mesh.cube to generate a cube mesh.
@@ -2532,7 +2549,7 @@ class TSGLContextBase$$1 {
             0, 0, 1, 0,
             0, 0, 0, 1,
         ]);
-        return ts3dutils.M4.multiplyMultiple(viewportToScreenMatrix, this.projectionMatrix, this.modelViewMatrix);
+        return ts3dutils.M4.product(viewportToScreenMatrix, this.projectionMatrix, this.modelViewMatrix);
     }
     /////////// IMMEDIATE MODE
     // ### Immediate mode
@@ -2659,6 +2676,17 @@ class TSGLContextBase$$1 {
         windowOnResize();
         return this;
     }
+    getMouseLine(canvasPosXOrE, canvasPosY) {
+        if (canvasPosXOrE instanceof MouseEvent) {
+            return this.getMouseLine(canvasPosXOrE.offsetX, canvasPosXOrE.offsetY);
+        }
+        const ndc1 = ts3dutils.V((canvasPosXOrE * 2) / this.canvas.offsetWidth - 1, (-canvasPosY * 2) / this.canvas.offsetHeight + 1, 0);
+        const ndc2 = ts3dutils.V((canvasPosXOrE * 2) / this.canvas.offsetWidth - 1, (-canvasPosY * 2) / this.canvas.offsetHeight + 1, 1);
+        const inverseProjectionMatrix = this.projectionMatrix.inversed();
+        const anchor = inverseProjectionMatrix.transformPoint(ndc1);
+        const dir = inverseProjectionMatrix.transformPoint(ndc2).minus(anchor);
+        return { anchor, dir };
+    }
     viewportFill() {
         this.viewport(0, 0, this.canvas.width, this.canvas.height);
     }
@@ -2673,10 +2701,10 @@ class TSGLContextBase$$1 {
                 }),
                 fetch(jsonURL).then(r => r.json()),
             ]);
-            const cs = this.textMetrics.chars;
-            const maxY = Object.keys(cs).reduce((a, b) => Math.max(a, cs[b][3]), 0);
-            const minY = Object.keys(cs).reduce((a, b) => Math.min(a, cs[b][3] - cs[b][1]), 0);
-            console.log(maxY, minY);
+            // const cs = this.textMetrics.chars
+            // const maxY = Object.keys(cs).reduce((a, b) => Math.max(a, cs[b][3]), 0)
+            // const minY = Object.keys(cs).reduce((a, b) => Math.min(a, cs[b][3] - cs[b][1]), 0)
+            // console.log(maxY, minY)
         });
     }
     getSDFMeshForString(str) {
@@ -2745,6 +2773,11 @@ class TSGLContextBase$$1 {
         ts3dutils.addOwnProperties(newGL, new TSGLContextBase$$1(newGL));
         //addEventListeners(newGL)
         return newGL;
+    }
+    fixCanvasRes() {
+        this.canvas.width = this.canvas.clientWidth * window.devicePixelRatio;
+        this.canvas.height = this.canvas.clientHeight * window.devicePixelRatio;
+        this.viewport(0, 0, this.canvas.width, this.canvas.height);
     }
 }
 TSGLContextBase$$1.MODELVIEW = 0;

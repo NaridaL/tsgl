@@ -21,6 +21,9 @@ const { cos, sin, PI, min, max } = Math
 
 const WGL = (WebGLRenderingContext as any) as WebGLRenderingContextStrict.Constants
 
+const tempM4_1 = new M4()
+const tempM4_2 = new M4()
+
 export interface MeshData {
 	normals: V3[]
 	coords: [number, number][]
@@ -143,25 +146,33 @@ export class Mesh extends Transformable {
 		return this as any
 	}
 
-	concat<T extends Mesh>(...others: T[]): T {
-		const mesh = new Mesh() as any
-		;[this as Mesh].concat(others).forEach((oldMesh: any) => {
-			const startIndex = mesh.vertices ? mesh.vertices.length : 0
-			Object.getOwnPropertyNames(oldMesh.vertexBuffers).forEach(attribute => {
-				const bufferName = this.vertexBuffers[attribute].name!
-				if (!mesh.vertexBuffers[attribute]) {
-					mesh.addVertexBuffer(bufferName, attribute)
-				}
-				mesh[bufferName].push(...oldMesh[bufferName])
-			})
-			Object.getOwnPropertyNames(oldMesh.indexBuffers).forEach(name => {
-				if (!mesh.indexBuffers[name]) {
-					mesh.addIndexBuffer(name)
-				}
-				mesh[name].push(...(oldMesh[name] as int[]).map(index => index + startIndex))
-			})
+	concat(...others: this[]): this {
+		const result = new Mesh() as any
+		const allMeshes = [this as Mesh].concat(others)
+		Object.getOwnPropertyNames(this.vertexBuffers).forEach(attribute => {
+			assert(others.every(other => !!other.vertexBuffers[attribute]))
+			const bufferName = this.vertexBuffers[attribute].name!
+			if ('ts_Vertex' !== attribute) {
+				result.addVertexBuffer(bufferName, attribute)
+			}
+			result[bufferName] = allMeshes.map(mesh => (mesh as any)[bufferName]).concatenated()
 		})
-		return mesh
+		Object.getOwnPropertyNames(this.indexBuffers).forEach(name => {
+			assert(others.every(other => !!other.indexBuffers[name]))
+			result.addIndexBuffer(name)
+			const newIndexBufferData = new Array(allMeshes.reduce((sum, mesh) => sum + (mesh as any)[name].length, 0))
+			let ptr = 0
+			let startIndex = 0
+			for (const mesh of allMeshes) {
+				for (const index of (mesh as any)[name] as int[]) {
+					newIndexBufferData[ptr++] = startIndex + index
+				}
+				startIndex += mesh.vertices.length
+			}
+			result[name] = newIndexBufferData
+		})
+		result.compile()
+		return result
 	}
 
 	/**
@@ -271,6 +282,8 @@ export class Mesh extends Transformable {
 	}
 
 	/**
+	 * Returns a new Mesh with transformed vertices.
+	 *
 	 * Transform all vertices by `matrix` and all normals by the inverse transpose of `matrix`.
 	 *
 	 * Index buffer data is referenced.
@@ -281,10 +294,9 @@ export class Mesh extends Transformable {
 		if (this.normals) {
 			mesh.addVertexBuffer('normals', 'ts_Normal')
 			const invTrans = m4
-				.as3x3()
-				.inversed()
-				.transposed()
-				.normalized()
+				.as3x3(tempM4_1)
+				.inversed(tempM4_2)
+				.transposed(tempM4_1)
 			mesh.normals = this.normals.map(n => invTrans.transformVector(n).unit())
 			// mesh.normals.forEach(n => assert(n.hasLength(1)))
 		}
@@ -299,7 +311,7 @@ export class Mesh extends Transformable {
 				;(mesh as any)[name] = (this as any)[name]
 			}
 		}
-		this.hasBeenCompiled && mesh.compile()
+		// this.hasBeenCompiled && mesh.compile()
 		return mesh as this
 	}
 
@@ -754,7 +766,7 @@ export class Mesh extends Transformable {
 	}
 
 	static aabb(aabb: AABB) {
-		const matrix = M4.multiplyMultiple(
+		const matrix = M4.product(
 			M4.translate(aabb.min),
 			M4.scale(aabb.size().max(new V3(NLA_PRECISION, NLA_PRECISION, NLA_PRECISION))),
 		)
@@ -909,5 +921,12 @@ export class Mesh extends Transformable {
 		}
 		mesh.compile()
 		return mesh
+	}
+
+	toJSON() {
+		return {
+			vertices: this.vertices.map(x => x.toArray()),
+			TRIANGLES: (this as any).TRIANGLES,
+		}
 	}
 }
