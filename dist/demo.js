@@ -1,7 +1,8 @@
-var demo = (function (exports,tosource,chroma) {
+var demo = (function (exports,tosource,chroma,chroma$1) {
     'use strict';
 
     chroma = chroma && chroma.hasOwnProperty('default') ? chroma['default'] : chroma;
+    chroma$1 = chroma$1 && chroma$1.hasOwnProperty('default') ? chroma$1['default'] : chroma$1;
 
     /**
      * Java style map.
@@ -1396,12 +1397,12 @@ var demo = (function (exports,tosource,chroma) {
     const PI = Math.PI;
     const TAU = 2 * PI;
     /** @define {boolean} */
-    const NLA_DEBUG = true;
+    const NLA_DEBUG = process.env.NODE_ENV != 'production';
     const NLA_PRECISION = 1 / (1 << 26);
     console.log('NLA_PRECISION', NLA_PRECISION);
     console.log('NLA_DEBUG', NLA_DEBUG);
     function assertVectors(...vectors) {
-        {
+        if (NLA_DEBUG) {
             for (let i = 0; i < arguments.length; i++) {
                 if (!(arguments[i] instanceof V3 || arguments[i] instanceof Vector)) {
                     throw new Error('assertVectors arguments[' +
@@ -1416,7 +1417,7 @@ var demo = (function (exports,tosource,chroma) {
         return true;
     }
     function assertInst(what, ...objs) {
-        {
+        if (NLA_DEBUG) {
             for (let i = 0; i < objs.length; i++) {
                 if (!(objs[i] instanceof what)) {
                     throw new Error('assertInst objs[' +
@@ -1432,7 +1433,7 @@ var demo = (function (exports,tosource,chroma) {
         return true;
     }
     function assertNumbers(...numbers) {
-        {
+        if (NLA_DEBUG) {
             for (let i = 0; i < numbers.length; i++) {
                 if ('number' !== typeof numbers[i]) {
                     throw new Error(`assertNumbers arguments[${i}] is not a number. ${typeof numbers[i]} == typeof ${numbers[i]}`);
@@ -1442,7 +1443,7 @@ var demo = (function (exports,tosource,chroma) {
         return true;
     }
     function assertInts(...numbers) {
-        {
+        if (NLA_DEBUG) {
             for (let i = 0; i < numbers.length; i++) {
                 if ('number' !== typeof numbers[i] || numbers[i] % 1 !== 0) {
                     throw new Error(`assertNumbers arguments[${i}] is not an int. ${typeof numbers[i]} == typeof ${numbers[i]}`);
@@ -1452,14 +1453,14 @@ var demo = (function (exports,tosource,chroma) {
         return true;
     }
     function assert(value, ...messages) {
-        if (!value) {
+        if (NLA_DEBUG && !value) {
             throw new Error('assert failed: ' +
                 messages.map(message => ('function' === typeof message ? message() : message || '')).join('\n'));
         }
         return true;
     }
     function assertf(f, ...messages) {
-        if (!f()) {
+        if (NLA_DEBUG && !f()) {
             throw new Error('assertf failed: ' +
                 f.toString() +
                 messages.map(message => ('function' === typeof message ? message() : message || '')).join('\n'));
@@ -2073,7 +2074,7 @@ var demo = (function (exports,tosource,chroma) {
             return a.to(b).cross(a.to(c));
         }
         static add(...vs) {
-            assertVectors.apply(undefined, vs);
+            assertVectors(...vs);
             let x = 0, y = 0, z = 0;
             let i = vs.length;
             while (i--) {
@@ -2084,7 +2085,7 @@ var demo = (function (exports,tosource,chroma) {
             return new V3(x, y, z);
         }
         static sub(...vs) {
-            assertVectors.apply(undefined, vs);
+            assertVectors(...vs);
             let x = vs[0].x, y = vs[0].y, z = vs[0].z;
             let i = vs.length;
             while (i--) {
@@ -4231,30 +4232,39 @@ var demo = (function (exports,tosource,chroma) {
     const WGL = WebGLRenderingContext;
     class Buffer$$1 {
         /**
-         * Provides a simple method of uploading data to a GPU buffer. Example usage:
+         * Provides a simple method of uploading data to a GPU buffer.
          *
+         * @example
          *     const vertices = new Buffer(WGL.ARRAY_BUFFER, Float32Array)
          *     vertices.data = [[0, 0, 0], [1, 0, 0], [0, 1, 0], [1, 1, 0]]
          *     vertices.compile()
          *
+         * @example
          *     const indices = new Buffer(WGL.ELEMENT_ARRAY_BUFFER, Uint16Array)
          *     indices.data = [[0, 1, 2], [2, 1, 3]]
          *     indices.compile()
          *
-         * Specifies the target to which the buffer object is bound.
-         * The symbolic constant must be GL_ARRAY_BUFFER or GL_ELEMENT_ARRAY_BUFFER.
+         * @param target Specifies the target to which the buffer object is bound.
+         * @param type
          */
         constructor(target, type) {
             this.target = target;
             this.type = type;
-            assert(target == WGL.ARRAY_BUFFER || target == WGL.ELEMENT_ARRAY_BUFFER, 'target == WGL.ARRAY_BUFFER || target == WGL.ELEMENT_ARRAY_BUFFER');
-            assert(type == Float32Array || type == Uint16Array, 'type == Float32Array || type == Uint16Array');
             this.buffer = undefined;
-            this.type = type;
             this.data = [];
+            /** Number of elements in buffer. 2 V3s is still 2, not 6. */
             this.count = 0;
+            /** Space between elements in buffer. 3 for V3s. */
             this.spacing = 1;
             this.hasBeenCompiled = false;
+            assert(target == WGL.ARRAY_BUFFER || target == WGL.ELEMENT_ARRAY_BUFFER, 'target == WGL.ARRAY_BUFFER || target == WGL.ELEMENT_ARRAY_BUFFER');
+            assert(type == Float32Array || type == Uint16Array || type == Uint32Array, 'type == Float32Array || type == Uint16Array || type == Uint32Array');
+            if (Uint16Array == type) {
+                this.bindSize = WGL.UNSIGNED_SHORT;
+            }
+            else if (Uint32Array == type) {
+                this.bindSize = WGL.UNSIGNED_INT;
+            }
         }
         /**
          * Upload the contents of `data` to the GPU in preparation for rendering. The data must be a list of lists
@@ -4302,7 +4312,7 @@ var demo = (function (exports,tosource,chroma) {
                 }
                 const spacing = this.data.length ? buffer.length / this.data.length : 0;
                 assert(spacing % 1 == 0, `buffer ${this.name} elements not of consistent size, average size is ` + spacing);
-                {
+                if (NLA_DEBUG) {
                     if (10000 <= buffer.length) {
                         this.maxValue = 0;
                     }
@@ -4434,9 +4444,10 @@ var demo = (function (exports,tosource,chroma) {
          * @example new Mesh().addIndexBuffer('TRIANGLES')
          * @example new Mesh().addIndexBuffer('LINES')
          */
-        addIndexBuffer(name) {
+        addIndexBuffer(name, type = WGL$1.UNSIGNED_SHORT) {
             this.hasBeenCompiled = false;
-            const buffer = (this.indexBuffers[name] = new Buffer$$1(WGL$1.ELEMENT_ARRAY_BUFFER, Uint16Array));
+            const arrayType = WGL$1.UNSIGNED_SHORT == type ? Uint16Array : Uint32Array;
+            const buffer = (this.indexBuffers[name] = new Buffer$$1(WGL$1.ELEMENT_ARRAY_BUFFER, arrayType));
             buffer.name = name;
             this[name] = [];
             return this;
@@ -4454,7 +4465,7 @@ var demo = (function (exports,tosource,chroma) {
             });
             Object.getOwnPropertyNames(this.indexBuffers).forEach(name => {
                 assert(others.every(other => !!other.indexBuffers[name]));
-                result.addIndexBuffer(name);
+                result.addIndexBuffer(name, this.indexBuffers[name].bindSize);
                 const newIndexBufferData = new Array(allMeshes.reduce((sum, mesh) => sum + mesh[name].length, 0));
                 let ptr = 0;
                 let startIndex = 0;
@@ -5184,7 +5195,7 @@ var demo = (function (exports,tosource,chroma) {
                 this.uniformLocations[name] = location;
                 let value = uniforms[name];
                 const info = this.uniformInfos[name];
-                {
+                if (NLA_DEBUG) {
                     // TODO: better errors
                     if (gl.SAMPLER_2D == info.type || gl.SAMPLER_CUBE == info.type || gl.INT == info.type) {
                         if (1 == info.size) {
@@ -5430,7 +5441,7 @@ var demo = (function (exports,tosource,chroma) {
                     gl.disableVertexAttribArray(this.attributeLocations[attribute]);
                 }
             }
-            {
+            if (NLA_DEBUG) {
                 const numAttribs = gl.getProgramParameter(this.program, gl.ACTIVE_ATTRIBUTES);
                 for (let i = 0; i < numAttribs; ++i) {
                     const buffer = gl.getVertexAttrib(i, gl.VERTEX_ATTRIB_ARRAY_BUFFER_BINDING);
@@ -5469,7 +5480,7 @@ var demo = (function (exports,tosource,chroma) {
                     }
                     gl.bindBuffer(WGL$2.ELEMENT_ARRAY_BUFFER, indexBuffer.buffer);
                     // start parameter has to be multiple of sizeof(WGL.UNSIGNED_SHORT)
-                    gl.drawElements(mode, count, WGL$2.UNSIGNED_SHORT, 2 * start);
+                    gl.drawElements(mode, count, indexBuffer.bindSize, indexBuffer.type.BYTES_PER_ELEMENT * start);
                 }
                 else {
                     if (start + count > minVertexBufferLength) {
@@ -6655,7 +6666,7 @@ void main() {
             gl.translate(-camera.x, -camera.y, -camera.z);
             shader
                 .uniforms({ brightness: 1 })
-                .attributes({ ts_Color: chroma('red').gl() })
+                .attributes({ ts_Color: chroma$1('red').gl() })
                 .draw(mesh, gl.TRIANGLES);
             shader.uniforms({ brightness: 0 }).draw(mesh, gl.LINES);
         });
@@ -7189,20 +7200,20 @@ void main() {
             gl.multMatrix(M4.rotateLine(V(0.5, 0.5), V3.Z, abs / 5000));
             // gl.translate(-1, -1, -1)
             // gl.scale(2)
-            shader.attributes({ ts_Color: chroma('black').gl() }).draw(linesMesh, gl.LINES);
+            shader.attributes({ ts_Color: chroma$1('black').gl() }).draw(linesMesh, gl.LINES);
             barMagnetMatrices.forEach((mat, index) => {
                 if (enabledBarMagnets[index]) {
                     gl.pushMatrix();
                     gl.multMatrix(mat);
                     gl.scale(0.5, 1, 1);
-                    shader.attributes({ ts_Color: chroma('red').gl() }).draw(cubeMesh, gl.LINES);
+                    shader.attributes({ ts_Color: chroma$1('red').gl() }).draw(cubeMesh, gl.LINES);
                     gl.translate(1, 0);
-                    shader.attributes({ ts_Color: chroma('blue').gl() }).draw(cubeMesh, gl.LINES);
+                    shader.attributes({ ts_Color: chroma$1('blue').gl() }).draw(cubeMesh, gl.LINES);
                     gl.popMatrix();
                 }
             });
             gl.scale(bounds.max);
-            shader.attributes({ ts_Color: chroma('grey').gl() }).draw(cubeMesh, gl.LINES);
+            shader.attributes({ ts_Color: chroma$1('grey').gl() }).draw(cubeMesh, gl.LINES);
             // vectorFieldShader.drawBuffers(vectorFieldMesh.vertexBuffers, undefined, DRAW_MODES.LINES)
         });
     }
@@ -7417,7 +7428,7 @@ void main() {
             gl.enable(gl.DEPTH_TEST);
             return gl.animate(function (abs, _diff) {
                 const angleDeg = Math.sin(abs / 10000) * 15;
-                const textColor = chroma('brown')
+                const textColor = chroma$1('brown')
                     .darken()
                     .gl();
                 gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
@@ -7448,7 +7459,7 @@ void main() {
                     gl.vertex(0, -1, 0);
                     gl.vertex(0, 1, 0);
                     gl.end();
-                    gl.renderText('baseline="' + baseline + '"|{}() ABC XYZ yjg Ẫß', chroma('blue').gl(), 1, 'left', baseline);
+                    gl.renderText('baseline="' + baseline + '"|{}() ABC XYZ yjg Ẫß', chroma$1('blue').gl(), 1, 'left', baseline);
                     gl.translate(0, -2.2);
                 });
                 gl.popMatrix();
@@ -7462,7 +7473,7 @@ void main() {
                     gl.vertex(0, -1, 0);
                     gl.vertex(0, 1, 0);
                     gl.end();
-                    gl.renderText('align="' + align + '"', chroma('blue').gl(), 1, align, 'alphabetic');
+                    gl.renderText('align="' + align + '"', chroma$1('blue').gl(), 1, align, 'alphabetic');
                     gl.translate(0, -2.2);
                 });
                 gl.popMatrix();
@@ -110070,5 +110081,5 @@ void main() {
 
     return exports;
 
-}({},null,chroma));
+}({},null,null,chroma));
 //# sourceMappingURL=demo.js.map

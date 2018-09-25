@@ -1,4 +1,4 @@
-import chroma from 'chroma-js'
+import chroma from 'chroma.ts'
 import { addOwnProperties, assert, DEG, int, M4, P3ZX, V, V3 } from 'ts3dutils'
 import { glEnumToString } from './KhronosGroupWebGLDebug'
 
@@ -558,7 +558,7 @@ function hexIntToGLColor(color: int): GL_COLOR {
 	return [(color >> 16) / 255.0, ((color >> 8) & 0xff) / 255.0, (color & 0xff) / 255.0, 1.0]
 }
 
-interface FontJsonMetrics {
+export interface FontJsonMetrics {
 	family: string
 	style: string
 

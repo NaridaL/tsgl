@@ -6,35 +6,44 @@ function _interopDefault (ex) { return (ex && (typeof ex === 'object') && 'defau
 
 var ts3dutils = require('ts3dutils');
 var tslib_1 = require('tslib');
-var chroma = _interopDefault(require('chroma-js'));
+var chroma = _interopDefault(require('chroma.ts'));
 
 const WGL = WebGLRenderingContext;
 class Buffer$$1 {
     /**
-     * Provides a simple method of uploading data to a GPU buffer. Example usage:
+     * Provides a simple method of uploading data to a GPU buffer.
      *
+     * @example
      *     const vertices = new Buffer(WGL.ARRAY_BUFFER, Float32Array)
      *     vertices.data = [[0, 0, 0], [1, 0, 0], [0, 1, 0], [1, 1, 0]]
      *     vertices.compile()
      *
+     * @example
      *     const indices = new Buffer(WGL.ELEMENT_ARRAY_BUFFER, Uint16Array)
      *     indices.data = [[0, 1, 2], [2, 1, 3]]
      *     indices.compile()
      *
-     * Specifies the target to which the buffer object is bound.
-     * The symbolic constant must be GL_ARRAY_BUFFER or GL_ELEMENT_ARRAY_BUFFER.
+     * @param target Specifies the target to which the buffer object is bound.
+     * @param type
      */
     constructor(target, type) {
         this.target = target;
         this.type = type;
-        ts3dutils.assert(target == WGL.ARRAY_BUFFER || target == WGL.ELEMENT_ARRAY_BUFFER, 'target == WGL.ARRAY_BUFFER || target == WGL.ELEMENT_ARRAY_BUFFER');
-        ts3dutils.assert(type == Float32Array || type == Uint16Array, 'type == Float32Array || type == Uint16Array');
         this.buffer = undefined;
-        this.type = type;
         this.data = [];
+        /** Number of elements in buffer. 2 V3s is still 2, not 6. */
         this.count = 0;
+        /** Space between elements in buffer. 3 for V3s. */
         this.spacing = 1;
         this.hasBeenCompiled = false;
+        ts3dutils.assert(target == WGL.ARRAY_BUFFER || target == WGL.ELEMENT_ARRAY_BUFFER, 'target == WGL.ARRAY_BUFFER || target == WGL.ELEMENT_ARRAY_BUFFER');
+        ts3dutils.assert(type == Float32Array || type == Uint16Array || type == Uint32Array, 'type == Float32Array || type == Uint16Array || type == Uint32Array');
+        if (Uint16Array == type) {
+            this.bindSize = WGL.UNSIGNED_SHORT;
+        }
+        else if (Uint32Array == type) {
+            this.bindSize = WGL.UNSIGNED_INT;
+        }
     }
     /**
      * Upload the contents of `data` to the GPU in preparation for rendering. The data must be a list of lists
@@ -190,9 +199,10 @@ class Mesh$$1 extends ts3dutils.Transformable {
      * @example new Mesh().addIndexBuffer('TRIANGLES')
      * @example new Mesh().addIndexBuffer('LINES')
      */
-    addIndexBuffer(name) {
+    addIndexBuffer(name, type = WGL$1.UNSIGNED_SHORT) {
         this.hasBeenCompiled = false;
-        const buffer = (this.indexBuffers[name] = new Buffer$$1(WGL$1.ELEMENT_ARRAY_BUFFER, Uint16Array));
+        const arrayType = WGL$1.UNSIGNED_SHORT == type ? Uint16Array : Uint32Array;
+        const buffer = (this.indexBuffers[name] = new Buffer$$1(WGL$1.ELEMENT_ARRAY_BUFFER, arrayType));
         buffer.name = name;
         this[name] = [];
         return this;
@@ -210,7 +220,7 @@ class Mesh$$1 extends ts3dutils.Transformable {
         });
         Object.getOwnPropertyNames(this.indexBuffers).forEach(name => {
             ts3dutils.assert(others.every(other => !!other.indexBuffers[name]));
-            result.addIndexBuffer(name);
+            result.addIndexBuffer(name, this.indexBuffers[name].bindSize);
             const newIndexBufferData = new Array(allMeshes.reduce((sum, mesh) => sum + mesh[name].length, 0));
             let ptr = 0;
             let startIndex = 0;
@@ -1242,7 +1252,7 @@ class Shader$$1 {
                 }
                 gl.bindBuffer(WGL$2.ELEMENT_ARRAY_BUFFER, indexBuffer.buffer);
                 // start parameter has to be multiple of sizeof(WGL.UNSIGNED_SHORT)
-                gl.drawElements(mode, count, WGL$2.UNSIGNED_SHORT, 2 * start);
+                gl.drawElements(mode, count, indexBuffer.bindSize, indexBuffer.type.BYTES_PER_ELEMENT * start);
             }
             else {
                 if (start + count > minVertexBufferLength) {

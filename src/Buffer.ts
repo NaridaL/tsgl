@@ -5,47 +5,56 @@ import GL = WebGLRenderingContextStrict
 const WGL = (WebGLRenderingContext as any) as WebGLRenderingContextStrict.Constants
 
 export class Buffer {
-	buffer: WebGLBuffer | undefined
-	data: any[]
+	buffer: WebGLBuffer | undefined = undefined
+	data: any[] = []
 
 	/** Number of elements in buffer. 2 V3s is still 2, not 6. */
-	count: int
+	count: int = 0
 
 	/** Space between elements in buffer. 3 for V3s. */
-	spacing: 1 | 2 | 3 | 4
+	spacing: 1 | 2 | 3 | 4 = 1
 
-	hasBeenCompiled: boolean
+	hasBeenCompiled: boolean = false
 
 	name?: string
 
 	maxValue?: number
 
+	bindSize: GL['UNSIGNED_INT'] | GL['UNSIGNED_SHORT']
+
 	/**
-	 * Provides a simple method of uploading data to a GPU buffer. Example usage:
+	 * Provides a simple method of uploading data to a GPU buffer.
 	 *
+	 * @example
 	 *     const vertices = new Buffer(WGL.ARRAY_BUFFER, Float32Array)
 	 *     vertices.data = [[0, 0, 0], [1, 0, 0], [0, 1, 0], [1, 1, 0]]
 	 *     vertices.compile()
 	 *
+	 * @example
 	 *     const indices = new Buffer(WGL.ELEMENT_ARRAY_BUFFER, Uint16Array)
 	 *     indices.data = [[0, 1, 2], [2, 1, 3]]
 	 *     indices.compile()
 	 *
-	 * Specifies the target to which the buffer object is bound.
-	 * The symbolic constant must be GL_ARRAY_BUFFER or GL_ELEMENT_ARRAY_BUFFER.
+	 * @param target Specifies the target to which the buffer object is bound.
+	 * @param type
 	 */
-	constructor(readonly target: GL.BufferTarget, readonly type: typeof Float32Array | typeof Uint16Array) {
+	constructor(
+		public readonly target: GL.BufferTarget,
+		public readonly type: typeof Float32Array | typeof Uint16Array | typeof Uint32Array,
+	) {
 		assert(
 			target == WGL.ARRAY_BUFFER || target == WGL.ELEMENT_ARRAY_BUFFER,
 			'target == WGL.ARRAY_BUFFER || target == WGL.ELEMENT_ARRAY_BUFFER',
 		)
-		assert(type == Float32Array || type == Uint16Array, 'type == Float32Array || type == Uint16Array')
-		this.buffer = undefined
-		this.type = type
-		this.data = []
-		this.count = 0
-		this.spacing = 1
-		this.hasBeenCompiled = false
+		assert(
+			type == Float32Array || type == Uint16Array || type == Uint32Array,
+			'type == Float32Array || type == Uint16Array || type == Uint32Array',
+		)
+		if (Uint16Array == type) {
+			this.bindSize = WGL.UNSIGNED_SHORT
+		} else if (Uint32Array == type) {
+			this.bindSize = WGL.UNSIGNED_INT
+		}
 	}
 
 	/**
@@ -64,7 +73,7 @@ export class Buffer {
 			'WGL.STATIC_DRAW == type || WGL.DYNAMIC_DRAW == type',
 		)
 		this.buffer = this.buffer || gl.createBuffer()!
-		let buffer: Float32Array | Uint16Array
+		let buffer: Float32Array | Uint16Array | Uint32Array
 		if (this.data.length == 0) {
 			console.warn('empty buffer ' + this.name)
 			//console.trace()

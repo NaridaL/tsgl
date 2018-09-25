@@ -550,7 +550,7 @@ export class Shader<UniformTypes extends VarTypeMap = any, AttributeTypes extend
 				}
 				gl.bindBuffer(WGL.ELEMENT_ARRAY_BUFFER, indexBuffer.buffer!)
 				// start parameter has to be multiple of sizeof(WGL.UNSIGNED_SHORT)
-				gl.drawElements(mode, count, WGL.UNSIGNED_SHORT, 2 * start)
+				gl.drawElements(mode, count, indexBuffer.bindSize, indexBuffer.type.BYTES_PER_ELEMENT * start)
 			} else {
 				if (start + count > minVertexBufferLength) {
 					throw new Error('invalid')

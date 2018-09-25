@@ -20,6 +20,7 @@ import { Buffer, currentGL, GL_COLOR, pushQuad, TSGLContext } from './index'
 const { cos, sin, PI, min, max } = Math
 
 const WGL = (WebGLRenderingContext as any) as WebGLRenderingContextStrict.Constants
+import GL = WebGLRenderingContextStrict
 
 const tempM4_1 = new M4()
 const tempM4_2 = new M4()
@@ -138,9 +139,13 @@ export class Mesh extends Transformable {
 	 * @example new Mesh().addIndexBuffer('TRIANGLES')
 	 * @example new Mesh().addIndexBuffer('LINES')
 	 */
-	addIndexBuffer<K extends string>(name: K): this & { [k in K]: int[] } {
+	addIndexBuffer<K extends string>(
+		name: K,
+		type: GL['UNSIGNED_SHORT'] | GL['UNSIGNED_INT'] = WGL.UNSIGNED_SHORT,
+	): this & { [k in K]: int[] } {
 		this.hasBeenCompiled = false
-		const buffer = (this.indexBuffers[name] = new Buffer(WGL.ELEMENT_ARRAY_BUFFER, Uint16Array))
+		const arrayType = WGL.UNSIGNED_SHORT == type ? Uint16Array : Uint32Array
+		const buffer = (this.indexBuffers[name] = new Buffer(WGL.ELEMENT_ARRAY_BUFFER, arrayType))
 		buffer.name = name
 		;(this as any)[name] = []
 		return this as any
@@ -159,7 +164,7 @@ export class Mesh extends Transformable {
 		})
 		Object.getOwnPropertyNames(this.indexBuffers).forEach(name => {
 			assert(others.every(other => !!other.indexBuffers[name]))
-			result.addIndexBuffer(name)
+			result.addIndexBuffer(name, this.indexBuffers[name].bindSize)
 			const newIndexBufferData = new Array(allMeshes.reduce((sum, mesh) => sum + (mesh as any)[name].length, 0))
 			let ptr = 0
 			let startIndex = 0
