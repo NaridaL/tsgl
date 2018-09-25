@@ -110081,5 +110081,5 @@ void main() {
 
     return exports;
 
-}({},null,null,chroma));
+}({},null,chroma,chroma));
 //# sourceMappingURL=demo.js.map
