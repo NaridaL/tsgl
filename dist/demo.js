@@ -6278,7 +6278,7 @@ var demo = (function (exports,tosource,chroma,chroma$1) {
                     : 1 == args.length && 'number' == typeof args[0]
                         ? hexIntToGLColor(args[0])
                         : 1 == args.length && 'string' == typeof args[0]
-                            ? chroma(args[0]).gl()
+                            ? chroma.color(args[0]).gl()
                             : [args[0], args[1], args[2], args[3] || 1];
         }
         texCoord(...args) {
