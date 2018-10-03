@@ -2778,9 +2778,14 @@ class TSGLContextBase$$1 {
         //addEventListeners(newGL)
         return newGL;
     }
-    fixCanvasRes() {
-        this.canvas.width = this.canvas.clientWidth * window.devicePixelRatio;
-        this.canvas.height = this.canvas.clientHeight * window.devicePixelRatio;
+    /**
+     * Sets the canvas render resolution (canvas.width and canvas.height) to match the display. I.e. it takes into
+     * account window.devicePixelRatio.
+     * @param maxPixelRatio A limit for the pixelRatio. Useful for very high DPI devices such as mobile devices.
+     */
+    fixCanvasRes(maxPixelRatio = Infinity) {
+        this.canvas.width = this.canvas.clientWidth * Math.min(window.devicePixelRatio, maxPixelRatio);
+        this.canvas.height = this.canvas.clientHeight * Math.min(window.devicePixelRatio, maxPixelRatio);
         this.viewport(0, 0, this.canvas.width, this.canvas.height);
     }
 }
