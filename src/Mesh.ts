@@ -1,3 +1,4 @@
+/// <reference types="webgl-strict-types" />
 import {
 	AABB,
 	arrayFromFunction,

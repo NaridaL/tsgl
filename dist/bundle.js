@@ -8,6 +8,7 @@ var ts3dutils = require('ts3dutils');
 var tslib_1 = require('tslib');
 var chroma = _interopDefault(require('chroma.ts'));
 
+/// <reference types="webgl-strict-types" />
 const WGL = WebGLRenderingContext;
 class Buffer$$1 {
     /**
@@ -1266,6 +1267,7 @@ class Shader$$1 {
     }
 }
 
+/// <reference types="webgl-strict-types" />
 class Texture$$1 {
     /**
      * Provides a simple wrapper around WebGL textures that supports render-to-texture.
@@ -1441,6 +1443,10 @@ class Texture$$1 {
         });
     }
 }
+
+var posCoordVS = "attribute vec2 ts_TexCoord;attribute vec4 ts_Vertex;uniform mat4 ts_ModelViewProjectionMatrix;varying vec2 coord;void main(){coord=ts_TexCoord.xy;gl_Position=ts_ModelViewProjectionMatrix*ts_Vertex;}";
+
+var sdfRenderFS = "precision mediump float;uniform sampler2D u_texture;uniform vec4 u_color;uniform float u_buffer;uniform float u_gamma;uniform float u_debug;varying vec2 coord;void main(){float dist=texture2D(u_texture,coord).r;if(u_debug>0.0){gl_FragColor=vec4(dist,dist,dist,1);}else{float alpha=smoothstep(u_buffer-u_gamma,u_buffer+u_gamma,dist);gl_FragColor=vec4(u_color.rgb,alpha*u_color.a);if(gl_FragColor.a==0.0){discard;}}}";
 
 /*
 ** Copyright (c) 2012 The Khronos Group Inc.
@@ -2412,10 +2418,6 @@ function makeLostContextSimulatingCanvas(canvas) {
         return wrappedContext_;
     }
 }
-
-var posCoordVS = "attribute vec2 ts_TexCoord;attribute vec4 ts_Vertex;uniform mat4 ts_ModelViewProjectionMatrix;varying vec2 coord;void main(){coord=ts_TexCoord.xy;gl_Position=ts_ModelViewProjectionMatrix*ts_Vertex;}";
-
-var sdfRenderFS = "precision mediump float;uniform sampler2D u_texture;uniform vec4 u_color;uniform float u_buffer;uniform float u_gamma;uniform float u_debug;varying vec2 coord;void main(){float dist=texture2D(u_texture,coord).r;if(u_debug>0.0){gl_FragColor=vec4(dist,dist,dist,1);}else{float alpha=smoothstep(u_buffer-u_gamma,u_buffer+u_gamma,dist);gl_FragColor=vec4(u_color.rgb,alpha*u_color.a);if(gl_FragColor.a==0.0){discard;}}}";
 
 /**
  * There's only one constant, use it for default values. Use chroma-js or similar for actual colors.

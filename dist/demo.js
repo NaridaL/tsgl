@@ -4229,6 +4229,7 @@ var demo = (function (exports,tosource,chroma,chroma$1) {
         }
     }
 
+    /// <reference types="webgl-strict-types" />
     const WGL = WebGLRenderingContext;
     class Buffer$$1 {
         /**
@@ -5494,6 +5495,7 @@ var demo = (function (exports,tosource,chroma,chroma$1) {
         }
     }
 
+    /// <reference types="webgl-strict-types" />
     class Texture$$1 {
         /**
          * Provides a simple wrapper around WebGL textures that supports render-to-texture.
@@ -5669,6 +5671,10 @@ var demo = (function (exports,tosource,chroma,chroma$1) {
             });
         }
     }
+
+    var posCoordVS = "attribute vec2 ts_TexCoord;attribute vec4 ts_Vertex;uniform mat4 ts_ModelViewProjectionMatrix;varying vec2 coord;void main(){coord=ts_TexCoord.xy;gl_Position=ts_ModelViewProjectionMatrix*ts_Vertex;}";
+
+    var sdfRenderFS = "precision mediump float;uniform sampler2D u_texture;uniform vec4 u_color;uniform float u_buffer;uniform float u_gamma;uniform float u_debug;varying vec2 coord;void main(){float dist=texture2D(u_texture,coord).r;if(u_debug>0.0){gl_FragColor=vec4(dist,dist,dist,1);}else{float alpha=smoothstep(u_buffer-u_gamma,u_buffer+u_gamma,dist);gl_FragColor=vec4(u_color.rgb,alpha*u_color.a);if(gl_FragColor.a==0.0){discard;}}}";
 
     /*
     ** Copyright (c) 2012 The Khronos Group Inc.
@@ -6109,10 +6115,6 @@ var demo = (function (exports,tosource,chroma,chroma$1) {
     function isWebGL2RenderingContext(o) {
         return !!o.createTransformFeedback;
     }
-
-    var posCoordVS = "attribute vec2 ts_TexCoord;attribute vec4 ts_Vertex;uniform mat4 ts_ModelViewProjectionMatrix;varying vec2 coord;void main(){coord=ts_TexCoord.xy;gl_Position=ts_ModelViewProjectionMatrix*ts_Vertex;}";
-
-    var sdfRenderFS = "precision mediump float;uniform sampler2D u_texture;uniform vec4 u_color;uniform float u_buffer;uniform float u_gamma;uniform float u_debug;varying vec2 coord;void main(){float dist=texture2D(u_texture,coord).r;if(u_debug>0.0){gl_FragColor=vec4(dist,dist,dist,1);}else{float alpha=smoothstep(u_buffer-u_gamma,u_buffer+u_gamma,dist);gl_FragColor=vec4(u_color.rgb,alpha*u_color.a);if(gl_FragColor.a==0.0){discard;}}}";
 
     function currentGL$$1() {
         return TSGLContextBase$$1.gl;

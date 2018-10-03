@@ -1,4 +1,5 @@
 /* tslint:disable:no-string-literal */
+/// <reference types="webgl-strict-types" />
 import { assert, assertf, assertInst, assertVectors, int, M4, NLA_DEBUG, V3 } from 'ts3dutils'
 
 import { Buffer, currentGL, GL_COLOR, Mesh, TSGLContext } from './index'

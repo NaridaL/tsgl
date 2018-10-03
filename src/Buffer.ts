@@ -1,3 +1,4 @@
+/// <reference types="webgl-strict-types" />
 import { assert, int, NLA_DEBUG, V3 } from 'ts3dutils'
 import { currentGL, TSGLContext } from './index'
 

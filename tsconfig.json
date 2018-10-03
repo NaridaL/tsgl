@@ -32,8 +32,6 @@
     }
   },
   "include": [
-    "node_modules/webgl-strict-types/index.d.ts",
-    "src/index.ts",
-    "src/shaders/*.glslx.d.ts"
+    "src/index.ts"
   ]
 }
