@@ -2,7 +2,7 @@
 import { clamp, DEG, V, V3 } from 'ts3dutils'
 import { Mesh, Shader, TSGLContext } from 'tsgl'
 
-import chroma from 'chroma-js'
+import { color } from 'chroma.ts'
 import posNormalColorVS from '../shaders/posNormalColorVS.glslx'
 
 /**
@@ -104,7 +104,7 @@ void main() {
 
 		shader
 			.uniforms({ brightness: 1 })
-			.attributes({ ts_Color: chroma('red').gl() })
+			.attributes({ ts_Color: color('red').gl() })
 			.draw(mesh, gl.TRIANGLES)
 		shader.uniforms({ brightness: 0 }).draw(mesh, gl.LINES)
 	})

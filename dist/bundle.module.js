@@ -1,6 +1,6 @@
 import { assert, NLA_DEBUG, V3, AABB, arrayFromFunction, assertVectors, eq0, lerp, M4, NLA_PRECISION, Transformable, V, assertf, assertInst, addOwnProperties, DEG, P3ZX } from 'ts3dutils';
 import { __awaiter } from 'tslib';
-import chroma from 'chroma.ts';
+import { color } from 'chroma.ts';
 
 /// <reference types="webgl-strict-types" />
 const WGL = WebGLRenderingContext;
@@ -2585,7 +2585,7 @@ class TSGLContextBase$$1 {
                 : 1 == args.length && 'number' == typeof args[0]
                     ? hexIntToGLColor(args[0])
                     : 1 == args.length && 'string' == typeof args[0]
-                        ? chroma.color(args[0]).gl()
+                        ? color(args[0]).gl()
                         : [args[0], args[1], args[2], args[3] || 1];
     }
     texCoord(...args) {
@@ -2718,7 +2718,7 @@ class TSGLContextBase$$1 {
         return (this.cachedSDFMeshes[str] ||
             (this.cachedSDFMeshes[str] = createTextMesh(this.textMetrics, this.textAtlas, str)));
     }
-    renderText(string, color, size = 1, xAlign = 'left', baseline = 'bottom', gamma = 0.05, lineHeight = 1.2) {
+    renderText(string, color$$1, size = 1, xAlign = 'left', baseline = 'bottom', gamma = 0.05, lineHeight = 1.2) {
         const strMesh = this.getSDFMeshForString(string);
         this.pushMatrix();
         this.scale(size);
@@ -2734,7 +2734,7 @@ class TSGLContextBase$$1 {
         this.multMatrix(M4.forSys(V3.X, V3.Y, new V3(0, -lineHeight, 0)));
         this.textAtlas.bind(0);
         this.textRenderShader
-            .uniforms({ texture: 0, u_color: color, u_debug: 0, u_gamma: gamma, u_buffer: 192 / 256 })
+            .uniforms({ texture: 0, u_color: color$$1, u_debug: 0, u_gamma: gamma, u_buffer: 192 / 256 })
             .draw(strMesh);
         this.popMatrix();
         // gl.uniform1f(shader.u_debug, debug ? 1 : 0)
@@ -2832,8 +2832,8 @@ function pushQuad$$1(triangles, flipped, a, b, c, d) {
         triangles.push(a, b, c, b, d, c);
     }
 }
-function hexIntToGLColor(color) {
-    return [(color >> 16) / 255.0, ((color >> 8) & 0xff) / 255.0, (color & 0xff) / 255.0, 1.0];
+function hexIntToGLColor(color$$1) {
+    return [(color$$1 >> 16) / 255.0, ((color$$1 >> 8) & 0xff) / 255.0, (color$$1 & 0xff) / 255.0, 1.0];
 }
 // function measureText(metrics: FontJsonMetrics, text: string, size: number) {
 // 	const dimensions = {

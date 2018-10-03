@@ -201,6 +201,8 @@ export function gpuLightMap(gl: TSGLContext & WebGL2RenderingContext) {
 				type: gl.FLOAT,
 				filter: gl.LINEAR,
 			})
+
+			console.log('compiled quad mesh')
 		}
 
 		drawShadow(dir: V3) {
@@ -262,7 +264,7 @@ export function gpuLightMap(gl: TSGLContext & WebGL2RenderingContext) {
 	const groundTilesPerSide = 5
 	const quadMesh = new QuadMesh()
 	// Arc of randomly oriented quads
-	quadMesh.addCube(M4.multiplyMultiple(M4.translate(0, 0, -0.2), M4.rotateAB(V3.XYZ, V3.Z)))
+	quadMesh.addCube(M4.product(M4.translate(0, 0, -0.2), M4.rotateAB(V3.XYZ, V3.Z)))
 	for (let i = 0; i < numArcQuads; i++) {
 		const r = 0.4
 		const t = (i / numArcQuads) * TAU
@@ -279,12 +281,7 @@ export function gpuLightMap(gl: TSGLContext & WebGL2RenderingContext) {
 			.cross(a)
 			.unit()
 		quadMesh.addCube(
-			M4.multiplyMultiple(
-				M4.translate(center),
-				M4.forSys(a, b),
-				M4.scale(r, r, r),
-				M4.translate(-0.5, -0.5, -0.5),
-			),
+			M4.product(M4.translate(center), M4.forSys(a, b), M4.scale(r, r, r), M4.translate(-0.5, -0.5, -0.5)),
 		)
 	}
 

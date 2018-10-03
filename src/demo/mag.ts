@@ -1,5 +1,5 @@
 /// <reference path="../types.d.ts" />
-import chroma from 'chroma-js'
+import { color } from 'chroma.ts'
 import { AABB, arrayFromFunction, DEG, M4, time, V, V3 } from 'ts3dutils'
 import { Mesh, Shader, TSGLContext } from 'tsgl'
 import posNormalColorVS from '../shaders/posNormalColorVS.glslx'
@@ -190,20 +190,20 @@ export function mag(gl: TSGLContext) {
 		// gl.translate(-1, -1, -1)
 		// gl.scale(2)
 
-		shader.attributes({ ts_Color: chroma('black').gl() }).draw(linesMesh, gl.LINES)
+		shader.attributes({ ts_Color: color('black').gl() }).draw(linesMesh, gl.LINES)
 		barMagnetMatrices.forEach((mat, index) => {
 			if (enabledBarMagnets[index]) {
 				gl.pushMatrix()
 				gl.multMatrix(mat)
 				gl.scale(0.5, 1, 1)
-				shader.attributes({ ts_Color: chroma('red').gl() }).draw(cubeMesh, gl.LINES)
+				shader.attributes({ ts_Color: color('red').gl() }).draw(cubeMesh, gl.LINES)
 				gl.translate(1, 0)
-				shader.attributes({ ts_Color: chroma('blue').gl() }).draw(cubeMesh, gl.LINES)
+				shader.attributes({ ts_Color: color('blue').gl() }).draw(cubeMesh, gl.LINES)
 				gl.popMatrix()
 			}
 		})
 		gl.scale(bounds.max)
-		shader.attributes({ ts_Color: chroma('grey').gl() }).draw(cubeMesh, gl.LINES)
+		shader.attributes({ ts_Color: color('grey').gl() }).draw(cubeMesh, gl.LINES)
 		// vectorFieldShader.drawBuffers(vectorFieldMesh.vertexBuffers, undefined, DRAW_MODES.LINES)
 	})
 }

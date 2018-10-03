@@ -1,5 +1,4 @@
 import { AABB, clamp, DEG, V, V3 } from 'ts3dutils'
-
 import { Mesh, Shader, Texture, TSGLContext } from 'tsgl'
 
 import cessnaJSON from '../../cessna.json'
@@ -24,6 +23,7 @@ export function shadowMap(gl: TSGLContext) {
 	const plane = Mesh.plane()
 		.translate(-0.5, -0.5)
 		.scale(300, 300, 1)
+		.compile()
 	const depthMap = new Texture(1024, 1024, { format: gl.RGBA })
 	const texturePlane = Mesh.plane()
 	const boundingSphere = mesh.getBoundingSphere()
@@ -31,6 +31,7 @@ export function shadowMap(gl: TSGLContext) {
 	const frustrumCube = Mesh.cube()
 		.scale(2)
 		.translate(V3.XYZ.negated())
+		.compile()
 	const colorShader = Shader.create(
 		`
 	uniform mat4 ts_ModelViewProjectionMatrix;

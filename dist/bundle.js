@@ -2,11 +2,9 @@
 
 Object.defineProperty(exports, '__esModule', { value: true });
 
-function _interopDefault (ex) { return (ex && (typeof ex === 'object') && 'default' in ex) ? ex['default'] : ex; }
-
 var ts3dutils = require('ts3dutils');
 var tslib_1 = require('tslib');
-var chroma = _interopDefault(require('chroma.ts'));
+var chroma = require('chroma.ts');
 
 /// <reference types="webgl-strict-types" />
 const WGL = WebGLRenderingContext;

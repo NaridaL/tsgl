@@ -5,6 +5,7 @@ import serve from 'rollup-plugin-serve'
 import livereload from 'rollup-plugin-livereload'
 import multiEntry from 'rollup-plugin-multi-entry'
 import glsl from 'rollup-plugin-glsl'
+import replace from 'rollup-plugin-replace'
 import rollupJSON from 'rollup-plugin-json'
 import alias from 'rollup-plugin-alias'
 import * as typescript from 'typescript'
@@ -17,9 +18,8 @@ export default {
 		file: 'dist/demo.js',
 		name: 'demo',
 		sourcemap: true,
-		globals: { 'chroma-js': 'chroma' },
 	},
-	external: ['chroma-js'],
+	external: [],
 	plugins: [
 		multiEntry(),
 		nodeResolve({
@@ -33,7 +33,7 @@ export default {
 			// use "main" field or index.js, even if it's not an ES6 module
 			// (needs to be converted from CommonJS to ES6
 			// – see https://github.com/rollup/rollup-plugin-commonjs
-			main: false, // Default: true
+			// main: false, // Default: true
 
 			// some package.json files have a `browser` field which
 			// specifies alternative files to load for people bundling
@@ -54,13 +54,16 @@ export default {
 
 			// If true, inspect resolved files to check that they are
 			// ES2015 modules
-			modulesOnly: true, // Default: false
+			// modulesOnly: true, // Default: false
 
 			// Any additional options that should be passed through
 			// to node-resolve
 			//   customResolveOptions: {
 			// 	moduleDirectory: 'js_modules'
 			//   }
+		}),
+		replace({
+			"process.env.NODE_ENV": JSON.stringify(process.env.BUILD || "development"),
 		}),
 		sourcemaps(),
 		typescriptPlugin({
@@ -82,7 +85,11 @@ export default {
 		}),
 		rollupJSON(),
 		process.env.ROLLUP_WATCH &&
-			serve(),
+			serve({
+				open: true,
+				openPage: '/demo.html',
+				contentBase: '.',
+			}),
 			// 	{
 			// 	contentBase: '.',
 			// 	open: true,

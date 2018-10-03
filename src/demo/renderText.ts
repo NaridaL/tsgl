@@ -1,4 +1,4 @@
-import chroma from 'chroma-js'
+import { color } from 'chroma.ts'
 import { V, V3 } from 'ts3dutils'
 import { TSGLContext } from 'tsgl'
 
@@ -24,8 +24,8 @@ export async function renderText(gl: TSGLContext) {
 
 	return gl.animate(function(abs, _diff) {
 		const angleDeg = Math.sin(abs / 10000) * 15
-		const textColor = chroma('brown')
-			.darken()
+		const textColor = color('brown')
+			.darker()
 			.gl()
 		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 		gl.loadIdentity()
@@ -80,7 +80,7 @@ export async function renderText(gl: TSGLContext) {
 
 			gl.renderText(
 				'baseline="' + baseline + '"|{}() ABC XYZ yjg Ẫß',
-				chroma('blue').gl(),
+				color('blue').gl(),
 				1,
 				'left',
 				baseline as any,
@@ -101,7 +101,7 @@ export async function renderText(gl: TSGLContext) {
 			gl.vertex(0, 1, 0)
 			gl.end()
 
-			gl.renderText('align="' + align + '"', chroma('blue').gl(), 1, align as any, 'alphabetic')
+			gl.renderText('align="' + align + '"', color('blue').gl(), 1, align as any, 'alphabetic')
 
 			gl.translate(0, -2.2)
 		})

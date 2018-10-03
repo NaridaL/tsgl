@@ -1,5 +1,5 @@
 /// <reference types="webgl-strict-types" />
-import chroma from 'chroma.ts'
+import * as chroma from 'chroma.ts'
 import { addOwnProperties, assert, DEG, int, M4, P3ZX, V, V3 } from 'ts3dutils'
 
 // @ts-ignore
