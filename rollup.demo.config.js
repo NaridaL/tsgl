@@ -65,6 +65,7 @@ export default {
 		sourcemaps(),
 		typescriptPlugin({
 			typescript,
+			declarationMap: undefined,
 		}),
 		alias({
 			tsgl: __dirname + '/src/index',

@@ -4345,7 +4345,7 @@ var demo = (function (exports,tosource,chroma,chroma$1) {
     and limitations under the License.
     ***************************************************************************** */
 
-    function __awaiter$1(thisArg, _arguments, P, generator) {
+    function __awaiter(thisArg, _arguments, P, generator) {
         return new (P || (P = Promise))(function (resolve, reject) {
             function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
             function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
@@ -4511,7 +4511,7 @@ var demo = (function (exports,tosource,chroma,chroma$1) {
             return this;
         }
         static fromBinarySTL(stl) {
-            return __awaiter$1(this, void 0, void 0, function* () {
+            return __awaiter(this, void 0, void 0, function* () {
                 return new Promise((resolve, reject) => {
                     const mesh = new Mesh$$1().addVertexBuffer('normals', 'ts_Normal');
                     const fileReader = new FileReader();
@@ -6390,7 +6390,7 @@ var demo = (function (exports,tosource,chroma,chroma$1) {
             this.viewport(0, 0, this.canvas.width, this.canvas.height);
         }
         setupTextRendering(pngURL, jsonURL) {
-            return __awaiter$1(this, void 0, void 0, function* () {
+            return __awaiter(this, void 0, void 0, function* () {
                 this.textRenderShader = Shader$$1.create(posCoordVS, sdfRenderFS);
                 [this.textAtlas, this.textMetrics] = yield Promise.all([
                     Texture$$1.fromURL(pngURL, {
@@ -7308,7 +7308,7 @@ void main() {
      * Realtime GPU ray tracing including reflection.
      */
     function rayTracing(gl) {
-        return __awaiter$1(this, void 0, void 0, function* () {
+        return __awaiter(this, void 0, void 0, function* () {
             if (!isWebGL2RenderingContext(gl))
                 throw new Error('require webgl2');
             let angleX = 30;
@@ -7414,7 +7414,7 @@ void main() {
      * Render SDF text.
      */
     function renderText(gl) {
-        return __awaiter$1(this, void 0, void 0, function* () {
+        return __awaiter(this, void 0, void 0, function* () {
             gl.clearColor(1, 1, 1, 1);
             yield gl.setupTextRendering('font/OpenSans-Regular.png', 'font/OpenSans-Regular.json');
             gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE);
