@@ -2,9 +2,7 @@
 import * as chroma from 'chroma.ts'
 import { addOwnProperties, assert, DEG, int, M4, P3ZX, V, V3 } from 'ts3dutils'
 
-// @ts-ignore
 import posCoordVS from '../src/shaders/posCoordVS.glslx'
-// @ts-ignore
 import sdfRenderFS from '../src/shaders/sdfRenderFS.glslx'
 import { makeDebugContext, Mesh, Shader, Texture } from './index'
 import { glEnumToString } from './KhronosGroupWebGLDebug'
