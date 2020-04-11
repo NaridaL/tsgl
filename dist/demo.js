@@ -8366,9 +8366,9 @@ var demo = (function (exports) {
         return Object.assign(mesh.compile(), { width: cursorX / fontMetrics.size, lineCount: cursorY + 1 });
     }
 
+    var posNormalColorVS = "precision mediump float;uniform mat4 ts_ModelViewProjectionMatrix;uniform mat3 ts_NormalMatrix;attribute vec3 ts_Normal;attribute vec4 ts_Vertex;attribute vec4 ts_Color;varying vec3 normal;varying vec4 color;void main(){gl_Position=ts_ModelViewProjectionMatrix*ts_Vertex;normal=ts_NormalMatrix*ts_Normal;color=ts_Color;}";
+
     /// <reference path="../types.d.ts" />
-    // import posNormalColorVS from '../shaders/posNormalColorVS.glslx'
-    const posNormalColorVS = ' lol';
     /**
      * Move camera using mouse.
      */
@@ -8824,8 +8824,6 @@ void main() {
         });
     }
 
-    var posNormalColorVS$1 = "precision mediump float;uniform mat4 ts_ModelViewProjectionMatrix;uniform mat3 ts_NormalMatrix;attribute vec3 ts_Normal;attribute vec4 ts_Vertex;attribute vec4 ts_Color;varying vec3 normal;varying vec4 color;void main(){gl_Position=ts_ModelViewProjectionMatrix*ts_Vertex;normal=ts_NormalMatrix*ts_Normal;color=ts_Color;}";
-
     var varyingColorFS = "precision mediump float;varying vec4 color;void main(){gl_FragColor=color;}";
 
     /// <reference path="../types.d.ts" />
@@ -8835,7 +8833,7 @@ void main() {
     function mag(gl) {
         const cubeMesh = Mesh.cube();
         // simple pos/color
-        const shader = Shader.create(posNormalColorVS$1, varyingColorFS);
+        const shader = Shader.create(posNormalColorVS, varyingColorFS);
         gl.clearColor(1, 1, 1, 1);
         // given a magnetic field created by fieldCharges, calculate the field strength/dir at pos
         function fieldAtPos(fieldCharges, pos) {

@@ -3,8 +3,7 @@ import { clamp, DEG, V, V3 } from 'ts3dutils'
 import { Mesh, Shader, TSGLContext } from 'tsgl'
 
 import { color } from 'chroma.ts'
-// import posNormalColorVS from '../shaders/posNormalColorVS.glslx'
-const posNormalColorVS = ' lol'
+import posNormalColorVS from '../shaders/posNormalColorVS.glslx'
 
 /**
  * Move camera using mouse.
