@@ -17,21 +17,13 @@ export function shadowMap(gl: TSGLContext) {
 	let angleY = 20
 	let useBoundingSphere = true
 	const cube = Mesh.cube()
-	const sphere = Mesh.sphere(2)
-		.computeWireframeFromFlatTriangles()
-		.compile()
-	const plane = Mesh.plane()
-		.translate(-0.5, -0.5)
-		.scale(300, 300, 1)
-		.compile()
+	const sphere = Mesh.sphere(2).computeWireframeFromFlatTriangles().compile()
+	const plane = Mesh.plane().translate(-0.5, -0.5).scale(300, 300, 1).compile()
 	const depthMap = new Texture(1024, 1024, { format: gl.RGBA })
 	const texturePlane = Mesh.plane()
 	const boundingSphere = mesh.getBoundingSphere()
 	const boundingBox = mesh.getAABB()
-	const frustrumCube = Mesh.cube()
-		.scale(2)
-		.translate(V3.XYZ.negated())
-		.compile()
+	const frustrumCube = Mesh.cube().scale(2).translate(V3.XYZ.negated()).compile()
 	const colorShader = Shader.create(
 		`
 	uniform mat4 ts_ModelViewProjectionMatrix;
@@ -132,7 +124,7 @@ export function shadowMap(gl: TSGLContext) {
 
 	let lastPos = V3.O
 	// scene rotation
-	gl.canvas.onmousemove = function(e) {
+	gl.canvas.onmousemove = function (e) {
 		const pagePos = V(e.pageX, e.pageY)
 		const delta = lastPos.to(pagePos)
 		if (e.buttons & 1) {
@@ -198,7 +190,7 @@ export function shadowMap(gl: TSGLContext) {
 		gl.lookAt(light, center, V3.Y)
 	}
 
-	return gl.animate(function(abs) {
+	return gl.animate(function (abs) {
 		const time = abs / 1000
 		// Move the light around
 		const light = new V3(100 * Math.sin(time * 0.2), 25, 20 * Math.cos(time * 0.2))
@@ -217,7 +209,7 @@ export function shadowMap(gl: TSGLContext) {
 		// fragment depth.
 		const shadowMapMatrix = gl.projectionMatrix.times(gl.modelViewMatrix)
 		depthMap.unbind(0)
-		depthMap.drawTo(function() {
+		depthMap.drawTo(function () {
 			gl.clearColor(1, 1, 1, 1)
 			gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 			depthShader.draw(mesh)

@@ -18,7 +18,7 @@ export function mag(gl: TSGLContext) {
 
 	// given a magnetic field created by fieldCharges, calculate the field strength/dir at pos
 	function fieldAtPos(fieldCharges: PointCharge[], pos: V3) {
-		const fieldChargeForces = fieldCharges.map(p => {
+		const fieldChargeForces = fieldCharges.map((p) => {
 			const posToP = pos.to(p.pos)
 			const r = posToP.length()
 			const partialForceMagnitude = p.charge / r / r
@@ -58,7 +58,7 @@ export function mag(gl: TSGLContext) {
 	 * @param count
 	 */
 	function barMagnet(count = 4) {
-		return arrayFromFunction(count * count, i => {
+		return arrayFromFunction(count * count, (i) => {
 			const x = i % count
 			const y = (i / count) | 0
 			return { pos: V((0.5 + x) / count, (0.5 + y) / count, 0), charge: +(x < count / 2) || -1 }
@@ -97,7 +97,7 @@ export function mag(gl: TSGLContext) {
 			(mat, index) =>
 				enabledBarMagnets[index] &&
 				ps.push(
-					...barMagnet(6).map(p => {
+					...barMagnet(6).map((p) => {
 						p.pos = mat.transformPoint(p.pos)
 						return p
 					}),
@@ -134,7 +134,7 @@ export function mag(gl: TSGLContext) {
 
 	const fieldLinesXSide = 64
 	const vectorFieldVectorLength = (2 * 0.9) / fieldLinesXSide
-	vectorFieldMesh.vertices = ballGrid(fieldLinesXSide).flatMap(p => [
+	vectorFieldMesh.vertices = ballGrid(fieldLinesXSide).flatMap((p) => [
 		new V3(p.x, p.y, -vectorFieldVectorLength / 2),
 		new V3(p.x, p.y, vectorFieldVectorLength / 2),
 	])
@@ -165,7 +165,7 @@ export function mag(gl: TSGLContext) {
 	gl.canvas.tabIndex = 0
 	gl.canvas.focus()
 
-	gl.canvas.addEventListener('keypress', e => {
+	gl.canvas.addEventListener('keypress', (e) => {
 		const index = e.key.charCodeAt(0) - '1'.charCodeAt(0)
 		if (0 <= index && index <= 4) {
 			enabledBarMagnets[index] = !enabledBarMagnets[index]
@@ -183,7 +183,7 @@ export function mag(gl: TSGLContext) {
 		}
 	})
 
-	return gl.animate(function(abs, _diff) {
+	return gl.animate(function (abs, _diff) {
 		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 		gl.loadIdentity()
 		gl.multMatrix(M4.rotateLine(V(0.5, 0.5), V3.Z, abs / 5000))
@@ -221,7 +221,7 @@ function ballGrid(xCount = 64) {
 	const xSpacing = 1 / xCount
 	const ySpacing = (xSpacing * Math.sqrt(3)) / 2
 	const yCount = (1 / ySpacing) | 0
-	return arrayFromFunction(xCount * yCount, i => {
+	return arrayFromFunction(xCount * yCount, (i) => {
 		const x = i % xCount
 		const y = (i / xCount) | 0
 		return new V3((x + (y % 2) * 0.5) / xCount, y / yCount, 0)
@@ -229,7 +229,7 @@ function ballGrid(xCount = 64) {
 }
 
 function grid3d(xCount = 64, yCount = xCount, zCount = 1) {
-	return arrayFromFunction(xCount * yCount * zCount, i => {
+	return arrayFromFunction(xCount * yCount * zCount, (i) => {
 		const x = i % xCount
 		const y = (i / xCount) % yCount | 0
 		const z = (i / xCount / yCount) | 0

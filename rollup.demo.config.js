@@ -1,13 +1,13 @@
 import sourcemaps from 'rollup-plugin-sourcemaps'
-import typescriptPlugin from 'rollup-plugin-typescript'
-import nodeResolve from 'rollup-plugin-node-resolve'
+import typescriptPlugin from '@rollup/plugin-typescript'
+import nodeResolve from '@rollup/plugin-node-resolve'
 import serve from 'rollup-plugin-serve'
 import livereload from 'rollup-plugin-livereload'
-import multiEntry from 'rollup-plugin-multi-entry'
+import multiEntry from '@rollup/plugin-multi-entry'
 import glsl from 'rollup-plugin-glsl'
-import replace from 'rollup-plugin-replace'
-import rollupJSON from 'rollup-plugin-json'
-import alias from 'rollup-plugin-alias'
+import replace from '@rollup/plugin-replace'
+import rollupJSON from '@rollup/plugin-json'
+import alias from '@rollup/plugin-alias'
 import * as typescript from 'typescript'
 import * as fs from 'fs'
 
@@ -22,6 +22,9 @@ export default {
 	external: [],
 	plugins: [
 		multiEntry(),
+		alias({
+			entries: { tsgl: __dirname },
+		}),
 		nodeResolve({
 			// use "module" field for ES6 module if possible
 			module: true, // Default: true
@@ -62,17 +65,15 @@ export default {
 			// 	moduleDirectory: 'js_modules'
 			//   }
 		}),
-		replace({
-			"process.env.NODE_ENV": JSON.stringify(process.env.BUILD || "development"),
-		}),
-		sourcemaps(),
 		typescriptPlugin({
 			typescript,
 			declarationMap: undefined,
+			tsconfig: 'src/demo/tsconfig.json',
 		}),
-		alias({
-			tsgl: __dirname + '/src/index',
+		replace({
+			'process.env.NODE_ENV': JSON.stringify(process.env.BUILD || 'development'),
 		}),
+		sourcemaps(),
 		glsl({
 			// By default, everything gets included
 			include: 'src/**/*.glslx',
@@ -90,15 +91,15 @@ export default {
 				openPage: '/demo.html',
 				contentBase: '.',
 			}),
-			// 	{
-			// 	contentBase: '.',
-			// 	open: true,
-			// 	host: 'localhost',
-			// 	port: 10002
-			// }
+		// 	{
+		// 	contentBase: '.',
+		// 	open: true,
+		// 	host: 'localhost',
+		// 	port: 10002
+		// }
 		process.env.ROLLUP_WATCH && livereload(),
-	].filter(x => x),
-	onwarn: function(warning, warn) {
+	].filter((x) => x),
+	onwarn: function (warning, warn) {
 		// Suppress this error message... there are hundreds of them. Angular team says to ignore it.
 		// https://github.com/rollup/rollup/wiki/Troubleshooting#this-is-undefined
 		if (warning.code === 'THIS_IS_UNDEFINED') {

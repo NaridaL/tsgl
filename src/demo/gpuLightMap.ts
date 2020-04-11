@@ -8,7 +8,7 @@ export { TSGLContext }
 /**
  * Draw soft shadows by calculating a light map in multiple passes.
  */
-export function gpuLightMap(gl: TSGLContext & WebGL2RenderingContext) {
+export function gpuLightMap(gl: TSGLContext & WebGL2RenderingContextStrict) {
 	if (!isWebGL2RenderingContext(gl)) throw new Error('needs WebGL2')
 	gl.getExtension('EXT_color_buffer_float')
 	// modified version of https://evanw.github.io/lightgl.js/tests/gpulightmap.html
@@ -142,7 +142,7 @@ export function gpuLightMap(gl: TSGLContext & WebGL2RenderingContext) {
 				[V3.X, new V3(1, 1, 0), new V3(1, 0, 1), new V3(1, 1, 1)],
 				[new V3(1, 1, 0), V3.Y, V3.XYZ, new V3(0, 1, 1)],
 				[V3.Y, V3.O, new V3(0, 1, 1), V3.Z],
-			].forEach(vs => (this.addQuad as any)(...(m4 ? m4.transformedPoints(vs) : vs)))
+			].forEach((vs) => (this.addQuad as any)(...(m4 ? m4.transformedPoints(vs) : vs)))
 		}
 
 		compile(texelsPerSide: int) {
@@ -167,7 +167,7 @@ export function gpuLightMap(gl: TSGLContext & WebGL2RenderingContext) {
 				const [a, b, c, d] = this.mesh.vertices.slice(i * 4, (i + 1) * 4)
 
 				// Add fake positions
-				function bilerp(x: number, y: number) {
+				const bilerp = (x: number, y: number) => {
 					return a
 						.times((1 - x) * (1 - y))
 						.plus(b.times(x * (1 - y)))
@@ -224,7 +224,7 @@ export function gpuLightMap(gl: TSGLContext & WebGL2RenderingContext) {
 			// Render the object viewed from the light using a shader that returns the fragment depth
 			const mesh = this.mesh
 			const shadowMapMatrix = gl.projectionMatrix.times(gl.modelViewMatrix)
-			depthMap.drawTo(function(gl) {
+			depthMap.drawTo(function (gl) {
 				gl.enable(gl.DEPTH_TEST)
 				gl.clearColor(1, 1, 1, 1)
 				gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
@@ -235,7 +235,7 @@ export function gpuLightMap(gl: TSGLContext & WebGL2RenderingContext) {
 			//accumulate that onto the existing lightmap contents
 			const sampleCount = this.sampleCount++
 			depthMap.bind(0)
-			this.lightmapTexture!.drawTo(function(gl) {
+			this.lightmapTexture!.drawTo(function (gl) {
 				gl.enable(gl.BLEND)
 				gl.disable(gl.CULL_FACE)
 				gl.disable(gl.DEPTH_TEST)
@@ -270,16 +270,10 @@ export function gpuLightMap(gl: TSGLContext & WebGL2RenderingContext) {
 		const t = (i / numArcQuads) * TAU
 		const center = V(0, 0, Math.sqrt(3) / 2 - 0.2)
 			.plus(V(0, 1.5, 0).times(Math.cos(t)))
-			.plus(
-				V(1, 0, -1)
-					.toLength(1.5)
-					.times(Math.sin(t)),
-			)
+			.plus(V(1, 0, -1).toLength(1.5).times(Math.sin(t)))
 		// const center = V3.sphere(0, (i + Math.random()) / numArcQuads * Math.PI)
 		const a = V3.randomUnit()
-		const b = V3.randomUnit()
-			.cross(a)
-			.unit()
+		const b = V3.randomUnit().cross(a).unit()
 		quadMesh.addCube(
 			M4.product(M4.translate(center), M4.forSys(a, b), M4.scale(r, r, r), M4.translate(-0.5, -0.5, -0.5)),
 		)
@@ -320,7 +314,7 @@ export function gpuLightMap(gl: TSGLContext & WebGL2RenderingContext) {
 
 	let lastPos = V3.O
 	// scene rotation
-	gl.canvas.onmousemove = function(e) {
+	gl.canvas.onmousemove = function (e) {
 		const pagePos = V(e.pageX, e.pageY)
 		const delta = lastPos.to(pagePos)
 		if (e.buttons & 1) {
@@ -338,7 +332,7 @@ export function gpuLightMap(gl: TSGLContext & WebGL2RenderingContext) {
 	const lightDir = V3.XYZ
 	const ambientFraction = 0.4
 
-	return gl.animate(function(_abs, _diff) {
+	return gl.animate(function (_abs, _diff) {
 		const gl = this
 
 		gl.enable(gl.CULL_FACE)

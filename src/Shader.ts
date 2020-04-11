@@ -20,13 +20,13 @@ const DRAW_MODE_NAMES = {
 	[WGL.TRIANGLE_FAN]: 'TRIANGLE_FAN',
 }
 const DRAW_MODE_CHECKS: { [type: string]: (x: int) => boolean } = {
-	[WGL.POINTS]: _ => true,
-	[WGL.LINES]: x => 0 == x % 2, // divisible by 2
-	[WGL.LINE_STRIP]: x => x > 2, // need at least 2
-	[WGL.LINE_LOOP]: x => x > 2, // more like > 3, but oh well
-	[WGL.TRIANGLES]: x => 0 == x % 3, // divisible by 3
-	[WGL.TRIANGLE_STRIP]: x => x > 3,
-	[WGL.TRIANGLE_FAN]: x => x > 3,
+	[WGL.POINTS]: (_) => true,
+	[WGL.LINES]: (x) => 0 == x % 2, // divisible by 2
+	[WGL.LINE_STRIP]: (x) => x > 2, // need at least 2
+	[WGL.LINE_LOOP]: (x) => x > 2, // more like > 3, but oh well
+	[WGL.TRIANGLES]: (x) => 0 == x % 3, // divisible by 3
+	[WGL.TRIANGLE_STRIP]: (x) => x > 3,
+	[WGL.TRIANGLE_FAN]: (x) => x > 3,
 }
 
 export const SHADER_VAR_TYPES = [
@@ -65,21 +65,21 @@ function isFloatArray(obj: any): obj is number[] | Float64Array | Float32Array {
 	return (
 		Float32Array == obj.constructor ||
 		Float64Array == obj.constructor ||
-		(Array.isArray(obj) && obj.every(x => 'number' == typeof x))
+		(Array.isArray(obj) && obj.every((x) => 'number' == typeof x))
 	)
 }
 
 function isIntArray(x: any) {
 	if (
 		[Int8Array, Uint8Array, Uint8ClampedArray, Int16Array, Uint16Array, Int32Array, Uint32Array].some(
-			y => x instanceof y,
+			(y) => x instanceof y,
 		)
 	) {
 		return true
 	}
 	return (
 		(x instanceof Float32Array || x instanceof Float64Array || Array.isArray(x)) &&
-		(x as number[]).every(x => Number.isInteger(x))
+		(x as number[]).every((x) => Number.isInteger(x))
 	)
 }
 
@@ -216,7 +216,7 @@ export class Shader<UniformTypes extends VarTypeMap = any, AttributeTypes extend
 		// multiplications to compute, and record these in `activeMatrices`.
 		this.activeMatrices = {}
 		matrixNames &&
-			matrixNames.forEach(name => {
+			matrixNames.forEach((name) => {
 				if (gl.getUniformLocation(this.program, name)) {
 					this.activeMatrices[name] = true
 				}
@@ -259,11 +259,11 @@ export class Shader<UniformTypes extends VarTypeMap = any, AttributeTypes extend
 						)
 					}
 				}
-				assert(gl.FLOAT != info.type || ((1 == info.size && 'number' === typeof value) || isFloatArray(value)))
+				assert(gl.FLOAT != info.type || (1 == info.size && 'number' === typeof value) || isFloatArray(value))
 				assert(
 					gl.FLOAT_VEC3 != info.type ||
-						((1 == info.size && value instanceof V3) ||
-							(Array.isArray(value) && info.size == value.length && assertVectors(...value))),
+						(1 == info.size && value instanceof V3) ||
+						(Array.isArray(value) && info.size == value.length && assertVectors(...value)),
 				)
 				assert(gl.FLOAT_VEC4 != info.type || 1 != info.size || (isFloatArray(value) && value.length == 4))
 				assert(gl.FLOAT_MAT4 != info.type || value instanceof M4, () => value.toSource())
@@ -436,7 +436,7 @@ export class Shader<UniformTypes extends VarTypeMap = any, AttributeTypes extend
 		const gl = this.gl
 		assert(undefined != DRAW_MODE_NAMES[mode])
 		assertf(() => 1 <= Object.keys(vertexBuffers).length)
-		Object.keys(vertexBuffers).forEach(key => assertInst(Buffer, vertexBuffers[key]))
+		Object.keys(vertexBuffers).forEach((key) => assertInst(Buffer, vertexBuffers[key]))
 
 		// Only varruct up the built-in matrices that are active in the shader
 		const on = this.activeMatrices
@@ -551,7 +551,12 @@ export class Shader<UniformTypes extends VarTypeMap = any, AttributeTypes extend
 				}
 				gl.bindBuffer(WGL.ELEMENT_ARRAY_BUFFER, indexBuffer.buffer!)
 				// start parameter has to be multiple of sizeof(WGL.UNSIGNED_SHORT)
-				gl.drawElements(mode, count, indexBuffer.bindSize, indexBuffer.type.BYTES_PER_ELEMENT * start)
+				gl.drawElements(
+					mode,
+					count,
+					indexBuffer.bindSize as GL['UNSIGNED_SHORT'],
+					indexBuffer.type.BYTES_PER_ELEMENT * start,
+				)
 			} else {
 				if (start + count > minVertexBufferLength) {
 					throw new Error('invalid')

@@ -1,17 +1,20 @@
 {
-	"extends": "../../tsconfig.json",
-
 	"compilerOptions": {
+		"allowSyntheticDefaultImports": true,
 		"baseUrl": ".",
 		"paths": {
-			"tsgl": ["../index"]
+			"tsgl": ["../.."]
 		},
+		"strict": true,
+		"moduleResolution": "node",
+		"target": "ES6",
+		"module": "ES6",
+		"declaration": false,
 		"noImplicitReturns": true,
-		"noEmit": true
+		"composite": false,
+		"rootDir": "."
 	},
-	"include": [
-		"../../node_modules/webgl-strict-types/index.d.ts",
-		"./*.ts"
-	]
-
+	"references": [{ "path": "../.." }],
+	"include": ["../../node_modules/webgl-strict-types/index.d.ts", "../types.d.ts", "*.ts"],
+	"exclude": []
 }

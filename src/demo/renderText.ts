@@ -22,18 +22,16 @@ export async function renderText(gl: TSGLContext) {
 
 	gl.enable(gl.DEPTH_TEST)
 
-	return gl.animate(function(abs, _diff) {
+	return gl.animate(function (abs, _diff) {
 		const angleDeg = Math.sin(abs / 10000) * 15
-		const textColor = color('brown')
-			.darker()
-			.gl()
+		const textColor = color('brown').darker().gl()
 		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 		gl.loadIdentity()
 		gl.rotate(angleDeg, 1, 1, 0)
 
 		gl.pushMatrix()
 		gl.translate(-18, 8)
-		;[0, 0.05, 0.1, 0.15, 0.2, 0.5].forEach(gamma => {
+		;[0, 0.05, 0.1, 0.15, 0.2, 0.5].forEach((gamma) => {
 			gl.renderText('sdf text w/ gamma=' + gamma, textColor, 1, 'left', 'top', gamma)
 			gl.translate(0, -1)
 		})
@@ -69,7 +67,7 @@ export async function renderText(gl: TSGLContext) {
 
 		gl.pushMatrix()
 		gl.translate(0, 8)
-		;['top', 'middle', 'alphabetic', 'bottom'].forEach(baseline => {
+		;['top', 'middle', 'alphabetic', 'bottom'].forEach((baseline) => {
 			gl.begin(gl.LINES)
 			gl.color('green')
 			gl.vertex(0, 0, 0)
@@ -92,7 +90,7 @@ export async function renderText(gl: TSGLContext) {
 
 		gl.pushMatrix()
 		gl.translate(10, -2)
-		;['left', 'center', 'right'].forEach(align => {
+		;['left', 'center', 'right'].forEach((align) => {
 			gl.begin(gl.LINES)
 			gl.color('red')
 			gl.vertex(-10, 0, 0)

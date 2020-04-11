@@ -3,7 +3,8 @@ import { clamp, DEG, V, V3 } from 'ts3dutils'
 import { Mesh, Shader, TSGLContext } from 'tsgl'
 
 import { color } from 'chroma.ts'
-import posNormalColorVS from '../shaders/posNormalColorVS.glslx'
+// import posNormalColorVS from '../shaders/posNormalColorVS.glslx'
+const posNormalColorVS = ' lol'
 
 /**
  * Move camera using mouse.
@@ -12,9 +13,7 @@ export function camera(gl: TSGLContext) {
 	let yRot = -10 * DEG
 	let zRot = 90 * DEG
 	let camera = new V3(0, -5, 1)
-	const mesh = Mesh.sphere()
-		.computeWireframeFromFlatTriangles()
-		.compile()
+	const mesh = Mesh.sphere().computeWireframeFromFlatTriangles().compile()
 	const shader = Shader.create(
 		posNormalColorVS,
 		`
@@ -29,7 +28,7 @@ void main() {
 
 	let lastPos = V3.O
 	// scene rotation
-	gl.canvas.onmousemove = function(e) {
+	gl.canvas.onmousemove = function (e) {
 		const pagePos = V(e.pageX, e.pageY)
 		const delta = lastPos.to(pagePos)
 		if (e.buttons & 1) {
@@ -40,10 +39,10 @@ void main() {
 	}
 	gl.canvas.contentEditable = 'true'
 	const keys: { [key: string]: boolean } = {}
-	gl.canvas.onkeydown = function(e) {
+	gl.canvas.onkeydown = function (e) {
 		keys[e.code] = true
 	}
-	gl.canvas.onkeyup = function(e) {
+	gl.canvas.onkeyup = function (e) {
 		keys[e.code] = false
 	}
 
@@ -73,7 +72,7 @@ void main() {
 	console.log(gl.getVertexAttrib(0, gl.CURRENT_VERTEX_ATTRIB))
 	console.log(gl.getVertexAttrib(0, gl.VERTEX_ATTRIB_ARRAY_ENABLED))
 
-	return gl.animate(function(_abs, diff) {
+	return gl.animate(function (_abs, diff) {
 		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 		gl.loadIdentity()
 		const speed = (diff / 1000) * 4

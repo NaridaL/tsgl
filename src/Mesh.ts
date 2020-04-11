@@ -155,16 +155,16 @@ export class Mesh extends Transformable {
 	concat(...others: this[]): this {
 		const result = new Mesh() as any
 		const allMeshes = [this as Mesh].concat(others)
-		Object.getOwnPropertyNames(this.vertexBuffers).forEach(attribute => {
-			assert(others.every(other => !!other.vertexBuffers[attribute]))
+		Object.getOwnPropertyNames(this.vertexBuffers).forEach((attribute) => {
+			assert(others.every((other) => !!other.vertexBuffers[attribute]))
 			const bufferName = this.vertexBuffers[attribute].name!
 			if ('ts_Vertex' !== attribute) {
 				result.addVertexBuffer(bufferName, attribute)
 			}
-			result[bufferName] = allMeshes.map(mesh => (mesh as any)[bufferName]).concatenated()
+			result[bufferName] = allMeshes.map((mesh) => (mesh as any)[bufferName]).concatenated()
 		})
-		Object.getOwnPropertyNames(this.indexBuffers).forEach(name => {
-			assert(others.every(other => !!other.indexBuffers[name]))
+		Object.getOwnPropertyNames(this.indexBuffers).forEach((name) => {
+			assert(others.every((other) => !!other.indexBuffers[name]))
 			result.addIndexBuffer(name, this.indexBuffers[name].bindSize)
 			const newIndexBufferData = new Array(allMeshes.reduce((sum, mesh) => sum + (mesh as any)[name].length, 0))
 			let ptr = 0
@@ -190,7 +190,7 @@ export class Mesh extends Transformable {
 	compile(gl: TSGLContext = currentGL()) {
 		// figure out shortest vertex buffer to make sure indexBuffers are in bounds
 		let minVertexBufferLength = Infinity // TODO, _minBufferName
-		Object.getOwnPropertyNames(this.vertexBuffers).forEach(attribute => {
+		Object.getOwnPropertyNames(this.vertexBuffers).forEach((attribute) => {
 			const buffer = this.vertexBuffers[attribute]
 			buffer.data = (this as any)[buffer.name!]
 			buffer.compile(undefined, gl)
@@ -218,7 +218,7 @@ export class Mesh extends Transformable {
 			const mesh = new Mesh().addVertexBuffer('normals', 'ts_Normal')
 			const fileReader = new FileReader()
 			fileReader.onerror = reject
-			fileReader.onload = function(_progressEvent) {
+			fileReader.onload = function (_progressEvent) {
 				const dataView = new DataView(this.result as ArrayBuffer)
 				const HEADER_BYTE_SIZE = 80
 				const triangleCount = dataView.getUint32(HEADER_BYTE_SIZE, true)
@@ -272,7 +272,7 @@ export class Mesh extends Transformable {
 				b = this.vertices[triangles[i + 1]],
 				c = this.vertices[triangles[i + 2]]
 			const normal = V3.normalOnPoints(a, b, c)
-			;[normal, a, b, c].forEach(v => {
+			;[normal, a, b, c].forEach((v) => {
 				dataView.setFloat32(bufferPtr, v.x, true)
 				bufferPtr += 4
 				dataView.setFloat32(bufferPtr, v.y, true)
@@ -299,11 +299,8 @@ export class Mesh extends Transformable {
 		mesh.vertices = m4.transformedPoints(this.vertices)
 		if (this.normals) {
 			mesh.addVertexBuffer('normals', 'ts_Normal')
-			const invTrans = m4
-				.as3x3(tempM4_1)
-				.inversed(tempM4_2)
-				.transposed(tempM4_1)
-			mesh.normals = this.normals.map(n => invTrans.transformVector(n).unit())
+			const invTrans = m4.as3x3(tempM4_1).inversed(tempM4_2).transposed(tempM4_1)
+			mesh.normals = this.normals.map((n) => invTrans.transformVector(n).unit())
 			// mesh.normals.forEach(n => assert(n.hasLength(1)))
 		}
 		for (const name in this.indexBuffers) {
@@ -341,10 +338,7 @@ export class Mesh extends Transformable {
 			const a = vertices[ai]
 			const b = vertices[bi]
 			const c = vertices[ci]
-			const normal = b
-				.minus(a)
-				.cross(c.minus(a))
-				.unit()
+			const normal = b.minus(a).cross(c.minus(a)).unit()
 			normals[ai] = normals[ai].plus(normal)
 			normals[bi] = normals[bi].plus(normal)
 			normals[ci] = normals[ci].plus(normal)
@@ -366,7 +360,7 @@ export class Mesh extends Transformable {
 	): this & { [k in T]: int[] }
 	computeWireframeFromFlatTriangles(this: any, indexBufferName: string = 'LINES'): this {
 		if (!this.TRIANGLES) throw new Error('TRIANGLES must be defined.')
-		const canonEdges = new Set()
+		const canonEdges = new Set<number>()
 
 		function canonEdge(i0: int, i1: int) {
 			const iMin = min(i0, i1),
@@ -386,7 +380,7 @@ export class Mesh extends Transformable {
 		const data = indexBufferName
 		if (!this[data]) this.addIndexBuffer(indexBufferName)
 		//this.LINES = new Array(canonEdges.size)
-		canonEdges.forEach(val => this[data].push(val >> 16, val & 0xffff))
+		canonEdges.forEach((val) => this[data].push(val >> 16, val & 0xffff))
 		this.hasBeenCompiled = false
 		return this
 	}
@@ -592,8 +586,8 @@ export class Mesh extends Transformable {
 			2, 6, 0, 4, // Z = 0
 			3, 7, 1, 5, // Z = 1
 		]
-		mesh.vertices = VERTEX_CORNERS.map(i => Mesh.UNIT_CUBE_CORNERS[i])
-		mesh.normals = [V3.X.negated(), V3.X, V3.Y.negated(), V3.Y, V3.Z.negated(), V3.Z].flatMap(v => [v, v, v, v])
+		mesh.vertices = VERTEX_CORNERS.map((i) => Mesh.UNIT_CUBE_CORNERS[i])
+		mesh.normals = [V3.X.negated(), V3.X, V3.Y.negated(), V3.Y, V3.Z.negated(), V3.Z].flatMap((v) => [v, v, v, v])
 		for (let i = 0; i < 6 * 4; i += 4) {
 			pushQuad(
 				mesh.TRIANGLES,
@@ -633,7 +627,7 @@ export class Mesh extends Transformable {
 	}
 
 	static sphere2(latitudes: int, longitudes: int) {
-		const baseVertices = arrayFromFunction(latitudes, i => {
+		const baseVertices = arrayFromFunction(latitudes, (i) => {
 			const angle = (i / (latitudes - 1)) * PI - PI / 2
 			return new V3(0, cos(angle), sin(angle))
 		})
@@ -801,7 +795,7 @@ export class Mesh extends Transformable {
 
 		const mesh = new Mesh().addIndexBuffer('TRIANGLES').addVertexBuffer('coords', 'ts_TexCoord')
 		normals && mesh.addVertexBuffer('normals', 'ts_Normal')
-		mesh.vertices = vertices.concat(vertices.map(v => v.plus(offset)))
+		mesh.vertices = vertices.concat(vertices.map((v) => v.plus(offset)))
 		const vl = vertices.length
 		mesh.coords = arrayFromFunction(vl * 2, (i): [number, number] => [(i % vl) / vl, (i / vl) | 0])
 
@@ -876,7 +870,7 @@ export class Mesh extends Transformable {
 	): Mesh & { TRIANGLES: int[] }
 	static parametric(
 		pF: (d: number, z: number) => V3,
-		pN: ((d: number, z: number) => V3),
+		pN: (d: number, z: number) => V3,
 		sMin: number,
 		sMax: number,
 		tMin: number,
@@ -913,7 +907,7 @@ export class Mesh extends Transformable {
 	static load(json: { vertices: Tuple3<number>[]; triangles?: Tuple3<number>[]; normals?: Tuple3<number>[] }) {
 		const mesh = new Mesh()
 		if (Array.isArray(json.vertices[0])) {
-			mesh.vertices = json.vertices.map(x => V(x))
+			mesh.vertices = json.vertices.map((x) => V(x))
 		} else {
 			throw new Error()
 		}
@@ -931,7 +925,7 @@ export class Mesh extends Transformable {
 
 	toJSON() {
 		return {
-			vertices: this.vertices.map(x => x.toArray()),
+			vertices: this.vertices.map((x) => x.toArray()),
 			TRIANGLES: (this as any).TRIANGLES,
 		}
 	}

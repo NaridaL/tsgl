@@ -25,23 +25,23 @@ export async function rayTracing(gl: TSGLContext) {
 	const floor = Mesh.plane({ startX: -4, startY: -4, width: 8, height: 8 })
 		.addVertexBuffer('specular', 'specular')
 		.rotateX(90 * DEG)
-	floor.specular = floor.vertices.map(_ => 0) // floor doesn't reflect
+	floor.specular = floor.vertices.map((_) => 0) // floor doesn't reflect
 	const dodecahedron = Mesh.sphere(0)
 		.addVertexBuffer('specular', 'specular')
 		.addVertexBuffer('coords', 'ts_TexCoord')
 		.translate(3, 1)
 	// d20 reflects most of the light
-	dodecahedron.specular = dodecahedron.vertices.map(_ => 0.8)
+	dodecahedron.specular = dodecahedron.vertices.map((_) => 0.8)
 	// all uv coordinates the same to pick a solid color from the texture
-	dodecahedron.coords = dodecahedron.vertices.map(_ => [0, 0] as Tuple2<number>)
+	dodecahedron.coords = dodecahedron.vertices.map((_) => [0, 0] as Tuple2<number>)
 
 	// don't transform the vertices at all
 	// out/in pos so we get the world position of the fragments
 	const shader = Shader.create(rayTracerVS, rayTracerFS)
 
 	// define spheres which we will have the shader ray-trace
-	const sphereCenters = arrayFromFunction(8, i => [V(0.0, 1.6, 0.0), V(3, 3, 3), V(-3, 3, 3)][i] || V3.O)
-	const sphereRadii = arrayFromFunction(8, i => [1.5, 0.5, 0.5][i] || 0)
+	const sphereCenters = arrayFromFunction(8, (i) => [V(0.0, 1.6, 0.0), V(3, 3, 3), V(-3, 3, 3)][i] || V3.O)
+	const sphereRadii = arrayFromFunction(8, (i) => [1.5, 0.5, 0.5][i] || 0)
 
 	// texture for ray-traced mesh
 	const floorTexture = await Texture.fromURL('./mandelbrot.jpg')
@@ -54,7 +54,10 @@ export async function rayTracing(gl: TSGLContext) {
 	// vertices are unpacked so we don't have an extra index buffer for the triangles
 	const verticesTexture = new Texture(textureWidth, textureHeight)
 	const verticesBuffer = new Float32Array(textureWidth * textureHeight * 3)
-	V3.pack(showMesh.TRIANGLES.map(i => showMesh.vertices[i]), verticesBuffer)
+	V3.pack(
+		showMesh.TRIANGLES.map((i) => showMesh.vertices[i]),
+		verticesBuffer,
+	)
 	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB32F, textureWidth, textureHeight, 0, gl.RGB, gl.FLOAT, verticesBuffer)
 
 	// uvTexture contains the uv coordinates for the vertices as wel as the specular value for each vertex
@@ -69,7 +72,7 @@ export async function rayTracing(gl: TSGLContext) {
 
 	let lastPos = V3.O
 	// scene rotation
-	gl.canvas.onmousemove = function(e) {
+	gl.canvas.onmousemove = function (e) {
 		const pagePos = V(e.pageX, e.pageY)
 		const delta = lastPos.to(pagePos)
 		if (e.buttons & 1) {
@@ -93,7 +96,7 @@ export async function rayTracing(gl: TSGLContext) {
 		texCoords: 2,
 	})
 
-	return gl.animate(function(_abs, _diff) {
+	return gl.animate(function (_abs, _diff) {
 		// Camera setup
 		gl.matrixMode(gl.MODELVIEW)
 		gl.loadIdentity()

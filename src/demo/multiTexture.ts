@@ -42,7 +42,7 @@ export function multiTexture(gl: TSGLContext) {
 
 	gl.enable(gl.DEPTH_TEST)
 
-	return gl.animate(function(abs, _diff) {
+	return gl.animate(function (abs, _diff) {
 		const angleDeg = (abs / 1000) * 45
 		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 		gl.loadIdentity()

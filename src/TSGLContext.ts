@@ -237,12 +237,12 @@ export class TSGLContextBase {
 	color(...args: any[]) {
 		this.immediate.color =
 			1 == args.length && Array.isArray(args[0])
-				? args[0]
+				? (args[0] as GL_COLOR)
 				: 1 == args.length && 'number' == typeof args[0]
-					? hexIntToGLColor(args[0])
-					: 1 == args.length && 'string' == typeof args[0]
-						? chroma.color(args[0]).gl()
-						: [args[0], args[1], args[2], args[3] || 1]
+				? hexIntToGLColor(args[0])
+				: 1 == args.length && 'string' == typeof args[0]
+				? chroma.color(args[0]).gl()
+				: [args[0], args[1], args[2], args[3] || 1]
 	}
 
 	texCoord(s: number, t: number): void
@@ -286,7 +286,7 @@ export class TSGLContextBase {
 			window.requestAnimationFrame ||
 			(window as any).mozRequestAnimationFrame ||
 			window.webkitRequestAnimationFrame ||
-			function(callback: FrameRequestCallback) {
+			function (callback: FrameRequestCallback) {
 				setTimeout(() => callback(performance.now()), 1000 / 60)
 			}
 		let time = performance.now(),
@@ -408,7 +408,7 @@ export class TSGLContextBase {
 				internalFormat: this.LUMINANCE,
 				type: this.UNSIGNED_BYTE,
 			}),
-			fetch(jsonURL).then(r => r.json()),
+			fetch(jsonURL).then((r) => r.json()),
 		])
 		// const cs = this.textMetrics.chars
 		// const maxY = Object.keys(cs).reduce((a, b) => Math.max(a, cs[b][3]), 0)

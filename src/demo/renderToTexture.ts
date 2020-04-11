@@ -10,7 +10,7 @@ const { sin, PI } = Math
  */
 export function renderToTexture(gl: TSGLContext) {
 	const mesh = Mesh.load(gazeboJSON)
-	const sinVertices = arrayFromFunction(32, i => {
+	const sinVertices = arrayFromFunction(32, (i) => {
 		const x = lerp(-PI, PI, i / 31)
 		const y = sin(x)
 		return new V3(x / 7.64, y / 7.64, 0)
@@ -63,11 +63,11 @@ export function renderToTexture(gl: TSGLContext) {
 	gl.clearColor(1, 1, 1, 1)
 	gl.enable(gl.DEPTH_TEST)
 
-	return gl.animate(function(abs) {
+	return gl.animate(function (abs) {
 		const angleDeg = (abs / 1000) * 20
 
 		gl.pushMatrix()
-		overlay.drawTo(function(gl: TSGLContext) {
+		overlay.drawTo(function (gl: TSGLContext) {
 			gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 			gl.matrixMode(gl.PROJECTION)
 			gl.loadIdentity()

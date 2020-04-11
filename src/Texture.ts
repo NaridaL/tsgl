@@ -3,7 +3,7 @@ import { assert, int } from 'ts3dutils'
 
 import { currentGL, TSGLContext } from './index'
 import GL = WebGLRenderingContextStrict
-import GL2 = WebGL2RenderingContext
+import GL2 = WebGL2RenderingContextStrict
 
 export interface TextureOptions {
 	wrap?: GL.TextureWrap // defaults to WGL.CLAMP_TO_EDGE, or set wrapS and wrapT individually.
@@ -218,7 +218,7 @@ export class Texture {
 	static fromURLSwitch(url: string, options?: TextureOptions, gl = currentGL()): Texture {
 		Texture.checkerBoardCanvas =
 			Texture.checkerBoardCanvas ||
-			(function() {
+			(function () {
 				const c = document.createElement('canvas').getContext('2d')
 				if (!c) throw new Error('Could not create 2d canvas.')
 				c.canvas.width = c.canvas.height = 128
@@ -246,7 +246,7 @@ export class Texture {
 		return new Promise((resolve, reject) => {
 			const image = new Image()
 			image.onload = () => resolve(Texture.fromImage(image, options, gl))
-			image.onerror = ev => reject('Could not load image ' + image.src + '. 404?' + ev)
+			image.onerror = (ev) => reject('Could not load image ' + image.src + '. 404?' + ev)
 			image.src = url
 		})
 	}
