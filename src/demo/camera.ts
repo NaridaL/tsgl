@@ -60,7 +60,7 @@ void main() {
 	console.log(gl.getVertexAttrib(0, gl.CURRENT_VERTEX_ATTRIB))
 	console.log(gl.getVertexAttrib(0, gl.VERTEX_ATTRIB_ARRAY_ENABLED))
 
-	const gl2 = (gl as any) as WebGL2RenderingContext
+	const gl2 = (gl as any) as WebGL2RenderingContextStrict
 	const vao = gl2.createVertexArray()
 	gl2.bindVertexArray(vao)
 	gl2.vertexAttrib1f(0, 31)

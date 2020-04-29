@@ -104,8 +104,8 @@ export function mag(gl: TSGLContext) {
 				),
 		)
 
-		linesMesh.LINES.clear()
-		linesMesh.vertices.clear()
+		linesMesh.LINES.length = 0
+		linesMesh.vertices.length = 0
 		console.log(
 			'generation took (ms): ' +
 				time(() => {

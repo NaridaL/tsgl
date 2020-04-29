@@ -24,7 +24,7 @@ export function isNumber(obj: any) {
 }
 
 export type UniformType = V3 | M4 | number[] | boolean | number
-export type TSGLContext = TSGLContextBase & (WebGLRenderingContextStrict | WebGL2RenderingContext)
+export type TSGLContext = TSGLContextBase & (WebGLRenderingContextStrict | WebGL2RenderingContextStrict)
 export interface TSGLContextBase extends WebGLRenderingContextStrict {}
 export class TSGLContextBase {
 	modelViewMatrix: M4 = M4.identity()

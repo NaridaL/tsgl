@@ -141,1278 +141,16 @@ var demo = (function (exports) {
         }
     }
 
-    class Vector {
-        constructor(v) {
-            this.v = v;
-            assertInst(Float64Array, v);
-        }
-        static fromFunction(dims, f) {
-            assertNumbers(dims);
-            const e = new Float64Array(dims);
-            let i = dims;
-            while (i--) {
-                e[i] = f(i);
-            }
-            return new Vector(e);
-        }
-        static random(dims) {
-            return Vector.fromFunction(dims, i => Math.random());
-        }
-        static from(...args) {
-            assert(args[0] instanceof Float64Array || args.every(a => 'number' == typeof a), 'args[0] instanceof Float64Array || args.every(a => "number" == typeof a)');
-            return new Vector(args[0] instanceof Float64Array ? args[0] : Float64Array.from(args));
-        }
-        static Zero(dims) {
-            assertNumbers(dims);
-            let i = 0;
-            const n = new Float64Array(dims);
-            while (i--) {
-                n[i] = 0;
-            }
-            return new Vector(n);
-        }
-        static Unit(dims, dir) {
-            assertNumbers(dims, dir);
-            let i = 0;
-            const n = new Float64Array(dims);
-            while (i--) {
-                n[i] = +(i == dir); // +true === 1, +false === 0
-            }
-            return new Vector(n);
-        }
-        /**
-         * Pack an array of Vectors into an array of numbers (Float32Array by default).
-         *
-         * @param vectors source array
-         * @param dest destination array. If provided, must be large enough to fit v3count items.
-         * @param srcStart starting index in source array
-         * @param destStart starting index in destination array
-         * @param vectorCount Number of V3s to copy.
-         * @returns Packed array.
-         */
-        static pack(vectors, dest, srcStart = 0, destStart = 0, vectorCount = vectors.length - srcStart) {
-            //assert (v3arr.every(v3 => v3 instanceof V3), 'v3arr.every(v3 => v3 instanceof V3)')
-            const dim = vectors[0].dim();
-            const result = dest || new Float32Array(dim * vectorCount); // TODO
-            assert(result.length - destStart >= vectorCount * dim, 'dest.length - destStart >= v3count * 3', result.length, destStart, vectorCount * 3);
-            let i = vectorCount, srcIndex = srcStart, destIndex = destStart;
-            while (i--) {
-                const v = vectors[srcIndex++];
-                for (let d = 0; d < dim; d++) {
-                    result[destIndex++] = v.v[d];
-                }
-            }
-            return result;
-        }
-        static lerp(a, b, t) {
-            assert(a.dim() == b.dim());
-            const n = new Float64Array(a.v.length);
-            let i = a.v.length;
-            while (i--) {
-                n[i] = a.v[i] * (1 - t) + b.v[i] * t;
-            }
-            return new Vector(n);
-        }
-        static add(...vs) {
-            const dim = vs[0].v.length;
-            const result = new Float64Array(dim);
-            let i = vs.length;
-            while (i--) {
-                let d = dim;
-                while (d--) {
-                    result[d] += vs[i].v[d];
-                }
-            }
-            return new Vector(result);
-        }
-        /**
-         * Create a new 4D Vector from a V3 and a weight.
-         * @param v3
-         * @param weight
-         */
-        static fromV3AndWeight(v3, weight) {
-            return new Vector(new Float64Array([v3.x * weight, v3.y * weight, v3.z * weight, weight]));
-        }
-        get x() {
-            return this.v[0];
-        }
-        get y() {
-            return this.v[1];
-        }
-        get z() {
-            return this.v[2];
-        }
-        get w() {
-            return this.v[3];
-        }
-        [Symbol.iterator]() {
-            return this.v[Symbol.iterator]();
-        }
-        dim() {
-            return this.v.length;
-        }
-        e(index) {
-            if (0 > index || index >= this.v.length) {
-                throw new Error('array index out of bounds');
-            }
-            return this.v[index];
-        }
-        plus(vector) {
-            const u = this.v, v = vector.v;
-            const n = new Float64Array(u.length);
-            let i = u.length;
-            while (i--) {
-                n[i] = u[i] + v[i];
-            }
-            return new Vector(n);
-        }
-        minus(vector) {
-            const u = this.v, v = vector.v;
-            const n = new Float64Array(u.length);
-            let i = u.length;
-            while (i--) {
-                n[i] = u[i] - v[i];
-            }
-            return new Vector(n);
-        }
-        times(factor) {
-            const u = this.v;
-            const n = new Float64Array(u.length);
-            let i = u.length;
-            while (i--) {
-                n[i] = u[i] * factor;
-            }
-            return new Vector(n);
-        }
-        div(val) {
-            const u = this.v;
-            const n = new Float64Array(u.length);
-            let i = u.length;
-            while (i--) {
-                n[i] = u[i] / val;
-            }
-            return new Vector(n);
-        }
-        dot(vector) {
-            assert(this.dim == vector.dim, 'passed vector must have the same dim');
-            let result = 0;
-            const u = this.v, v = vector.v;
-            let i = u.length;
-            while (i--) {
-                result += u[i] * v[i];
-            }
-            return result;
-        }
-        cross(vector) {
-            assertInst(Vector, vector);
-            const n = new Float64Array(3);
-            n[0] = this.v[1] * vector.v[2] - this.v[2] * vector.v[1];
-            n[1] = this.v[2] * vector.v[0] - this.v[0] * vector.v[2];
-            n[2] = this.v[0] * vector.v[1] - this.v[1] * vector.v[0];
-            return new Vector(n);
-        }
-        schur(vector) {
-            assertInst(Vector, vector);
-            const u = this.v, v = vector.v;
-            const n = new Float64Array(u.length);
-            let i = u.length;
-            while (i--) {
-                n[i] = u[i] * v[i];
-            }
-            return new Vector(n);
-        }
-        equals(obj) {
-            if (obj === this)
-                return true;
-            if (obj.constructor !== Vector)
-                return false;
-            if (this.v.length != obj.v.length)
-                return false;
-            let i = this.v.length;
-            while (i--) {
-                if (this.v[i] !== obj.v[i])
-                    return false;
-            }
-            return true;
-        }
-        like(obj) {
-            if (obj === this)
-                return true;
-            if (obj.constructor !== Vector)
-                return false;
-            if (this.v.length != obj.v.length)
-                return false;
-            let i = this.v.length;
-            while (i--) {
-                if (!eq(this.v[i], obj.v[i]))
-                    return false;
-            }
-            return true;
-        }
-        map(f) {
-            return new Vector(this.v.map(f));
-        }
-        toString(roundFunction) {
-            roundFunction = roundFunction || (v => +v.toFixed(6));
-            return 'Vector(' + this.v.map(roundFunction).join(', ') + ')';
-        }
-        toSource() {
-            return callsce('VV', ...this.v);
-        }
-        angleTo(vector) {
-            assertInst(Vector, vector);
-            assert(!this.isZero(), '!this.likeO()');
-            assert(!vector.isZero(), '!vector.likeO()');
-            return Math.acos(clamp(this.dot(vector) / this.length() / vector.length(), -1, 1));
-        }
-        /**
-         * Returns true iff this is parallel to vector, using eq
-         * Throw a DebugError
-         * - if vector is not a Vector or
-         * - if this has a length of 0 or
-         * - if vector has a length of 0
-         */
-        isParallelTo(vector) {
-            assertInst(Vector, vector);
-            assert(!this.isZero(), '!this.likeO()');
-            assert(!vector.isZero(), '!vector.likeO()');
-            // a . b takes on values of +|a|*|b| (vectors same direction) to -|a|*|b| (opposite direction)
-            // in both cases the vectors are paralle, so check if abs(a . b) == |a|*|b|
-            return eq(Math.sqrt(this.lengthSquared() * vector.lengthSquared()), Math.abs(this.dot(vector)));
-        }
-        isPerpendicularTo(vector) {
-            assertInst(Vector, vector);
-            assert(!this.isZero(), '!this.likeO()');
-            assert(!vector.isZero(), '!vector.likeO()');
-            return eq0(this.dot(vector));
-        }
-        /**
-         * Returns true iff the length of this vector is 0, as returned by NLA.isZero.
-         * Definition: Vector.prototype.isZero = () => NLA.isZero(this.length())
-         */
-        isZero() {
-            return eq0(this.length());
-        }
-        /*/ Returns the length of this Vector, i.e. the euclidian norm.*/
-        length() {
-            return Math.hypot.apply(undefined, this.v);
-            //return Math.sqrt(this.lengthSquared())
-        }
-        lengthSquared() {
-            let result = 0;
-            const u = this.v;
-            let i = u.length;
-            while (i--) {
-                result += u[i] * u[i];
-            }
-            return result;
-        }
-        /**
-         * Returns a new unit Vector (.length() === 1) with the same direction as this vector. Throws a
-         */
-        unit() {
-            const length = this.length();
-            if (eq0(length)) {
-                throw new Error('cannot normalize zero vector');
-            }
-            return this.div(this.length());
-        }
-        /**
-         * Documentation stub. You want {@link unit}
-         */
-        normalized() {
-            throw new Error('documentation stub. use .unit()');
-        }
-        asRowMatrix() {
-            return new Matrix(this.v.length, 1, this.v);
-        }
-        asColMatrix() {
-            return new Matrix(1, this.v.length, this.v);
-        }
-        /**
-         * Returns a new Vector which is the projection of this vector onto the passed vector.
-         * @example
-         * VV(3, 4).projectedOn(VV(1, 0)) // returns VV(3, 0)
-         * @example
-         * VV(3, 4).projectedOn(VV(2, 0)) // returns VV(3, 0)
-         * @example
-         * VV(3, 4).projectedOn(VV(-1, 0)) // returns VV(-3, 0)
-         * @example
-         * VV(3, 4).projectedOn(VV(0, 1)) // returns VV(0, 4)
-         * @example
-         * VV(3, 4).projectedOn(VV(1, 1)) // returns
-         */
-        projectedOn(b) {
-            assertInst(Vector, b);
-            // https://en.wikipedia.org/wiki/Vector_projection#Vector_projection_2
-            return b.times(this.dot(b) / b.dot(b));
-        }
-        rejectedOn(b) {
-            assertInst(Vector, b);
-            // https://en.wikipedia.org/wiki/Vector_projection#Vector_projection_2
-            return this.minus(b.times(this.dot(b) / b.dot(b)));
-        }
-        to(a) {
-            return a.minus(this);
-        }
-        /**
-         * Returns true iff the length() of this vector is equal to 'length', using equals
-         * E.g. NLA.V(3, 4).hasLength(5) === true
-         * NLA.V(1, 1).hasLength(1) === false
-         */
-        hasLength(length) {
-            assertNumbers(length);
-            return eq(length, this.length());
-        }
-        V3() {
-            //assert(this.dim() == 3)
-            return new V3(this.v[0], this.v[1], this.v[2]);
-        }
-        /**
-         * Project into 3 dimensions.
-         */
-        p3() {
-            assert(this.v.length == 4);
-            const w = this.v[3];
-            return new V3(this.v[0] / w, this.v[1] / w, this.v[2] / w);
-        }
-        transposed() {
-            return new Matrix(this.v.length, 1, this.v);
-        }
-    }
-    function VV(...values) {
-        return new Vector(new Float64Array(values));
-    }
-
-    class Matrix {
-        constructor(width, height, m) {
-            this.width = width;
-            this.height = height;
-            this.m = m;
-            assertInts(width, height);
-            assertf(() => 0 < width);
-            assertf(() => 0 < height);
-            assert(width * height == m.length, 'width * height == m.length', width, height, m.length);
-        }
-        static random(width, height) {
-            return Matrix.fromFunction(width, height, () => Math.random());
-        }
-        static fromFunction(width, height, f) {
-            const m = new Float64Array(height * width);
-            let elIndex = height * width;
-            while (elIndex--) {
-                m[elIndex] = f(Math.floor(elIndex / width), elIndex % width, elIndex);
-            }
-            return new Matrix(width, height, m);
-        }
-        static identityN(dim) {
-            assertInts(dim);
-            const m = new Float64Array(dim * dim);
-            // Float64Arrays are init to 0
-            let elIndex = dim * (dim + 1);
-            while (elIndex) {
-                elIndex -= dim + 1;
-                m[elIndex] = 1;
-            }
-            return new Matrix(dim, dim, m);
-        }
-        /**
-         * Create new dim x dim matrix equal to an identity matrix with rows/colums i and k swapped. Note that i and k
-         * are 0-indexed.
-         */
-        static permutation(dim, i, k) {
-            assertInts(dim, i, k);
-            assertf(() => 0 <= i && i < dim);
-            assertf(() => 0 <= k && k < dim);
-            const m = new Float64Array(dim * dim);
-            // Float64Array are init to 0
-            let elIndex = dim * (dim + 1);
-            while (elIndex) {
-                elIndex -= dim + 1;
-                m[elIndex] = 1;
-            }
-            m[i * dim + i] = 0;
-            m[k * dim + k] = 0;
-            m[i * dim + k] = 1;
-            m[k * dim + i] = 1;
-            return new Matrix(dim, dim, m);
-        }
-        static fromRowArrays(...rowArrays) {
-            if (0 == rowArrays.length) {
-                throw new Error('cannot have 0 vector');
-            }
-            const height = rowArrays.length;
-            const width = rowArrays[0].length;
-            const m = new Float64Array(height * width);
-            arrayCopy(rowArrays[0], 0, m, 0, width);
-            for (let rowIndex = 1; rowIndex < height; rowIndex++) {
-                if (rowArrays[rowIndex].length != width) {
-                    throw new Error('all row arrays must be the same length');
-                }
-                arrayCopy(rowArrays[rowIndex], 0, m, rowIndex * width, width);
-            }
-            return this.new(width, height, m);
-        }
-        static fromColVectors(colVectors) {
-            return Matrix.fromColArrays(...colVectors.map(v => v.v));
-        }
-        static forWidthHeight(width, height) {
-            return new Matrix(width, height, new Float64Array(width * height));
-        }
-        static fromColArrays(...colArrays) {
-            if (0 == colArrays.length) {
-                throw new Error('cannot have 0 vector');
-            }
-            const width = colArrays.length;
-            const height = colArrays[0].length;
-            const m = new Float64Array(height * width);
-            arrayCopyStep(colArrays[0], 0, 1, m, 0, width, height);
-            for (let colIndex = 1; colIndex < width; colIndex++) {
-                if (colArrays[colIndex].length != height) {
-                    throw new Error('all col arrays must be the same length');
-                }
-                arrayCopyStep(colArrays[colIndex], 0, 1, m, colIndex, width, height);
-            }
-            return this.new(width, height, m);
-        }
-        static product(...args) {
-            const [ms, result] = Array.isArray(args[0])
-                ? [args[0], args[1]]
-                : [args, undefined];
-            if (0 == ms.length)
-                throw new Error("Can't guess matrix size.");
-            if (1 == ms.length)
-                return Matrix.copy(ms[0], result);
-            return Matrix.copy(ms.reduce((a, b) => a.times(b)), result);
-        }
-        /**
-         * Numerically calculate all the partial derivatives of f at x0.
-         *
-         * @param f
-         * @param x0
-         * @param fx0 f(x0), pass it if you have it already
-         * @param EPSILON
-         */
-        static jacobi(f, x0, fx0 = f(x0), EPSILON = 1e-6) {
-            const jacobi = Matrix.forWidthHeight(x0.length, fx0.length);
-            for (let colIndex = 0; colIndex < x0.length; colIndex++) {
-                x0[colIndex] += EPSILON;
-                const fx = f(x0);
-                for (let rowIndex = 0; rowIndex < fx0.length; rowIndex++) {
-                    const value = (fx[rowIndex] - fx0[rowIndex]) / EPSILON;
-                    jacobi.setEl(rowIndex, colIndex, value);
-                }
-                x0[colIndex] -= EPSILON;
-            }
-            return jacobi;
-        }
-        static copy(src, result = src.new()) {
-            assertInst(Matrix, src, result);
-            assert(src.width == result.width);
-            assert(src.height == result.height);
-            assert(result != src, 'result != src');
-            const s = src.m, d = result.m;
-            let i = s.length;
-            while (i--) {
-                d[i] = s[i];
-            }
-            return result;
-        }
-        static new(width, height, m) {
-            return new Matrix(width, height, m);
-        }
-        copy() {
-            return Matrix.copy(this);
-        }
-        e(rowIndex, colIndex) {
-            assertInts(rowIndex, colIndex);
-            assert(0 <= rowIndex && rowIndex < this.height, 'rowIndex out of bounds ' + rowIndex);
-            assert(0 <= colIndex && colIndex < this.width, 'colIndex out of bounds ' + colIndex);
-            return this.m[rowIndex * this.width + colIndex];
-        }
-        setEl(rowIndex, colIndex, val) {
-            assertInts(rowIndex, colIndex);
-            assert(0 <= rowIndex && rowIndex < this.height, 'rowIndex out of bounds ' + rowIndex);
-            assert(0 <= colIndex && colIndex < this.width, 'colIndex out of bounds ' + colIndex);
-            assertNumbers(val);
-            this.m[rowIndex * this.width + colIndex] = val;
-        }
-        plus(m) {
-            assert(this.width == m.width);
-            assert(this.height == m.height);
-            const r = this.new();
-            let i = this.m.length;
-            while (i--)
-                r.m[i] = this.m[i] + m.m[i];
-            return r;
-        }
-        minus(m) {
-            assert(this.width == m.width);
-            assert(this.height == m.height);
-            const r = this.new();
-            let i = this.m.length;
-            while (i--)
-                r.m[i] = this.m[i] - m.m[i];
-            return r;
-        }
-        mulScalar(scalar) {
-            assertNumbers(scalar);
-            const r = this.new();
-            let i = this.m.length;
-            while (i--)
-                r.m[i] = this.m[i] * scalar;
-            return r;
-        }
-        divScalar(scalar) {
-            assertNumbers(scalar);
-            const r = this.new();
-            let i = this.m.length;
-            while (i--)
-                r.m[i] = this.m[i] / scalar;
-            return r;
-        }
-        new() {
-            return new Matrix(this.width, this.height, new Float64Array(this.width * this.height));
-        }
-        toString(f, colNames, rowNames) {
-            f = f || (v => v.toFixed(6));
-            assert(typeof f(0) == 'string', '' + typeof f(0));
-            assert(!colNames || colNames.length == this.width);
-            assert(!rowNames || rowNames.length == this.height);
-            const rounded = Array.from(this.m).map(f);
-            const rows = arrayFromFunction(this.height, rowIndex => rounded.slice(rowIndex * this.width, (rowIndex + 1) * this.width)); // select matrix row
-            if (colNames) {
-                rows.unshift(Array.from(colNames));
-            }
-            if (rowNames) {
-                rows.forEach((row, rowIndex) => row.unshift(rowNames[rowIndex - (colNames ? 1 : 0)] || ''));
-            }
-            const colWidths = arrayFromFunction(this.width, colIndex => rows.map(row => row[colIndex].length).max());
-            return rows
-                .map((row, rowIndex) => row
-                .map((x, colIndex) => {
-                // pad numbers with spaces to col width
-                const padder = (rowIndex == 0 && colNames) || (colIndex == 0 && rowNames)
-                    ? String.prototype.padEnd
-                    : String.prototype.padStart;
-                return padder.call(x, colWidths[colIndex]);
-            })
-                .join('  '))
-                .map(x => x + '\n')
-                .join(''); // join rows
-        }
-        row(rowIndex) {
-            assertInts(rowIndex);
-            assert(0 <= rowIndex && rowIndex < this.height, 'rowIndex out of bounds ' + rowIndex);
-            const v = new Float64Array(this.width);
-            arrayCopy(this.m, rowIndex * this.width, v, 0, this.width);
-            return new Vector(v);
-        }
-        col(colIndex) {
-            assertInts(colIndex);
-            assert(0 <= colIndex && colIndex < this.width, 'colIndex out of bounds ' + colIndex);
-            const v = new Float64Array(this.height);
-            arrayCopyStep(this.m, colIndex, this.width, v, 0, 1, this.height);
-            return new Vector(v);
-        }
-        dim() {
-            return { width: this.width, height: this.height };
-        }
-        dimString() {
-            return this.width + 'x' + this.height;
-        }
-        equals(obj) {
-            if (obj.constructor != this.constructor)
-                return false;
-            if (this.width != obj.width || this.height != obj.height)
-                return false;
-            let elIndex = this.m.length;
-            while (elIndex--) {
-                if (this.m[elIndex] != obj.m[elIndex])
-                    return false;
-            }
-            return true;
-        }
-        equalsMatrix(matrix, precision = NLA_PRECISION) {
-            assertInst(Matrix, matrix);
-            if (this.width != matrix.width || this.height != matrix.height)
-                return false;
-            let elIndex = this.m.length;
-            while (elIndex--) {
-                if (Math.abs(this.m[elIndex] - matrix.m[elIndex]) >= precision)
-                    return false;
-            }
-            return true;
-        }
-        hashCode() {
-            let result = 0;
-            let elIndex = this.m.length;
-            while (elIndex--) {
-                result = result * 31 + floatHashCode(this.m[elIndex]);
-            }
-            return result;
-        }
-        // todo rename
-        isZero() {
-            let elIndex = this.m.length;
-            while (elIndex--) {
-                if (!eq0(this.m[elIndex])) {
-                    return false;
-                }
-            }
-            return true;
-        }
-        isOrthogonal() {
-            return (this.isSquare() &&
-                this.transposed()
-                    .times(this)
-                    .equalsMatrix(Matrix.identityN(this.width)));
-        }
-        /**
-         * Returns L, U, P such that L * U == P * this
-         */
-        luDecomposition() {
-            assertf(() => this.isSquare(), this.dim().toSource());
-            const dim = this.width;
-            const uRowArrays = this.asRowArrays(Float64Array);
-            const lRowArrays = arrayFromFunction(dim, row => new Float64Array(dim));
-            const pRowArrays = Matrix.identityN(dim).asRowArrays(Float64Array);
-            let currentRowIndex = 0;
-            for (let colIndex = 0; colIndex < dim; colIndex++) {
-                // find largest value in colIndex
-                let maxAbsValue = 0, pivotRowIndex = -1, numberOfNonZeroRows = 0;
-                for (let rowIndex = currentRowIndex; rowIndex < dim; rowIndex++) {
-                    const el = uRowArrays[rowIndex][colIndex];
-                    numberOfNonZeroRows += +(0 != el);
-                    if (Math.abs(el) > maxAbsValue) {
-                        maxAbsValue = Math.abs(el);
-                        pivotRowIndex = rowIndex;
-                    }
-                }
-                // TODO: check with isZero
-                if (0 == maxAbsValue) {
-                    // column contains only zeros
-                    continue;
-                }
-                assert(-1 !== pivotRowIndex);
-                // swap rows
-                arraySwap(uRowArrays, currentRowIndex, pivotRowIndex);
-                arraySwap(lRowArrays, currentRowIndex, pivotRowIndex);
-                arraySwap(pRowArrays, currentRowIndex, pivotRowIndex);
-                lRowArrays[colIndex][colIndex] = 1;
-                if (1 < numberOfNonZeroRows) {
-                    // subtract pivot (now current) row from all below it
-                    for (let rowIndex = currentRowIndex + 1; rowIndex < dim; rowIndex++) {
-                        const l = uRowArrays[rowIndex][colIndex] / uRowArrays[currentRowIndex][colIndex];
-                        lRowArrays[rowIndex][colIndex] = l;
-                        // subtract pivot row * l from row 'rowIndex'
-                        for (let colIndex2 = colIndex; colIndex2 < dim; colIndex2++) {
-                            uRowArrays[rowIndex][colIndex2] -= l * uRowArrays[currentRowIndex][colIndex2];
-                        }
-                    }
-                }
-                currentRowIndex++; // this doesn't increase if pivot was zero
-            }
-            return {
-                L: Matrix.fromRowArrays(...lRowArrays),
-                U: Matrix.fromRowArrays(...uRowArrays),
-                P: Matrix.fromRowArrays(...pRowArrays),
-            };
-        }
-        gauss() {
-            const width = this.width, height = this.height;
-            const uRowArrays = this.asRowArrays(Float64Array);
-            const lRowArrays = arrayFromFunction(height, row => new Float64Array(width));
-            const pRowArrays = Matrix.identityN(height).asRowArrays(Float64Array);
-            let currentRowIndex = 0;
-            for (let colIndex = 0; colIndex < width; colIndex++) {
-                // console.log('currentRowIndex', currentRowIndex)	// find largest value in colIndex
-                let maxAbsValue = 0, pivotRowIndex = -1, numberOfNonZeroRows = 0;
-                for (let rowIndex = currentRowIndex; rowIndex < height; rowIndex++) {
-                    const el = uRowArrays[rowIndex][colIndex];
-                    numberOfNonZeroRows += +(0 != el);
-                    if (Math.abs(el) > maxAbsValue) {
-                        maxAbsValue = Math.abs(el);
-                        pivotRowIndex = rowIndex;
-                    }
-                }
-                // TODO: check with isZero
-                if (0 == maxAbsValue) {
-                    // column contains only zeros
-                    continue;
-                }
-                assert(-1 !== pivotRowIndex);
-                // swap rows
-                arraySwap(uRowArrays, currentRowIndex, pivotRowIndex);
-                arraySwap(lRowArrays, currentRowIndex, pivotRowIndex);
-                arraySwap(pRowArrays, currentRowIndex, pivotRowIndex);
-                lRowArrays[currentRowIndex][colIndex] = 1;
-                if (1 < numberOfNonZeroRows) {
-                    // subtract pivot (now current) row from all below it
-                    for (let rowIndex = currentRowIndex + 1; rowIndex < height; rowIndex++) {
-                        const l = uRowArrays[rowIndex][colIndex] / uRowArrays[currentRowIndex][colIndex];
-                        lRowArrays[rowIndex][colIndex] = l;
-                        // subtract pivot row * l from row 'rowIndex'
-                        for (let colIndex2 = colIndex; colIndex2 < width; colIndex2++) {
-                            uRowArrays[rowIndex][colIndex2] -= l * uRowArrays[currentRowIndex][colIndex2];
-                        }
-                    }
-                }
-                currentRowIndex++; // this doesn't increase if pivot was zero
-            }
-            return {
-                L: Matrix.fromRowArrays(...lRowArrays),
-                U: Matrix.fromRowArrays(...uRowArrays),
-                P: Matrix.fromRowArrays(...pRowArrays),
-            };
-        }
-        qrDecompositionGivensRotation() {
-            // function sigma(c: number, s: number) {
-            // 	if (0 == c) {
-            // 		return 1
-            // 	}
-            // 	if (Math.abs(s) < Math.abs(c)) {
-            // 		return 0.5 * Math.sign(c) * s
-            // 	}
-            // 	return (2 * Math.sign(s)) / c
-            // }
-            const R = this.copy();
-            function matrixForCS(dim, i, k, c, s) {
-                const m = Matrix.identityN(dim);
-                m.setEl(i, i, c);
-                m.setEl(k, k, c);
-                m.setEl(i, k, s);
-                m.setEl(k, i, -s);
-                return m;
-            }
-            let qTransposed = Matrix.identityN(this.height);
-            for (let colIndex = 0; colIndex < this.width; colIndex++) {
-                // find largest value in colIndex
-                for (let rowIndex = colIndex + 1; rowIndex < this.height; rowIndex++) {
-                    //console.log('row ', rowIndex, 'col ', colIndex)
-                    const xi = R.e(colIndex, colIndex);
-                    const xk = R.e(rowIndex, colIndex);
-                    if (xk == 0) {
-                        continue;
-                    }
-                    const r = Math.hypot(xi, xk);
-                    const c = xi / r;
-                    const s = xk / r;
-                    // apply transformation on every column:
-                    for (let col2 = colIndex; col2 < this.width; col2++) {
-                        const x1 = R.e(colIndex, col2) * c + R.e(rowIndex, col2) * s;
-                        const x2 = R.e(rowIndex, col2) * c - R.e(colIndex, col2) * s;
-                        R.setEl(colIndex, col2, x1);
-                        R.setEl(rowIndex, col2, x2);
-                    }
-                    //console.log('r ', r, 'c ', c, 's ', s, 'sigma', sigma(c, s))
-                    //console.log(this.toString(),'cs\n', matrixForCS(this.height, colIndex, rowIndex, c, s).toString())
-                    qTransposed = matrixForCS(this.height, colIndex, rowIndex, c, s).times(qTransposed);
-                }
-            }
-            //console.log(qTransposed.transposed().toString(), this.toString(),
-            // qTransposed.transposed().times(this).toString())
-            return { Q: qTransposed.transposed(), R };
-        }
-        isPermutation() {
-            if (!this.isSquare())
-                return false;
-            if (this.m.some(value => !eq0(value) && !eq(1, value)))
-                return false;
-            const rows = this.asRowArrays(Array);
-            if (rows.some(row => row.filter(value => eq(1, value)).length != 1))
-                return false;
-            const cols = this.asColArrays(Array);
-            if (cols.some(col => col.filter(value => eq(1, value)).length != 1))
-                return false;
-            return true;
-        }
-        isDiagonal(precision) {
-            let i = this.m.length;
-            while (i--) {
-                if (0 !== i % (this.width + 1) && !eq0(this.m[i]))
-                    return false;
-            }
-            return true;
-        }
-        isIdentity(precision) {
-            return this.isLowerUnitriangular(precision) && this.isUpperTriangular(precision);
-        }
-        isUpperTriangular(precision = NLA_PRECISION) {
-            if (!this.isSquare())
-                return false;
-            for (let rowIndex = 1; rowIndex < this.height; rowIndex++) {
-                for (let colIndex = 0; colIndex < rowIndex; colIndex++) {
-                    if (!eq0(this.m[rowIndex * this.width + colIndex], precision)) {
-                        return false;
-                    }
-                }
-            }
-            return true;
-        }
-        isSymmetric(precision = NLA_PRECISION) {
-            if (!this.isSquare())
-                return false;
-            for (let rowIndex = 0; rowIndex < this.height - 1; rowIndex++) {
-                for (let colIndex = rowIndex + 1; colIndex < this.width; colIndex++) {
-                    const a = this.m[rowIndex * this.width + colIndex];
-                    const b = this.m[colIndex * this.width + rowIndex];
-                    if (!eq(a, b, precision)) {
-                        return false;
-                    }
-                }
-            }
-            return true;
-        }
-        /**
-         * Returns x, so that this * x = b
-         * More efficient than calculating the inverse for few (~ <= this.height) values
-         */
-        solveLinearSystem(b) {
-            assertInst(Vector, b);
-            const { L, U, P } = this.luDecomposition();
-            const y = L.solveForwards(P.timesVector(b));
-            const x = U.solveBackwards(y);
-            return x;
-        }
-        isLowerUnitriangular(precision = NLA_PRECISION) {
-            if (!this.isSquare())
-                return false;
-            for (let rowIndex = 0; rowIndex < this.height - 1; rowIndex++) {
-                for (let colIndex = rowIndex; colIndex < this.width; colIndex++) {
-                    const el = this.m[rowIndex * this.width + colIndex];
-                    if (rowIndex == colIndex ? !eq(1, el, precision) : !eq0(el, precision)) {
-                        return false;
-                    }
-                }
-            }
-            return true;
-        }
-        isLowerTriangular(precision = NLA_PRECISION) {
-            if (!this.isSquare())
-                return false;
-            for (let rowIndex = 0; rowIndex < this.height - 1; rowIndex++) {
-                for (let colIndex = rowIndex + 1; colIndex < this.width; colIndex++) {
-                    if (!eq0(this.m[rowIndex * this.width + colIndex], precision)) {
-                        return false;
-                    }
-                }
-            }
-            return true;
-        }
-        solveBackwards(x) {
-            assertVectors(x);
-            assert(this.height == x.dim(), 'this.height == x.dim()');
-            assert(this.isUpperTriangular(), 'this.isUpperTriangular()\n' + this.str);
-            const v = new Float64Array(this.width);
-            let rowIndex = this.height;
-            while (rowIndex--) {
-                let temp = x.v[rowIndex];
-                for (let colIndex = rowIndex + 1; colIndex < this.width; colIndex++) {
-                    temp -= v[colIndex] * this.e(rowIndex, colIndex);
-                }
-                v[rowIndex] = temp / this.e(rowIndex, rowIndex);
-            }
-            return new Vector(v);
-        }
-        solveBackwardsMatrix(matrix) {
-            const colVectors = new Array(matrix.width);
-            let i = matrix.width;
-            while (i--) {
-                colVectors[i] = this.solveBackwards(matrix.col(i));
-            }
-            return Matrix.fromColVectors(colVectors);
-        }
-        solveForwardsMatrix(matrix) {
-            const colVectors = new Array(matrix.width);
-            let i = matrix.width;
-            while (i--) {
-                colVectors[i] = this.solveForwards(matrix.col(i));
-            }
-            return Matrix.fromColVectors(colVectors);
-        }
-        solveForwards(x) {
-            assertVectors(x);
-            assert(this.height == x.dim(), 'this.height == x.dim()');
-            assertf(() => this.isLowerTriangular(), this.toString());
-            const v = new Float64Array(this.width);
-            for (let rowIndex = 0; rowIndex < this.height; rowIndex++) {
-                let temp = x.v[rowIndex];
-                for (let colIndex = 0; colIndex < rowIndex; colIndex++) {
-                    temp -= v[colIndex] * this.e(rowIndex, colIndex);
-                }
-                v[rowIndex] = temp / this.e(rowIndex, rowIndex);
-            }
-            return new Vector(v);
-        }
-        /**
-         * Calculates rank of matrix.
-         * Number of linearly independant row/column vectors.
-         * Is equal to the unmber of dimensions the image of the affine transformation represented this matrix has.
-         */
-        rank() {
-            const U = this.gauss().U;
-            let rowIndex = this.height;
-            while (rowIndex-- && U.row(rowIndex).isZero()) { }
-            return rowIndex + 1;
-        }
-        rowsIndependent() {
-            return this.height == this.rank();
-        }
-        colsIndependent() {
-            return this.width == this.rank();
-        }
-        asRowArrays(arrayConstructor = Float64Array) {
-            return arrayFromFunction(this.height, rowIndex => this.rowArray(rowIndex, arrayConstructor));
-        }
-        asColArrays(arrayConstructor = Float64Array) {
-            return arrayFromFunction(this.width, colIndex => this.colArray(colIndex, arrayConstructor));
-        }
-        rowArray(rowIndex, arrayConstructor = Float64Array) {
-            const result = new arrayConstructor(this.width);
-            return arrayCopy(this.m, rowIndex * this.width, result, 0, this.width);
-        }
-        colArray(colIndex, arrayConstructor = Float64Array) {
-            const result = new arrayConstructor(this.width);
-            arrayCopyStep(this.m, colIndex, this.height, result, 0, 1, this.height);
-            return result;
-        }
-        subMatrix(firstColIndex, subWidth, firstRowIndex, subHeight) {
-            assert(0 < firstColIndex && 0 < subWidth && 0 < firstRowIndex && 0 < subHeight);
-            assert(firstColIndex + subWidth <= this.width && firstRowIndex + subHeight <= this.height);
-            const m = new Float64Array(subWidth * subHeight);
-            arrayCopyBlocks(this.m, firstColIndex, this.width, m, 0, subWidth, subHeight, subWidth);
-            return new Matrix(subWidth, subHeight, m);
-        }
-        map(fn) {
-            return new Matrix(this.width, this.height, this.m.map(fn));
-        }
-        dimEquals(matrix) {
-            assertInst(Matrix, matrix);
-            return this.width == matrix.width && this.height == matrix.height;
-        }
-        inversed() {
-            if (this.isSquare()) {
-                if (2 == this.width)
-                    return this.inversed2();
-                if (3 == this.width)
-                    return this.inversed3();
-                if (4 == this.width)
-                    return this.inversed4();
-            }
-            const { L, U, P } = this.luDecomposition();
-            const y = L.solveForwardsMatrix(P);
-            const inverse = U.solveBackwardsMatrix(y);
-            return inverse;
-        }
-        inversed2() {
-            assertf(() => 2 == this.width && 2 == this.height);
-            const result = Matrix.forWidthHeight(2, 2), m = this.m, r = result.m;
-            const det = m[0] * m[3] - m[1] * r[2];
-            r[0] = m[3] / det;
-            r[1] = -m[2] / det;
-            r[2] = -m[1] / det;
-            r[3] = m[0] / det;
-            return result;
-        }
-        inversed3(result = Matrix.forWidthHeight(3, 3)) {
-            assertInst(Matrix, result);
-            assertf(() => 3 == this.width && 3 == this.height);
-            assertf(() => 3 == result.width && 3 == result.height);
-            assert(() => this != result);
-            const m = this.m, r = result.m;
-            r[0] = m[4] * m[8] - m[5] * m[7];
-            r[1] = -m[1] * m[8] + m[2] * m[7];
-            r[2] = m[1] * m[5] - m[2] * m[4];
-            r[3] = -m[3] * m[8] + m[5] * m[6];
-            r[4] = m[0] * m[8] - m[2] * m[6];
-            r[5] = -m[0] * m[5] + m[2] * m[3];
-            r[6] = m[3] * m[7] - m[4] * m[6];
-            r[7] = -m[0] * m[7] + m[1] * m[6];
-            r[8] = m[0] * m[4] - m[1] * m[3];
-            const det = m[0] * r[0] + m[1] * r[3] + m[2] * r[6];
-            let i = 9;
-            while (i--) {
-                r[i] /= det;
-            }
-            return result;
-        }
-        // prettier-ignore
-        inversed4(result = Matrix.forWidthHeight(4, 4)) {
-            assertInst(Matrix, result);
-            assertf(() => 4 == this.width && 4 == this.height);
-            assertf(() => 4 == result.width && 4 == result.height);
-            assert(() => this != result);
-            const m = this.m, r = result.m;
-            // first compute transposed cofactor matrix:
-            // cofactor of an element is the determinant of the 3x3 matrix gained by removing the column and row belonging
-            // to the element
-            r[0] = m[5] * m[10] * m[15] - m[5] * m[14] * m[11] - m[6] * m[9] * m[15]
-                + m[6] * m[13] * m[11] + m[7] * m[9] * m[14] - m[7] * m[13] * m[10];
-            r[1] = -m[1] * m[10] * m[15] + m[1] * m[14] * m[11] + m[2] * m[9] * m[15]
-                - m[2] * m[13] * m[11] - m[3] * m[9] * m[14] + m[3] * m[13] * m[10];
-            r[2] = m[1] * m[6] * m[15] - m[1] * m[14] * m[7] - m[2] * m[5] * m[15]
-                + m[2] * m[13] * m[7] + m[3] * m[5] * m[14] - m[3] * m[13] * m[6];
-            r[3] = -m[1] * m[6] * m[11] + m[1] * m[10] * m[7] + m[2] * m[5] * m[11]
-                - m[2] * m[9] * m[7] - m[3] * m[5] * m[10] + m[3] * m[9] * m[6];
-            r[4] = -m[4] * m[10] * m[15] + m[4] * m[14] * m[11] + m[6] * m[8] * m[15]
-                - m[6] * m[12] * m[11] - m[7] * m[8] * m[14] + m[7] * m[12] * m[10];
-            r[5] = m[0] * m[10] * m[15] - m[0] * m[14] * m[11] - m[2] * m[8] * m[15]
-                + m[2] * m[12] * m[11] + m[3] * m[8] * m[14] - m[3] * m[12] * m[10];
-            r[6] = -m[0] * m[6] * m[15] + m[0] * m[14] * m[7] + m[2] * m[4] * m[15]
-                - m[2] * m[12] * m[7] - m[3] * m[4] * m[14] + m[3] * m[12] * m[6];
-            r[7] = m[0] * m[6] * m[11] - m[0] * m[10] * m[7] - m[2] * m[4] * m[11]
-                + m[2] * m[8] * m[7] + m[3] * m[4] * m[10] - m[3] * m[8] * m[6];
-            r[8] = m[4] * m[9] * m[15] - m[4] * m[13] * m[11] - m[5] * m[8] * m[15]
-                + m[5] * m[12] * m[11] + m[7] * m[8] * m[13] - m[7] * m[12] * m[9];
-            r[9] = -m[0] * m[9] * m[15] + m[0] * m[13] * m[11] + m[1] * m[8] * m[15]
-                - m[1] * m[12] * m[11] - m[3] * m[8] * m[13] + m[3] * m[12] * m[9];
-            r[10] = m[0] * m[5] * m[15] - m[0] * m[13] * m[7] - m[1] * m[4] * m[15]
-                + m[1] * m[12] * m[7] + m[3] * m[4] * m[13] - m[3] * m[12] * m[5];
-            r[11] = -m[0] * m[5] * m[11] + m[0] * m[9] * m[7] + m[1] * m[4] * m[11]
-                - m[1] * m[8] * m[7] - m[3] * m[4] * m[9] + m[3] * m[8] * m[5];
-            r[12] = -m[4] * m[9] * m[14] + m[4] * m[13] * m[10] + m[5] * m[8] * m[14]
-                - m[5] * m[12] * m[10] - m[6] * m[8] * m[13] + m[6] * m[12] * m[9];
-            r[13] = m[0] * m[9] * m[14] - m[0] * m[13] * m[10] - m[1] * m[8] * m[14]
-                + m[1] * m[12] * m[10] + m[2] * m[8] * m[13] - m[2] * m[12] * m[9];
-            r[14] = -m[0] * m[5] * m[14] + m[0] * m[13] * m[6] + m[1] * m[4] * m[14]
-                - m[1] * m[12] * m[6] - m[2] * m[4] * m[13] + m[2] * m[12] * m[5];
-            r[15] = m[0] * m[5] * m[10] - m[0] * m[9] * m[6] - m[1] * m[4] * m[10]
-                + m[1] * m[8] * m[6] + m[2] * m[4] * m[9] - m[2] * m[8] * m[5];
-            // calculate determinant using laplace expansion (cf https://en.wikipedia.org/wiki/Laplace_expansion),
-            // as we already have the cofactors. We multiply a column by a row as the cofactor matrix is transposed.
-            const det = m[0] * r[0] + m[1] * r[4] + m[2] * r[8] + m[3] * r[12];
-            // assert(!isZero(det), 'det may not be zero, i.e. the matrix is not invertible')
-            let i = 16;
-            while (i--) {
-                r[i] /= det;
-            }
-            return result;
-        }
-        canMultiply(matrix) {
-            assertInst(Matrix, matrix);
-            return this.width == matrix.height;
-        }
-        times(matrix) {
-            assertInst(Matrix, matrix);
-            assert(this.canMultiply(matrix), `Cannot multiply this {this.dimString()} by matrix {matrix.dimString()}`);
-            const nWidth = matrix.width, nHeight = this.height, n = this.width;
-            const nM = new Float64Array(nWidth * nHeight);
-            let nRowIndex = nHeight;
-            while (nRowIndex--) {
-                let nColIndex = nWidth;
-                while (nColIndex--) {
-                    let result = 0;
-                    let i = n;
-                    while (i--) {
-                        result += this.m[nRowIndex * n + i] * matrix.m[i * nWidth + nColIndex];
-                    }
-                    nM[nRowIndex * nWidth + nColIndex] = result;
-                }
-            }
-            return new Matrix(nWidth, nHeight, nM);
-        }
-        timesVector(v) {
-            assertVectors(v);
-            assert(this.width == v.dim());
-            const nHeight = this.height, n = this.width;
-            const nM = new Float64Array(nHeight);
-            let nRowIndex = nHeight;
-            while (nRowIndex--) {
-                let result = 0;
-                let i = n;
-                while (i--) {
-                    result += this.m[nRowIndex * n + i] * v.v[i];
-                }
-                nM[nRowIndex] = result;
-            }
-            return new Vector(nM);
-        }
-        transposed() {
-            const tWidth = this.height, tHeight = this.width;
-            const tM = new Float64Array(tWidth * tHeight);
-            let tRowIndex = tHeight;
-            while (tRowIndex--) {
-                let tColIndex = tWidth;
-                while (tColIndex--) {
-                    tM[tRowIndex * tWidth + tColIndex] = this.m[tColIndex * tHeight + tRowIndex];
-                }
-            }
-            return new Matrix(tWidth, tHeight, tM);
-        }
-        /**
-         * In-place transpose.
-         */
-        transpose() {
-            const h = this.height, w = this.width, tM = this.m;
-            let tRowIndex = h;
-            while (tRowIndex--) {
-                let tColIndex = Math.min(tRowIndex, w);
-                while (tColIndex--) {
-                    const temp = tM[tRowIndex * w + tColIndex];
-                    tM[tRowIndex * w + tColIndex] = tM[tColIndex * h + tRowIndex];
-                    tM[tColIndex * h + tRowIndex] = temp;
-                }
-            }
-            this.width = h;
-            this.height = w;
-        }
-        isSquare() {
-            return this.height == this.width;
-        }
-        diagonal() {
-            if (!this.isSquare()) {
-                throw new Error('!!');
-            }
-            const v = new Float64Array(this.width);
-            let elIndex = this.width * (this.width + 1);
-            let vIndex = this.width;
-            while (vIndex--) {
-                elIndex -= this.width + 1;
-                v[vIndex] = this.m[elIndex];
-            }
-            return new Vector(v);
-        }
-        maxEl() {
-            return Math.max.apply(undefined, this.m);
-        }
-        minEl() {
-            return Math.min.apply(undefined, this.m);
-        }
-        maxAbsColSum() {
-            let result = 0;
-            let colIndex = this.width;
-            while (colIndex--) {
-                let absSum = 0;
-                let rowIndex = this.height;
-                while (rowIndex--) {
-                    absSum += Math.abs(this.m[rowIndex * this.width + colIndex]);
-                }
-                result = Math.max(result, absSum);
-            }
-            return result;
-        }
-        maxAbsRowSum() {
-            let result = 0;
-            let rowIndex = this.height;
-            while (rowIndex--) {
-                let absSum = 0;
-                let colIndex = this.width;
-                while (colIndex--) {
-                    absSum += Math.abs(this.m[rowIndex * this.width + colIndex]);
-                }
-                result = Math.max(result, absSum);
-            }
-            return result;
-        }
-        getTriangularDeterminant() {
-            assert(this.isUpperTriangular() || this.isLowerTriangular(), 'not a triangular matrix');
-            let product = 1;
-            let elIndex = this.width * (this.width + 1);
-            while (elIndex) {
-                elIndex -= this.width + 1;
-                product *= this.m[elIndex];
-            }
-            return product;
-        }
-        /**
-         * Calculates the determinant by first calculating the LU decomposition. If you already have that, use
-         * U.getTriangularDeterminant()
-         */
-        getDeterminant() {
-            // PA = LU
-            // det(A) * det(B) = det(A * B)
-            // det(P) == 1 (permutation matrix)
-            // det(L) == 1 (main diagonal is 1s
-            // =>  det(A) == det(U)
-            return this.luDecomposition().U.getTriangularDeterminant();
-        }
-        hasFullRank() {
-            return Math.min(this.width, this.height) == this.rank();
-        }
-        permutationAsIndexMap() {
-            assertf(() => this.isPermutation());
-            const result = new Array(this.height);
-            let i = this.height;
-            while (i--) {
-                const searchIndexStart = i * this.width;
-                let searchIndex = searchIndexStart;
-                while (this.m[searchIndex] < 0.5)
-                    searchIndex++;
-                result[i] = searchIndex - searchIndexStart;
-            }
-            return result;
-        }
-        getDependentRowIndexes(gauss = this.gauss()) {
-            const { L, U, P } = gauss;
-            // rows which end up as zero vectors in U are not linearly independent
-            const dependents = new Array(this.height);
-            let uRowIndex = this.height;
-            while (uRowIndex--) {
-                const uRow = U.row(uRowIndex);
-                if (uRow.length() < NLA_PRECISION) {
-                    dependents[uRowIndex] = true;
-                }
-                else {
-                    break;
-                }
-            }
-            // figure out from which other rows the rows which end up as zero vectors are created by
-            let lRowIndex = this.height;
-            while (lRowIndex--) {
-                if (dependents[lRowIndex]) {
-                    let lColIndex = Math.min(lRowIndex, this.width);
-                    while (lColIndex--) {
-                        if (0 !== L.e(lRowIndex, lColIndex)) {
-                            dependents[lColIndex] = true;
-                        }
-                    }
-                }
-            }
-            console.log('m\n', this.toString(x => '' + x));
-            console.log('L\n', L.toString(x => '' + x));
-            console.log('U\n', U.toString(x => '' + x));
-            console.log('P\n', P.toString(x => '' + x));
-            // gauss algorithm permutes the order of the rows, so map our results back to the original indices
-            const indexMap = P.permutationAsIndexMap();
-            const dependentRowIndexes = dependents.map((b, index) => b && indexMap[index]).filter(x => x != undefined);
-            return dependentRowIndexes;
-        }
-        lerp(b, t, result = this.new()) {
-            assertInst(Matrix, b, result);
-            assertNumbers(t);
-            assert(this.width == b.width && this.height == b.height);
-            const s = 1 - t;
-            let i = this.m.length;
-            while (i--) {
-                result.m[i] = s * this.m[i] + t * b.m[i];
-            }
-            return result;
-        }
-    }
     const PI = Math.PI;
     const TAU = 2 * PI;
     /** Use rollup-plugin-replace or similar to avoid error in browser. */
+    // @ts-ignore
     const NLA_DEBUG = "development" != 'production';
     const NLA_PRECISION = 1 / (1 << 26);
     console.log('NLA_PRECISION', NLA_PRECISION);
     console.log('NLA_DEBUG', NLA_DEBUG);
-    function assertVectors(...vectors) {
-        {
-            for (let i = 0; i < arguments.length; i++) {
-                if (!(arguments[i] instanceof V3 || arguments[i] instanceof Vector)) {
-                    throw new Error('assertVectors arguments[' +
-                        i +
-                        '] is not a vector. ' +
-                        typeof arguments[i] +
-                        ' == typeof ' +
-                        arguments[i]);
-                }
-            }
-        }
-        return true;
-    }
     function assertInst(what, ...objs) {
+        var _a, _b;
         {
             for (let i = 0; i < objs.length; i++) {
                 if (!(objs[i] instanceof what)) {
@@ -1420,8 +158,7 @@ var demo = (function (exports) {
                         i +
                         '] is not a ' +
                         what.prototype.name +
-                        '. ' +
-                        objs[i].constructor.name +
+                        '. ' + ((_b = (_a = objs[i]) === null || _a === void 0 ? void 0 : _a.constructor) === null || _b === void 0 ? void 0 : _b.name) +
                         objs[i]);
                 }
             }
@@ -1451,7 +188,7 @@ var demo = (function (exports) {
     function assert(value, ...messages) {
         if ( !value) {
             throw new Error('assert failed: ' +
-                messages.map(message => ('function' === typeof message ? message() : message || '')).join('\n'));
+                messages.map((message) => ('function' === typeof message ? message() : message || '')).join('\n'));
         }
         return true;
     }
@@ -1459,7 +196,7 @@ var demo = (function (exports) {
         if ( !f()) {
             throw new Error('assertf failed: ' +
                 f.toString() +
-                messages.map(message => ('function' === typeof message ? message() : message || '')).join('\n'));
+                messages.map((message) => ('function' === typeof message ? message() : message || '')).join('\n'));
         }
     }
     function lerp(a, b, t) {
@@ -1505,72 +242,12 @@ var demo = (function (exports) {
     const round10 = decimalAdjust.bind(undefined, Math.round);
     const floor10 = decimalAdjust.bind(undefined, Math.floor);
     const ceil10 = decimalAdjust.bind(undefined, Math.ceil);
-    function arraySwap(arr, i, j) {
-        const temp = arr[i];
-        arr[i] = arr[j];
-        arr[j] = temp;
-    }
-    function arrayCopy(src, sstart, dst, dstart, length) {
-        assertInts(sstart, dstart, length);
-        dstart += length;
-        length += sstart;
-        while (length-- > sstart) {
-            dst[--dstart] = src[length];
-        }
-        return dst;
-    }
     function clamp(val, min, max) {
         assertNumbers(val, min, max);
         return Math.max(min, Math.min(max, val));
     }
-    /**
-     * Copies a number of items from one array to another, with a definable step size between items in the source and
-     * destination array.
-     *
-     * @param src The source array.
-     * @param sstart The location of the first item in the source array.
-     * @param sstep The offset between items in the source array.
-     * @param dst The destination array.
-     * @param dstart The location of the first item in the destination array.
-     * @param dstep The offset between items in the destination array.
-     * @param count The number of items to copy.
-     */
-    function arrayCopyStep(src, sstart, sstep, dst, dstart, dstep, count) {
-        let srcIndex = sstart + count * sstep;
-        let dIndex = dstart + count * dstep;
-        while (srcIndex > sstart) {
-            dst[(dIndex -= dstep)] = src[(srcIndex -= sstep)];
-        }
-    }
-    /**
-     * Copies a number of contiguous, evenly-spaced blocks from one array to another.
-     *
-     * @param src The source array.
-     * @param sstart The start of the first block in the source array.
-     * @param sstep The offset from the start of one block to the start of the next block in the source array.
-     * @param dst The destination array.
-     * @param dstart The start of the first block in the destination array.
-     * @param dstep The offset from the start of one block to the start of the next block in the destination array.
-     * @param blockSize The length of one block.
-     * @param blockCount The number of blocks to copy.
-     */
-    function arrayCopyBlocks(src, sstart, sstep, dst, dstart, dstep, blockSize, blockCount) {
-        for (let i = 0; i < blockCount; i++) {
-            arrayCopy(src, sstart + sstep * i, dst, dstart + dstep * i, blockSize);
-        }
-    }
-    function arrayFromFunction(length, f) {
-        assertNumbers(length);
-        assert('function' == typeof f);
-        const a = new Array(length);
-        let elIndex = length;
-        while (elIndex--) {
-            a[elIndex] = f(elIndex, length);
-        }
-        return a;
-    }
     function addOwnProperties(target, props, ...exclude) {
-        Object.getOwnPropertyNames(props).forEach(key => {
+        Object.getOwnPropertyNames(props).forEach((key) => {
             //console.log(props, key)
             if (!exclude.includes(key)) {
                 if (target.hasOwnProperty(key)) {
@@ -1581,7 +258,6 @@ var demo = (function (exports) {
         });
     }
     let defaultRoundFunction = (x) => x; // Math.round10(x, -4)
-    const MINUS = (a, b) => a - b;
     function floatHashCode(f) {
         return ~~(f * (1 << 28));
     }
@@ -1601,311 +277,6 @@ var demo = (function (exports) {
         }
         return result;
     };
-    Array.prototype.emod = function (i) {
-        return this[i % this.length];
-    };
-    Array.prototype.sliceStep = function (start, end, step, chunkSize = 1) {
-        assertNumbers(start, step);
-        start < 0 && (start = this.length + start);
-        end <= 0 && (end = this.length + end);
-        const resultLength = Math.ceil((end - start) / step);
-        const result = new Array(resultLength); // '- start' so that chunk in the last row
-        // will also be selected, even if the row is
-        // not complete
-        let index = 0;
-        for (let i = start; i < end; i += step) {
-            for (let j = i; j < Math.min(i + chunkSize, end); j++) {
-                result[index++] = this[j];
-            }
-        }
-        assert(resultLength == index);
-        return result;
-    };
-    Array.prototype.splicePure = function (start = 0, deleteCount = 0, ...items) {
-        const arrayLength = this.length;
-        const _deleteCount = deleteCount < 0 ? 0 : deleteCount;
-        let _start;
-        if (start < 0) {
-            if (Math.abs(start) > arrayLength) {
-                _start = 0;
-            }
-            else {
-                _start = arrayLength + start;
-            }
-        }
-        else if (start > arrayLength) {
-            _start = arrayLength;
-        }
-        else {
-            _start = start;
-        }
-        const newLength = this.length - _deleteCount + items.length;
-        const result = new Array(newLength);
-        let dst = newLength;
-        let src = this.length;
-        while (src-- > _start + _deleteCount) {
-            result[--dst] = this[src];
-        }
-        src = items.length;
-        while (src--) {
-            result[--dst] = items[src];
-        }
-        src = _start;
-        while (src--) {
-            result[--dst] = items[src];
-        }
-        return result;
-    };
-    Array.prototype.equals = function (obj) {
-        if (this === obj)
-            return true;
-        if (Object.getPrototypeOf(obj) !== Array.prototype)
-            return false;
-        if (this.length !== obj.length)
-            return false;
-        for (let i = 0; i < this.length; i++) {
-            if (!equals(this[i], obj[i]))
-                return false;
-        }
-        return true;
-    };
-    function equals(a, b) {
-        return 'object' === typeof a ? a.equals(b) : a === b;
-    }
-    Array.prototype.hashCode = function () {
-        let result = 0;
-        for (let i = 0; i < this.length; i++) {
-            result = (result * 31 + hashCode(this[i])) | 0;
-        }
-        return result | 0;
-    };
-    function hashCode(o) {
-        if ('number' === typeof o || undefined === o) {
-            return o | 0;
-        }
-        else {
-            return null === o ? 0 : o.hashCode();
-        }
-    }
-    Array.prototype.mapFilter = function (f) {
-        const length = this.length, result = [];
-        for (let i = 0; i < length; i++) {
-            if (i in this) {
-                const val = f(this[i], i, this);
-                if (val) {
-                    result.push(val);
-                }
-            }
-        }
-        return result;
-    };
-    Array.prototype.flatMap = function (f) {
-        return Array.prototype.concat.apply([], this.map(f));
-    };
-    Array.prototype.clear = function (...newItems) {
-        return this.splice(0, this.length, ...newItems);
-    };
-    /**
-     *
-     * @returns Array.prototype.concat.apply([], this)
-     */
-    Array.prototype.concatenated = function () {
-        return Array.prototype.concat.apply([], this);
-    };
-    Array.prototype.min = function () {
-        let i = this.length, max = Infinity;
-        while (i--) {
-            const val = this[i];
-            if (max > val)
-                max = val;
-        }
-        return max;
-    };
-    Array.prototype.max = function () {
-        // faster and no limit on array size, see https://jsperf.com/math-max-apply-vs-loop/2
-        let i = this.length, max = -Infinity;
-        while (i--) {
-            const val = this[i];
-            if (max < val)
-                max = val;
-        }
-        return max;
-    };
-    Array.prototype.indexWithMax = function (f) {
-        if (this.length == 0) {
-            return -1;
-        }
-        let i = this.length, result = -1, maxVal = -Infinity;
-        while (i--) {
-            const val = f(this[i], i, this);
-            if (val > maxVal) {
-                maxVal = val;
-                result = i;
-            }
-        }
-        return result;
-    };
-    Array.prototype.withMax = function (f) {
-        let i = this.length, result = undefined, maxVal = -Infinity;
-        while (i--) {
-            const el = this[i], val = f(el, i, this);
-            if (val > maxVal) {
-                maxVal = val;
-                result = el;
-            }
-        }
-        return result;
-    };
-    /**
-     * Returns the sum of the absolute values of the components of this vector.
-     * E.g. V(1, -2, 3) === abs(1) + abs(-2) + abs(3) === 1 + 2 + 3 === 6
-     */
-    Array.prototype.absSum = function () {
-        let i = this.length;
-        let result = 0;
-        while (i--) {
-            result += Math.abs(this[i]);
-        }
-        return result;
-    };
-    Array.prototype.sum = function () {
-        let i = this.length;
-        let result = 0;
-        while (i--) {
-            result += this[i];
-        }
-        return result;
-    };
-    Array.prototype.sumInPlaceTree = function () {
-        if (0 == this.length)
-            return 0;
-        let l = this.length;
-        while (l != 1) {
-            const lHalfFloor = Math.floor(l / 2);
-            const lHalfCeil = Math.ceil(l / 2);
-            for (let i = 0; i < lHalfFloor; i++) {
-                this[i] += this[i + lHalfCeil];
-            }
-            l = lHalfCeil;
-        }
-        return this[0];
-    };
-    Array.prototype.isEmpty = function () {
-        return 0 == this.length;
-    };
-    Array.prototype.unique = function () {
-        const uniqueSet = new Set(this);
-        return Array.from(uniqueSet);
-    };
-    Array.prototype.remove = function (o) {
-        const index = this.indexOf(o);
-        if (index != -1) {
-            this.splice(index, 1);
-            return true;
-        }
-        return false;
-    };
-    Array.prototype.removeIndex = function (i) {
-        const result = this[i];
-        this.splice(i, 1);
-        return result;
-    };
-    Array.prototype.bagRemoveIndex = function (i) {
-        const result = this[i];
-        if (i == this.length - 1) {
-            this.pop();
-        }
-        else {
-            this[i] = this.pop();
-        }
-        return result;
-    };
-    Array.prototype.removeMatch = function (matcher) {
-        const index = this.findIndex(matcher);
-        if (-1 != index) {
-            return this.removeIndex(index);
-        }
-    };
-    Array.prototype.removeAll = function (o) {
-        let i = o.length;
-        while (i--) {
-            this.remove(o[i]);
-        }
-    };
-    Array.prototype.toggle = function (o) {
-        const index = this.indexOf(o);
-        if (index != -1) {
-            this.splice(index, 1);
-            return false;
-        }
-        else {
-            this.push(o);
-            return true;
-        }
-    };
-    Array.prototype.bagToggle = function (o) {
-        const index = this.indexOf(o);
-        if (index != -1) {
-            this.bagRemoveIndex(index);
-            return false;
-        }
-        else {
-            this.push(o);
-            return true;
-        }
-    };
-    Array.prototype.binaryIndexOf = function (searchElement, cmp = (a, b) => a - b) {
-        let minIndex = 0;
-        let maxIndex = this.length - 1;
-        let currentIndex;
-        let currentElement;
-        while (minIndex <= maxIndex) {
-            currentIndex = ((minIndex + maxIndex) / 2) | 0;
-            currentElement = this[currentIndex];
-            if (cmp(currentElement, searchElement) < 0) {
-                minIndex = currentIndex + 1;
-            }
-            else if (cmp(currentElement, searchElement) > 0) {
-                maxIndex = currentIndex - 1;
-            }
-            else {
-                return currentIndex;
-            }
-        }
-        return -minIndex - 1;
-    };
-    Array.prototype.binaryInsert = function (el, cmp = MINUS) {
-        let minIndex = 0;
-        let maxIndex = this.length;
-        let currentIndex;
-        let currentElement;
-        while (minIndex < maxIndex) {
-            currentIndex = ~~((minIndex + maxIndex) / 2);
-            currentElement = this[currentIndex];
-            if (cmp(currentElement, el) < 0) {
-                minIndex = currentIndex + 1;
-            }
-            else {
-                maxIndex = currentIndex;
-            }
-        }
-        this.splice(minIndex, 0, el);
-    };
-    Array.prototype.firstUnsorted = function (c) {
-        for (let i = 1; i < this.length; i++) {
-            if (c(this[i - 1], this[i]) > 0)
-                return i;
-        }
-        return -1;
-    };
-    Object.defineProperty(Array.prototype, 'last', {
-        get() {
-            return this[this.length - 1];
-        },
-        set(val) {
-            this[this.length - 1] = val;
-        },
-    });
     String.prototype.capitalizeFirstLetter = function () {
         return this.charAt(0).toUpperCase() + this.slice(1);
     };
@@ -1943,6 +314,12 @@ var demo = (function (exports) {
             return this.toString();
         },
     });
+    //const NLA = {}
+    //for (let key in ARRAY_UTILITIES) {
+    //    const nlaName = 'array' + key.capitalizeFirstLetter()
+    //    assert(!NLA[nlaName])
+    //    NLA[nlaName] = (arr, ...rest) => ARRAY_UTILITIES[key].apply(arr, rest)
+    //}
     /**
      * solves x² + px + q = 0
      */
@@ -2010,6 +387,94 @@ var demo = (function (exports) {
         return name + '(' + params.map(SCE).join(',') + ')';
     }
 
+    function arraySwap(arr, i, j) {
+        const temp = arr[i];
+        arr[i] = arr[j];
+        arr[j] = temp;
+    }
+    function arrayCopy(src, sstart, dst, dstart, length) {
+        assertInts(sstart, dstart, length);
+        dstart += length;
+        length += sstart;
+        while (length-- > sstart) {
+            dst[--dstart] = src[length];
+        }
+        return dst;
+    }
+    /**
+     * Copies a number of items from one array to another, with a definable step size between items in the source and
+     * destination array.
+     *
+     * @param src The source array.
+     * @param sstart The location of the first item in the source array.
+     * @param sstep The offset between items in the source array.
+     * @param dst The destination array.
+     * @param dstart The location of the first item in the destination array.
+     * @param dstep The offset between items in the destination array.
+     * @param count The number of items to copy.
+     */
+    function arrayCopyStep(src, sstart, sstep, dst, dstart, dstep, count) {
+        let srcIndex = sstart + count * sstep;
+        let dIndex = dstart + count * dstep;
+        while (srcIndex > sstart) {
+            dst[(dIndex -= dstep)] = src[(srcIndex -= sstep)];
+        }
+    }
+    /**
+     * Copies a number of contiguous, evenly-spaced blocks from one array to another.
+     *
+     * @param src The source array.
+     * @param sstart The start of the first block in the source array.
+     * @param sstep The offset from the start of one block to the start of the next block in the source array.
+     * @param dst The destination array.
+     * @param dstart The start of the first block in the destination array.
+     * @param dstep The offset from the start of one block to the start of the next block in the destination array.
+     * @param blockSize The length of one block.
+     * @param blockCount The number of blocks to copy.
+     */
+    function arrayCopyBlocks(src, sstart, sstep, dst, dstart, dstep, blockSize, blockCount) {
+        for (let i = 0; i < blockCount; i++) {
+            arrayCopy(src, sstart + sstep * i, dst, dstart + dstep * i, blockSize);
+        }
+    }
+    function arrayFromFunction(length, f) {
+        assertNumbers(length);
+        assert('function' == typeof f);
+        const a = new Array(length);
+        let elIndex = length;
+        while (elIndex--) {
+            a[elIndex] = f(elIndex, length);
+        }
+        return a;
+    }
+    function sliceStep(arr, start, end, step, chunkSize = 1) {
+        assertNumbers(start, step);
+        start < 0 && (start = arr.length + start);
+        end <= 0 && (end = arr.length + end);
+        const resultLength = Math.ceil((end - start) / step);
+        const result = new Array(resultLength); // '- start' so that chunk in the last row
+        // will also be selected, even if the row is
+        // not complete
+        let index = 0;
+        for (let i = start; i < end; i += step) {
+            for (let j = i; j < Math.min(i + chunkSize, end); j++) {
+                result[index++] = arr[j];
+            }
+        }
+        assert(resultLength == index);
+        return result;
+    }
+    function max(arr) {
+        // faster and no limit on array size, see https://jsperf.com/math-max-apply-vs-loop/2
+        let i = arr.length, max = -Infinity;
+        while (i--) {
+            const val = arr[i];
+            if (max < val)
+                max = val;
+        }
+        return max;
+    }
+
     /**
      * Immutable 3d-vector/point.
      */
@@ -2063,7 +528,7 @@ var demo = (function (exports) {
         }
         static zip(f, ...args) {
             assert(f instanceof Function);
-            return new V3(f.apply(undefined, args.map(x => x.x)), f.apply(undefined, args.map(x => x.y)), f.apply(undefined, args.map(x => x.z)));
+            return new V3(f.apply(undefined, args.map((x) => x.x)), f.apply(undefined, args.map((x) => x.y)), f.apply(undefined, args.map((x) => x.z)));
         }
         static normalOnPoints(a, b, c) {
             assertVectors(a, b, c);
@@ -2181,7 +646,7 @@ var demo = (function (exports) {
             return this.y;
         }
         perturbed(delta = NLA_PRECISION * 0.8) {
-            return this.map(x => x + (Math.random() - 0.5) * delta);
+            return this.map((x) => x + (Math.random() - 0.5) * delta);
         }
         *[Symbol.iterator]() {
             yield this.x;
@@ -2601,10 +1066,10 @@ var demo = (function (exports) {
             return new V3(this.x, this.y, el);
         }
         hashCode() {
-            function floatHashCode$$1(f) {
+            function floatHashCode(f) {
                 return ~~(f * (1 << 28));
             }
-            return ~~((floatHashCode$$1(this.x) * 31 + floatHashCode$$1(this.y)) * 31 + floatHashCode$$1(this.z));
+            return ~~((floatHashCode(this.x) * 31 + floatHashCode(this.y)) * 31 + floatHashCode(this.z));
         }
         /**
          * as sadjkh akjhs djkahsd kjahs k skjhdakjh dkjash dkjahs kjdhas kj dhkjahsd kjahs dkjahs dkjhas kjdkajs
@@ -2719,6 +1184,1268 @@ var demo = (function (exports) {
         throw new Error('invalid arguments' + arguments);
     }
 
+    class Vector {
+        constructor(v) {
+            this.v = v;
+            assertInst(Float64Array, v);
+        }
+        static fromFunction(dims, f) {
+            assertNumbers(dims);
+            const e = new Float64Array(dims);
+            let i = dims;
+            while (i--) {
+                e[i] = f(i);
+            }
+            return new Vector(e);
+        }
+        static random(dims) {
+            return Vector.fromFunction(dims, (i) => Math.random());
+        }
+        static from(...args) {
+            assert(args[0] instanceof Float64Array || args.every((a) => 'number' == typeof a), 'args[0] instanceof Float64Array || args.every(a => "number" == typeof a)');
+            return new Vector(args[0] instanceof Float64Array ? args[0] : Float64Array.from(args));
+        }
+        static Zero(dims) {
+            assertNumbers(dims);
+            let i = 0;
+            const n = new Float64Array(dims);
+            while (i--) {
+                n[i] = 0;
+            }
+            return new Vector(n);
+        }
+        static Unit(dims, dir) {
+            assertNumbers(dims, dir);
+            let i = 0;
+            const n = new Float64Array(dims);
+            while (i--) {
+                n[i] = +(i == dir); // +true === 1, +false === 0
+            }
+            return new Vector(n);
+        }
+        /**
+         * Pack an array of Vectors into an array of numbers (Float32Array by default).
+         *
+         * @param vectors source array
+         * @param dest destination array. If provided, must be large enough to fit v3count items.
+         * @param srcStart starting index in source array
+         * @param destStart starting index in destination array
+         * @param vectorCount Number of V3s to copy.
+         * @returns Packed array.
+         */
+        static pack(vectors, dest, srcStart = 0, destStart = 0, vectorCount = vectors.length - srcStart) {
+            //assert (v3arr.every(v3 => v3 instanceof V3), 'v3arr.every(v3 => v3 instanceof V3)')
+            const dim = vectors[0].dim();
+            const result = dest || new Float32Array(dim * vectorCount); // TODO
+            assert(result.length - destStart >= vectorCount * dim, 'dest.length - destStart >= v3count * 3', result.length, destStart, vectorCount * 3);
+            let i = vectorCount, srcIndex = srcStart, destIndex = destStart;
+            while (i--) {
+                const v = vectors[srcIndex++];
+                for (let d = 0; d < dim; d++) {
+                    result[destIndex++] = v.v[d];
+                }
+            }
+            return result;
+        }
+        static lerp(a, b, t) {
+            assert(a.dim() == b.dim());
+            const n = new Float64Array(a.v.length);
+            let i = a.v.length;
+            while (i--) {
+                n[i] = a.v[i] * (1 - t) + b.v[i] * t;
+            }
+            return new Vector(n);
+        }
+        static add(...vs) {
+            const dim = vs[0].v.length;
+            const result = new Float64Array(dim);
+            let i = vs.length;
+            while (i--) {
+                let d = dim;
+                while (d--) {
+                    result[d] += vs[i].v[d];
+                }
+            }
+            return new Vector(result);
+        }
+        /**
+         * Create a new 4D Vector from a V3 and a weight.
+         * @param v3
+         * @param weight
+         */
+        static fromV3AndWeight(v3, weight) {
+            return new Vector(new Float64Array([v3.x * weight, v3.y * weight, v3.z * weight, weight]));
+        }
+        get x() {
+            return this.v[0];
+        }
+        get y() {
+            return this.v[1];
+        }
+        get z() {
+            return this.v[2];
+        }
+        get w() {
+            return this.v[3];
+        }
+        [Symbol.iterator]() {
+            return this.v[Symbol.iterator]();
+        }
+        dim() {
+            return this.v.length;
+        }
+        e(index) {
+            if (0 > index || index >= this.v.length) {
+                throw new Error('array index out of bounds');
+            }
+            return this.v[index];
+        }
+        plus(vector) {
+            const u = this.v, v = vector.v;
+            const n = new Float64Array(u.length);
+            let i = u.length;
+            while (i--) {
+                n[i] = u[i] + v[i];
+            }
+            return new Vector(n);
+        }
+        minus(vector) {
+            const u = this.v, v = vector.v;
+            const n = new Float64Array(u.length);
+            let i = u.length;
+            while (i--) {
+                n[i] = u[i] - v[i];
+            }
+            return new Vector(n);
+        }
+        times(factor) {
+            const u = this.v;
+            const n = new Float64Array(u.length);
+            let i = u.length;
+            while (i--) {
+                n[i] = u[i] * factor;
+            }
+            return new Vector(n);
+        }
+        div(val) {
+            const u = this.v;
+            const n = new Float64Array(u.length);
+            let i = u.length;
+            while (i--) {
+                n[i] = u[i] / val;
+            }
+            return new Vector(n);
+        }
+        dot(vector) {
+            assert(this.dim == vector.dim, 'passed vector must have the same dim');
+            let result = 0;
+            const u = this.v, v = vector.v;
+            let i = u.length;
+            while (i--) {
+                result += u[i] * v[i];
+            }
+            return result;
+        }
+        cross(vector) {
+            assertInst(Vector, vector);
+            const n = new Float64Array(3);
+            n[0] = this.v[1] * vector.v[2] - this.v[2] * vector.v[1];
+            n[1] = this.v[2] * vector.v[0] - this.v[0] * vector.v[2];
+            n[2] = this.v[0] * vector.v[1] - this.v[1] * vector.v[0];
+            return new Vector(n);
+        }
+        schur(vector) {
+            assertInst(Vector, vector);
+            const u = this.v, v = vector.v;
+            const n = new Float64Array(u.length);
+            let i = u.length;
+            while (i--) {
+                n[i] = u[i] * v[i];
+            }
+            return new Vector(n);
+        }
+        equals(obj) {
+            if (obj === this)
+                return true;
+            if (obj.constructor !== Vector)
+                return false;
+            if (this.v.length != obj.v.length)
+                return false;
+            let i = this.v.length;
+            while (i--) {
+                if (this.v[i] !== obj.v[i])
+                    return false;
+            }
+            return true;
+        }
+        like(obj) {
+            if (obj === this)
+                return true;
+            if (obj.constructor !== Vector)
+                return false;
+            if (this.v.length != obj.v.length)
+                return false;
+            let i = this.v.length;
+            while (i--) {
+                if (!eq(this.v[i], obj.v[i]))
+                    return false;
+            }
+            return true;
+        }
+        map(f) {
+            return new Vector(this.v.map(f));
+        }
+        toString(roundFunction) {
+            roundFunction = roundFunction || ((v) => +v.toFixed(6));
+            return 'Vector(' + this.v.map(roundFunction).join(', ') + ')';
+        }
+        toSource() {
+            return callsce('VV', ...this.v);
+        }
+        angleTo(vector) {
+            assertInst(Vector, vector);
+            assert(!this.isZero(), '!this.likeO()');
+            assert(!vector.isZero(), '!vector.likeO()');
+            return Math.acos(clamp(this.dot(vector) / this.length() / vector.length(), -1, 1));
+        }
+        /**
+         * Returns true iff this is parallel to vector, using eq
+         * Throw a DebugError
+         * - if vector is not a Vector or
+         * - if this has a length of 0 or
+         * - if vector has a length of 0
+         */
+        isParallelTo(vector) {
+            assertInst(Vector, vector);
+            assert(!this.isZero(), '!this.likeO()');
+            assert(!vector.isZero(), '!vector.likeO()');
+            // a . b takes on values of +|a|*|b| (vectors same direction) to -|a|*|b| (opposite direction)
+            // in both cases the vectors are paralle, so check if abs(a . b) == |a|*|b|
+            return eq(Math.sqrt(this.lengthSquared() * vector.lengthSquared()), Math.abs(this.dot(vector)));
+        }
+        isPerpendicularTo(vector) {
+            assertInst(Vector, vector);
+            assert(!this.isZero(), '!this.likeO()');
+            assert(!vector.isZero(), '!vector.likeO()');
+            return eq0(this.dot(vector));
+        }
+        /**
+         * Returns true iff the length of this vector is 0, as returned by NLA.isZero.
+         * Definition: Vector.prototype.isZero = () => NLA.isZero(this.length())
+         */
+        isZero() {
+            return eq0(this.length());
+        }
+        /*/ Returns the length of this Vector, i.e. the euclidian norm.*/
+        length() {
+            return Math.hypot.apply(undefined, this.v);
+            //return Math.sqrt(this.lengthSquared())
+        }
+        lengthSquared() {
+            let result = 0;
+            const u = this.v;
+            let i = u.length;
+            while (i--) {
+                result += u[i] * u[i];
+            }
+            return result;
+        }
+        /**
+         * Returns a new unit Vector (.length() === 1) with the same direction as this vector. Throws a
+         */
+        unit() {
+            const length = this.length();
+            if (eq0(length)) {
+                throw new Error('cannot normalize zero vector');
+            }
+            return this.div(this.length());
+        }
+        /**
+         * Documentation stub. You want {@link unit}
+         */
+        normalized() {
+            throw new Error('documentation stub. use .unit()');
+        }
+        asRowMatrix() {
+            return new Matrix(this.v.length, 1, this.v);
+        }
+        asColMatrix() {
+            return new Matrix(1, this.v.length, this.v);
+        }
+        /**
+         * Returns a new Vector which is the projection of this vector onto the passed vector.
+         * @example
+         * VV(3, 4).projectedOn(VV(1, 0)) // returns VV(3, 0)
+         * @example
+         * VV(3, 4).projectedOn(VV(2, 0)) // returns VV(3, 0)
+         * @example
+         * VV(3, 4).projectedOn(VV(-1, 0)) // returns VV(-3, 0)
+         * @example
+         * VV(3, 4).projectedOn(VV(0, 1)) // returns VV(0, 4)
+         * @example
+         * VV(3, 4).projectedOn(VV(1, 1)) // returns
+         */
+        projectedOn(b) {
+            assertInst(Vector, b);
+            // https://en.wikipedia.org/wiki/Vector_projection#Vector_projection_2
+            return b.times(this.dot(b) / b.dot(b));
+        }
+        rejectedOn(b) {
+            assertInst(Vector, b);
+            // https://en.wikipedia.org/wiki/Vector_projection#Vector_projection_2
+            return this.minus(b.times(this.dot(b) / b.dot(b)));
+        }
+        to(a) {
+            return a.minus(this);
+        }
+        /**
+         * Returns true iff the length() of this vector is equal to 'length', using equals
+         * E.g. NLA.V(3, 4).hasLength(5) === true
+         * NLA.V(1, 1).hasLength(1) === false
+         */
+        hasLength(length) {
+            assertNumbers(length);
+            return eq(length, this.length());
+        }
+        V3() {
+            //assert(this.dim() == 3)
+            return new V3(this.v[0], this.v[1], this.v[2]);
+        }
+        /**
+         * Project into 3 dimensions.
+         */
+        p3() {
+            assert(this.v.length == 4);
+            const w = this.v[3];
+            return new V3(this.v[0] / w, this.v[1] / w, this.v[2] / w);
+        }
+        transposed() {
+            return new Matrix(this.v.length, 1, this.v);
+        }
+    }
+    function VV(...values) {
+        return new Vector(new Float64Array(values));
+    }
+
+    class Matrix {
+        constructor(width, height, m) {
+            this.width = width;
+            this.height = height;
+            this.m = m;
+            assertInts(width, height);
+            assertf(() => 0 < width);
+            assertf(() => 0 < height);
+            assert(width * height == m.length, 'width * height == m.length', width, height, m.length);
+        }
+        static random(width, height) {
+            return Matrix.fromFunction(width, height, () => Math.random());
+        }
+        static fromFunction(width, height, f) {
+            const m = new Float64Array(height * width);
+            let elIndex = height * width;
+            while (elIndex--) {
+                m[elIndex] = f(Math.floor(elIndex / width), elIndex % width, elIndex);
+            }
+            return new Matrix(width, height, m);
+        }
+        static identityN(dim) {
+            assertInts(dim);
+            const m = new Float64Array(dim * dim);
+            // Float64Arrays are init to 0
+            let elIndex = dim * (dim + 1);
+            while (elIndex) {
+                elIndex -= dim + 1;
+                m[elIndex] = 1;
+            }
+            return new Matrix(dim, dim, m);
+        }
+        /**
+         * Create new dim x dim matrix equal to an identity matrix with rows/colums i and k swapped. Note that i and k
+         * are 0-indexed.
+         */
+        static permutation(dim, i, k) {
+            assertInts(dim, i, k);
+            assertf(() => 0 <= i && i < dim);
+            assertf(() => 0 <= k && k < dim);
+            const m = new Float64Array(dim * dim);
+            // Float64Array are init to 0
+            let elIndex = dim * (dim + 1);
+            while (elIndex) {
+                elIndex -= dim + 1;
+                m[elIndex] = 1;
+            }
+            m[i * dim + i] = 0;
+            m[k * dim + k] = 0;
+            m[i * dim + k] = 1;
+            m[k * dim + i] = 1;
+            return new Matrix(dim, dim, m);
+        }
+        static fromRowArrays(...rowArrays) {
+            if (0 == rowArrays.length) {
+                throw new Error('cannot have 0 vector');
+            }
+            const height = rowArrays.length;
+            const width = rowArrays[0].length;
+            const m = new Float64Array(height * width);
+            arrayCopy(rowArrays[0], 0, m, 0, width);
+            for (let rowIndex = 1; rowIndex < height; rowIndex++) {
+                if (rowArrays[rowIndex].length != width) {
+                    throw new Error('all row arrays must be the same length');
+                }
+                arrayCopy(rowArrays[rowIndex], 0, m, rowIndex * width, width);
+            }
+            return this.new(width, height, m);
+        }
+        static fromColVectors(colVectors) {
+            return Matrix.fromColArrays(...colVectors.map((v) => v.v));
+        }
+        static forWidthHeight(width, height) {
+            return new Matrix(width, height, new Float64Array(width * height));
+        }
+        static fromColArrays(...colArrays) {
+            if (0 == colArrays.length) {
+                throw new Error('cannot have 0 vector');
+            }
+            const width = colArrays.length;
+            const height = colArrays[0].length;
+            const m = new Float64Array(height * width);
+            arrayCopyStep(colArrays[0], 0, 1, m, 0, width, height);
+            for (let colIndex = 1; colIndex < width; colIndex++) {
+                if (colArrays[colIndex].length != height) {
+                    throw new Error('all col arrays must be the same length');
+                }
+                arrayCopyStep(colArrays[colIndex], 0, 1, m, colIndex, width, height);
+            }
+            return this.new(width, height, m);
+        }
+        static product(...args) {
+            const [ms, result] = Array.isArray(args[0])
+                ? [args[0], args[1]]
+                : [args, undefined];
+            if (0 == ms.length)
+                throw new Error("Can't guess matrix size.");
+            if (1 == ms.length)
+                return Matrix.copy(ms[0], result);
+            return Matrix.copy(ms.reduce((a, b) => a.times(b)), result);
+        }
+        /**
+         * Numerically calculate all the partial derivatives of f at x0.
+         *
+         * @param f
+         * @param x0
+         * @param fx0 f(x0), pass it if you have it already
+         * @param EPSILON
+         */
+        static jacobi(f, x0, fx0 = f(x0), EPSILON = 1e-6) {
+            const jacobi = Matrix.forWidthHeight(x0.length, fx0.length);
+            for (let colIndex = 0; colIndex < x0.length; colIndex++) {
+                x0[colIndex] += EPSILON;
+                const fx = f(x0);
+                for (let rowIndex = 0; rowIndex < fx0.length; rowIndex++) {
+                    const value = (fx[rowIndex] - fx0[rowIndex]) / EPSILON;
+                    jacobi.setEl(rowIndex, colIndex, value);
+                }
+                x0[colIndex] -= EPSILON;
+            }
+            return jacobi;
+        }
+        static copy(src, result = src.new()) {
+            assertInst(Matrix, src, result);
+            assert(src.width == result.width);
+            assert(src.height == result.height);
+            assert(result != src, 'result != src');
+            const s = src.m, d = result.m;
+            let i = s.length;
+            while (i--) {
+                d[i] = s[i];
+            }
+            return result;
+        }
+        static new(width, height, m) {
+            return new Matrix(width, height, m);
+        }
+        copy() {
+            return Matrix.copy(this);
+        }
+        e(rowIndex, colIndex) {
+            assertInts(rowIndex, colIndex);
+            assert(0 <= rowIndex && rowIndex < this.height, 'rowIndex out of bounds ' + rowIndex);
+            assert(0 <= colIndex && colIndex < this.width, 'colIndex out of bounds ' + colIndex);
+            return this.m[rowIndex * this.width + colIndex];
+        }
+        setEl(rowIndex, colIndex, val) {
+            assertInts(rowIndex, colIndex);
+            assert(0 <= rowIndex && rowIndex < this.height, 'rowIndex out of bounds ' + rowIndex);
+            assert(0 <= colIndex && colIndex < this.width, 'colIndex out of bounds ' + colIndex);
+            assertNumbers(val);
+            this.m[rowIndex * this.width + colIndex] = val;
+        }
+        plus(m) {
+            assert(this.width == m.width);
+            assert(this.height == m.height);
+            const r = this.new();
+            let i = this.m.length;
+            while (i--)
+                r.m[i] = this.m[i] + m.m[i];
+            return r;
+        }
+        minus(m) {
+            assert(this.width == m.width);
+            assert(this.height == m.height);
+            const r = this.new();
+            let i = this.m.length;
+            while (i--)
+                r.m[i] = this.m[i] - m.m[i];
+            return r;
+        }
+        mulScalar(scalar) {
+            assertNumbers(scalar);
+            const r = this.new();
+            let i = this.m.length;
+            while (i--)
+                r.m[i] = this.m[i] * scalar;
+            return r;
+        }
+        divScalar(scalar) {
+            assertNumbers(scalar);
+            const r = this.new();
+            let i = this.m.length;
+            while (i--)
+                r.m[i] = this.m[i] / scalar;
+            return r;
+        }
+        new() {
+            return new Matrix(this.width, this.height, new Float64Array(this.width * this.height));
+        }
+        toString(f, colNames, rowNames) {
+            f = f || ((v) => v.toFixed(6));
+            assert(typeof f(0) == 'string', '' + typeof f(0));
+            assert(!colNames || colNames.length == this.width);
+            assert(!rowNames || rowNames.length == this.height);
+            const rounded = Array.from(this.m).map(f);
+            const rows = arrayFromFunction(this.height, (rowIndex) => rounded.slice(rowIndex * this.width, (rowIndex + 1) * this.width)); // select matrix row
+            if (colNames) {
+                rows.unshift(Array.from(colNames));
+            }
+            if (rowNames) {
+                rows.forEach((row, rowIndex) => row.unshift(rowNames[rowIndex - (colNames ? 1 : 0)] || ''));
+            }
+            const colWidths = arrayFromFunction(this.width, (colIndex) => max(rows.map((row) => row[colIndex].length)));
+            return rows
+                .map((row, rowIndex) => row
+                .map((x, colIndex) => {
+                // pad numbers with spaces to col width
+                const padder = (rowIndex == 0 && colNames) || (colIndex == 0 && rowNames)
+                    ? String.prototype.padEnd
+                    : String.prototype.padStart;
+                return padder.call(x, colWidths[colIndex]);
+            })
+                .join('  '))
+                .map((x) => x + '\n')
+                .join(''); // join rows
+        }
+        row(rowIndex) {
+            assertInts(rowIndex);
+            assert(0 <= rowIndex && rowIndex < this.height, 'rowIndex out of bounds ' + rowIndex);
+            const v = new Float64Array(this.width);
+            arrayCopy(this.m, rowIndex * this.width, v, 0, this.width);
+            return new Vector(v);
+        }
+        col(colIndex) {
+            assertInts(colIndex);
+            assert(0 <= colIndex && colIndex < this.width, 'colIndex out of bounds ' + colIndex);
+            const v = new Float64Array(this.height);
+            arrayCopyStep(this.m, colIndex, this.width, v, 0, 1, this.height);
+            return new Vector(v);
+        }
+        dim() {
+            return { width: this.width, height: this.height };
+        }
+        dimString() {
+            return this.width + 'x' + this.height;
+        }
+        equals(obj) {
+            if (obj.constructor != this.constructor)
+                return false;
+            if (this.width != obj.width || this.height != obj.height)
+                return false;
+            let elIndex = this.m.length;
+            while (elIndex--) {
+                if (this.m[elIndex] != obj.m[elIndex])
+                    return false;
+            }
+            return true;
+        }
+        equalsMatrix(matrix, precision = NLA_PRECISION) {
+            assertInst(Matrix, matrix);
+            if (this.width != matrix.width || this.height != matrix.height)
+                return false;
+            let elIndex = this.m.length;
+            while (elIndex--) {
+                if (Math.abs(this.m[elIndex] - matrix.m[elIndex]) >= precision)
+                    return false;
+            }
+            return true;
+        }
+        hashCode() {
+            let result = 0;
+            let elIndex = this.m.length;
+            while (elIndex--) {
+                result = result * 31 + floatHashCode(this.m[elIndex]);
+            }
+            return result;
+        }
+        // todo rename
+        isZero() {
+            let elIndex = this.m.length;
+            while (elIndex--) {
+                if (!eq0(this.m[elIndex])) {
+                    return false;
+                }
+            }
+            return true;
+        }
+        isOrthogonal() {
+            return this.isSquare() && this.transposed().times(this).equalsMatrix(Matrix.identityN(this.width));
+        }
+        /**
+         * Returns L, U, P such that L * U == P * this
+         */
+        luDecomposition() {
+            assertf(() => this.isSquare(), this.dim().toSource());
+            const dim = this.width;
+            const uRowArrays = this.asRowArrays(Float64Array);
+            const lRowArrays = arrayFromFunction(dim, (row) => new Float64Array(dim));
+            const pRowArrays = Matrix.identityN(dim).asRowArrays(Float64Array);
+            let currentRowIndex = 0;
+            for (let colIndex = 0; colIndex < dim; colIndex++) {
+                // find largest value in colIndex
+                let maxAbsValue = 0, pivotRowIndex = -1, numberOfNonZeroRows = 0;
+                for (let rowIndex = currentRowIndex; rowIndex < dim; rowIndex++) {
+                    const el = uRowArrays[rowIndex][colIndex];
+                    numberOfNonZeroRows += +(0 != el);
+                    if (Math.abs(el) > maxAbsValue) {
+                        maxAbsValue = Math.abs(el);
+                        pivotRowIndex = rowIndex;
+                    }
+                }
+                // TODO: check with isZero
+                if (0 == maxAbsValue) {
+                    // column contains only zeros
+                    continue;
+                }
+                assert(-1 !== pivotRowIndex);
+                // swap rows
+                arraySwap(uRowArrays, currentRowIndex, pivotRowIndex);
+                arraySwap(lRowArrays, currentRowIndex, pivotRowIndex);
+                arraySwap(pRowArrays, currentRowIndex, pivotRowIndex);
+                lRowArrays[colIndex][colIndex] = 1;
+                if (1 < numberOfNonZeroRows) {
+                    // subtract pivot (now current) row from all below it
+                    for (let rowIndex = currentRowIndex + 1; rowIndex < dim; rowIndex++) {
+                        const l = uRowArrays[rowIndex][colIndex] / uRowArrays[currentRowIndex][colIndex];
+                        lRowArrays[rowIndex][colIndex] = l;
+                        // subtract pivot row * l from row 'rowIndex'
+                        for (let colIndex2 = colIndex; colIndex2 < dim; colIndex2++) {
+                            uRowArrays[rowIndex][colIndex2] -= l * uRowArrays[currentRowIndex][colIndex2];
+                        }
+                    }
+                }
+                currentRowIndex++; // this doesn't increase if pivot was zero
+            }
+            return {
+                L: Matrix.fromRowArrays(...lRowArrays),
+                U: Matrix.fromRowArrays(...uRowArrays),
+                P: Matrix.fromRowArrays(...pRowArrays),
+            };
+        }
+        gauss() {
+            const width = this.width, height = this.height;
+            const uRowArrays = this.asRowArrays(Float64Array);
+            const lRowArrays = arrayFromFunction(height, (row) => new Float64Array(width));
+            const pRowArrays = Matrix.identityN(height).asRowArrays(Float64Array);
+            let currentRowIndex = 0;
+            for (let colIndex = 0; colIndex < width; colIndex++) {
+                // console.log('currentRowIndex', currentRowIndex)	// find largest value in colIndex
+                let maxAbsValue = 0, pivotRowIndex = -1, numberOfNonZeroRows = 0;
+                for (let rowIndex = currentRowIndex; rowIndex < height; rowIndex++) {
+                    const el = uRowArrays[rowIndex][colIndex];
+                    numberOfNonZeroRows += +(0 != el);
+                    if (Math.abs(el) > maxAbsValue) {
+                        maxAbsValue = Math.abs(el);
+                        pivotRowIndex = rowIndex;
+                    }
+                }
+                // TODO: check with isZero
+                if (0 == maxAbsValue) {
+                    // column contains only zeros
+                    continue;
+                }
+                assert(-1 !== pivotRowIndex);
+                // swap rows
+                arraySwap(uRowArrays, currentRowIndex, pivotRowIndex);
+                arraySwap(lRowArrays, currentRowIndex, pivotRowIndex);
+                arraySwap(pRowArrays, currentRowIndex, pivotRowIndex);
+                lRowArrays[currentRowIndex][colIndex] = 1;
+                if (1 < numberOfNonZeroRows) {
+                    // subtract pivot (now current) row from all below it
+                    for (let rowIndex = currentRowIndex + 1; rowIndex < height; rowIndex++) {
+                        const l = uRowArrays[rowIndex][colIndex] / uRowArrays[currentRowIndex][colIndex];
+                        lRowArrays[rowIndex][colIndex] = l;
+                        // subtract pivot row * l from row 'rowIndex'
+                        for (let colIndex2 = colIndex; colIndex2 < width; colIndex2++) {
+                            uRowArrays[rowIndex][colIndex2] -= l * uRowArrays[currentRowIndex][colIndex2];
+                        }
+                    }
+                }
+                currentRowIndex++; // this doesn't increase if pivot was zero
+            }
+            return {
+                L: Matrix.fromRowArrays(...lRowArrays),
+                U: Matrix.fromRowArrays(...uRowArrays),
+                P: Matrix.fromRowArrays(...pRowArrays),
+            };
+        }
+        qrDecompositionGivensRotation() {
+            // function sigma(c: number, s: number) {
+            // 	if (0 == c) {
+            // 		return 1
+            // 	}
+            // 	if (Math.abs(s) < Math.abs(c)) {
+            // 		return 0.5 * Math.sign(c) * s
+            // 	}
+            // 	return (2 * Math.sign(s)) / c
+            // }
+            const R = this.copy();
+            function matrixForCS(dim, i, k, c, s) {
+                const m = Matrix.identityN(dim);
+                m.setEl(i, i, c);
+                m.setEl(k, k, c);
+                m.setEl(i, k, s);
+                m.setEl(k, i, -s);
+                return m;
+            }
+            let qTransposed = Matrix.identityN(this.height);
+            for (let colIndex = 0; colIndex < this.width; colIndex++) {
+                // find largest value in colIndex
+                for (let rowIndex = colIndex + 1; rowIndex < this.height; rowIndex++) {
+                    //console.log('row ', rowIndex, 'col ', colIndex)
+                    const xi = R.e(colIndex, colIndex);
+                    const xk = R.e(rowIndex, colIndex);
+                    if (xk == 0) {
+                        continue;
+                    }
+                    const r = Math.hypot(xi, xk);
+                    const c = xi / r;
+                    const s = xk / r;
+                    // apply transformation on every column:
+                    for (let col2 = colIndex; col2 < this.width; col2++) {
+                        const x1 = R.e(colIndex, col2) * c + R.e(rowIndex, col2) * s;
+                        const x2 = R.e(rowIndex, col2) * c - R.e(colIndex, col2) * s;
+                        R.setEl(colIndex, col2, x1);
+                        R.setEl(rowIndex, col2, x2);
+                    }
+                    //console.log('r ', r, 'c ', c, 's ', s, 'sigma', sigma(c, s))
+                    //console.log(this.toString(),'cs\n', matrixForCS(this.height, colIndex, rowIndex, c, s).toString())
+                    qTransposed = matrixForCS(this.height, colIndex, rowIndex, c, s).times(qTransposed);
+                }
+            }
+            //console.log(qTransposed.transposed().toString(), this.toString(),
+            // qTransposed.transposed().times(this).toString())
+            return { Q: qTransposed.transposed(), R };
+        }
+        isPermutation() {
+            if (!this.isSquare())
+                return false;
+            if (this.m.some((value) => !eq0(value) && !eq(1, value)))
+                return false;
+            const rows = this.asRowArrays(Array);
+            if (rows.some((row) => row.filter((value) => eq(1, value)).length != 1))
+                return false;
+            const cols = this.asColArrays(Array);
+            if (cols.some((col) => col.filter((value) => eq(1, value)).length != 1))
+                return false;
+            return true;
+        }
+        isDiagonal(precision) {
+            let i = this.m.length;
+            while (i--) {
+                if (0 !== i % (this.width + 1) && !eq0(this.m[i]))
+                    return false;
+            }
+            return true;
+        }
+        isIdentity(precision) {
+            return this.isLowerUnitriangular(precision) && this.isUpperTriangular(precision);
+        }
+        isUpperTriangular(precision = NLA_PRECISION) {
+            if (!this.isSquare())
+                return false;
+            for (let rowIndex = 1; rowIndex < this.height; rowIndex++) {
+                for (let colIndex = 0; colIndex < rowIndex; colIndex++) {
+                    if (!eq0(this.m[rowIndex * this.width + colIndex], precision)) {
+                        return false;
+                    }
+                }
+            }
+            return true;
+        }
+        isSymmetric(precision = NLA_PRECISION) {
+            if (!this.isSquare())
+                return false;
+            for (let rowIndex = 0; rowIndex < this.height - 1; rowIndex++) {
+                for (let colIndex = rowIndex + 1; colIndex < this.width; colIndex++) {
+                    const a = this.m[rowIndex * this.width + colIndex];
+                    const b = this.m[colIndex * this.width + rowIndex];
+                    if (!eq(a, b, precision)) {
+                        return false;
+                    }
+                }
+            }
+            return true;
+        }
+        /**
+         * Returns x, so that this * x = b
+         * More efficient than calculating the inverse for few (~ <= this.height) values
+         */
+        solveLinearSystem(b) {
+            assertInst(Vector, b);
+            const { L, U, P } = this.luDecomposition();
+            const y = L.solveForwards(P.timesVector(b));
+            const x = U.solveBackwards(y);
+            return x;
+        }
+        isLowerUnitriangular(precision = NLA_PRECISION) {
+            if (!this.isSquare())
+                return false;
+            for (let rowIndex = 0; rowIndex < this.height - 1; rowIndex++) {
+                for (let colIndex = rowIndex; colIndex < this.width; colIndex++) {
+                    const el = this.m[rowIndex * this.width + colIndex];
+                    if (rowIndex == colIndex ? !eq(1, el, precision) : !eq0(el, precision)) {
+                        return false;
+                    }
+                }
+            }
+            return true;
+        }
+        isLowerTriangular(precision = NLA_PRECISION) {
+            if (!this.isSquare())
+                return false;
+            for (let rowIndex = 0; rowIndex < this.height - 1; rowIndex++) {
+                for (let colIndex = rowIndex + 1; colIndex < this.width; colIndex++) {
+                    if (!eq0(this.m[rowIndex * this.width + colIndex], precision)) {
+                        return false;
+                    }
+                }
+            }
+            return true;
+        }
+        solveBackwards(x) {
+            assertVectors(x);
+            assert(this.height == x.dim(), 'this.height == x.dim()');
+            assert(this.isUpperTriangular(), 'this.isUpperTriangular()\n' + this.str);
+            const v = new Float64Array(this.width);
+            let rowIndex = this.height;
+            while (rowIndex--) {
+                let temp = x.v[rowIndex];
+                for (let colIndex = rowIndex + 1; colIndex < this.width; colIndex++) {
+                    temp -= v[colIndex] * this.e(rowIndex, colIndex);
+                }
+                v[rowIndex] = temp / this.e(rowIndex, rowIndex);
+            }
+            return new Vector(v);
+        }
+        solveBackwardsMatrix(matrix) {
+            const colVectors = new Array(matrix.width);
+            let i = matrix.width;
+            while (i--) {
+                colVectors[i] = this.solveBackwards(matrix.col(i));
+            }
+            return Matrix.fromColVectors(colVectors);
+        }
+        solveForwardsMatrix(matrix) {
+            const colVectors = new Array(matrix.width);
+            let i = matrix.width;
+            while (i--) {
+                colVectors[i] = this.solveForwards(matrix.col(i));
+            }
+            return Matrix.fromColVectors(colVectors);
+        }
+        solveForwards(x) {
+            assertVectors(x);
+            assert(this.height == x.dim(), 'this.height == x.dim()');
+            assertf(() => this.isLowerTriangular(), this.toString());
+            const v = new Float64Array(this.width);
+            for (let rowIndex = 0; rowIndex < this.height; rowIndex++) {
+                let temp = x.v[rowIndex];
+                for (let colIndex = 0; colIndex < rowIndex; colIndex++) {
+                    temp -= v[colIndex] * this.e(rowIndex, colIndex);
+                }
+                v[rowIndex] = temp / this.e(rowIndex, rowIndex);
+            }
+            return new Vector(v);
+        }
+        /**
+         * Calculates rank of matrix.
+         * Number of linearly independant row/column vectors.
+         * Is equal to the unmber of dimensions the image of the affine transformation represented this matrix has.
+         */
+        rank() {
+            const U = this.gauss().U;
+            let rowIndex = this.height;
+            while (rowIndex-- && U.row(rowIndex).isZero()) { }
+            return rowIndex + 1;
+        }
+        rowsIndependent() {
+            return this.height == this.rank();
+        }
+        colsIndependent() {
+            return this.width == this.rank();
+        }
+        asRowArrays(arrayConstructor = Float64Array) {
+            return arrayFromFunction(this.height, (rowIndex) => this.rowArray(rowIndex, arrayConstructor));
+        }
+        asColArrays(arrayConstructor = Float64Array) {
+            return arrayFromFunction(this.width, (colIndex) => this.colArray(colIndex, arrayConstructor));
+        }
+        rowArray(rowIndex, arrayConstructor = Float64Array) {
+            const result = new arrayConstructor(this.width);
+            return arrayCopy(this.m, rowIndex * this.width, result, 0, this.width);
+        }
+        colArray(colIndex, arrayConstructor = Float64Array) {
+            const result = new arrayConstructor(this.width);
+            arrayCopyStep(this.m, colIndex, this.height, result, 0, 1, this.height);
+            return result;
+        }
+        subMatrix(firstColIndex, subWidth, firstRowIndex, subHeight) {
+            assert(0 < firstColIndex && 0 < subWidth && 0 < firstRowIndex && 0 < subHeight);
+            assert(firstColIndex + subWidth <= this.width && firstRowIndex + subHeight <= this.height);
+            const m = new Float64Array(subWidth * subHeight);
+            arrayCopyBlocks(this.m, firstColIndex, this.width, m, 0, subWidth, subHeight, subWidth);
+            return new Matrix(subWidth, subHeight, m);
+        }
+        map(fn) {
+            return new Matrix(this.width, this.height, this.m.map(fn));
+        }
+        dimEquals(matrix) {
+            assertInst(Matrix, matrix);
+            return this.width == matrix.width && this.height == matrix.height;
+        }
+        inversed() {
+            if (this.isSquare()) {
+                if (2 == this.width)
+                    return this.inversed2();
+                if (3 == this.width)
+                    return this.inversed3();
+                if (4 == this.width)
+                    return this.inversed4();
+            }
+            const { L, U, P } = this.luDecomposition();
+            const y = L.solveForwardsMatrix(P);
+            const inverse = U.solveBackwardsMatrix(y);
+            return inverse;
+        }
+        inversed2() {
+            assertf(() => 2 == this.width && 2 == this.height);
+            const result = Matrix.forWidthHeight(2, 2), m = this.m, r = result.m;
+            const det = m[0] * m[3] - m[1] * r[2];
+            r[0] = m[3] / det;
+            r[1] = -m[2] / det;
+            r[2] = -m[1] / det;
+            r[3] = m[0] / det;
+            return result;
+        }
+        inversed3(result = Matrix.forWidthHeight(3, 3)) {
+            assertInst(Matrix, result);
+            assertf(() => 3 == this.width && 3 == this.height);
+            assertf(() => 3 == result.width && 3 == result.height);
+            assert(() => this != result);
+            const m = this.m, r = result.m;
+            r[0] = m[4] * m[8] - m[5] * m[7];
+            r[1] = -m[1] * m[8] + m[2] * m[7];
+            r[2] = m[1] * m[5] - m[2] * m[4];
+            r[3] = -m[3] * m[8] + m[5] * m[6];
+            r[4] = m[0] * m[8] - m[2] * m[6];
+            r[5] = -m[0] * m[5] + m[2] * m[3];
+            r[6] = m[3] * m[7] - m[4] * m[6];
+            r[7] = -m[0] * m[7] + m[1] * m[6];
+            r[8] = m[0] * m[4] - m[1] * m[3];
+            const det = m[0] * r[0] + m[1] * r[3] + m[2] * r[6];
+            let i = 9;
+            while (i--) {
+                r[i] /= det;
+            }
+            return result;
+        }
+        // prettier-ignore
+        inversed4(result = Matrix.forWidthHeight(4, 4)) {
+            assertInst(Matrix, result);
+            assertf(() => 4 == this.width && 4 == this.height);
+            assertf(() => 4 == result.width && 4 == result.height);
+            assert(() => this != result);
+            const m = this.m, r = result.m;
+            // first compute transposed cofactor matrix:
+            // cofactor of an element is the determinant of the 3x3 matrix gained by removing the column and row belonging
+            // to the element
+            r[0] = m[5] * m[10] * m[15] - m[5] * m[14] * m[11] - m[6] * m[9] * m[15]
+                + m[6] * m[13] * m[11] + m[7] * m[9] * m[14] - m[7] * m[13] * m[10];
+            r[1] = -m[1] * m[10] * m[15] + m[1] * m[14] * m[11] + m[2] * m[9] * m[15]
+                - m[2] * m[13] * m[11] - m[3] * m[9] * m[14] + m[3] * m[13] * m[10];
+            r[2] = m[1] * m[6] * m[15] - m[1] * m[14] * m[7] - m[2] * m[5] * m[15]
+                + m[2] * m[13] * m[7] + m[3] * m[5] * m[14] - m[3] * m[13] * m[6];
+            r[3] = -m[1] * m[6] * m[11] + m[1] * m[10] * m[7] + m[2] * m[5] * m[11]
+                - m[2] * m[9] * m[7] - m[3] * m[5] * m[10] + m[3] * m[9] * m[6];
+            r[4] = -m[4] * m[10] * m[15] + m[4] * m[14] * m[11] + m[6] * m[8] * m[15]
+                - m[6] * m[12] * m[11] - m[7] * m[8] * m[14] + m[7] * m[12] * m[10];
+            r[5] = m[0] * m[10] * m[15] - m[0] * m[14] * m[11] - m[2] * m[8] * m[15]
+                + m[2] * m[12] * m[11] + m[3] * m[8] * m[14] - m[3] * m[12] * m[10];
+            r[6] = -m[0] * m[6] * m[15] + m[0] * m[14] * m[7] + m[2] * m[4] * m[15]
+                - m[2] * m[12] * m[7] - m[3] * m[4] * m[14] + m[3] * m[12] * m[6];
+            r[7] = m[0] * m[6] * m[11] - m[0] * m[10] * m[7] - m[2] * m[4] * m[11]
+                + m[2] * m[8] * m[7] + m[3] * m[4] * m[10] - m[3] * m[8] * m[6];
+            r[8] = m[4] * m[9] * m[15] - m[4] * m[13] * m[11] - m[5] * m[8] * m[15]
+                + m[5] * m[12] * m[11] + m[7] * m[8] * m[13] - m[7] * m[12] * m[9];
+            r[9] = -m[0] * m[9] * m[15] + m[0] * m[13] * m[11] + m[1] * m[8] * m[15]
+                - m[1] * m[12] * m[11] - m[3] * m[8] * m[13] + m[3] * m[12] * m[9];
+            r[10] = m[0] * m[5] * m[15] - m[0] * m[13] * m[7] - m[1] * m[4] * m[15]
+                + m[1] * m[12] * m[7] + m[3] * m[4] * m[13] - m[3] * m[12] * m[5];
+            r[11] = -m[0] * m[5] * m[11] + m[0] * m[9] * m[7] + m[1] * m[4] * m[11]
+                - m[1] * m[8] * m[7] - m[3] * m[4] * m[9] + m[3] * m[8] * m[5];
+            r[12] = -m[4] * m[9] * m[14] + m[4] * m[13] * m[10] + m[5] * m[8] * m[14]
+                - m[5] * m[12] * m[10] - m[6] * m[8] * m[13] + m[6] * m[12] * m[9];
+            r[13] = m[0] * m[9] * m[14] - m[0] * m[13] * m[10] - m[1] * m[8] * m[14]
+                + m[1] * m[12] * m[10] + m[2] * m[8] * m[13] - m[2] * m[12] * m[9];
+            r[14] = -m[0] * m[5] * m[14] + m[0] * m[13] * m[6] + m[1] * m[4] * m[14]
+                - m[1] * m[12] * m[6] - m[2] * m[4] * m[13] + m[2] * m[12] * m[5];
+            r[15] = m[0] * m[5] * m[10] - m[0] * m[9] * m[6] - m[1] * m[4] * m[10]
+                + m[1] * m[8] * m[6] + m[2] * m[4] * m[9] - m[2] * m[8] * m[5];
+            // calculate determinant using laplace expansion (cf https://en.wikipedia.org/wiki/Laplace_expansion),
+            // as we already have the cofactors. We multiply a column by a row as the cofactor matrix is transposed.
+            const det = m[0] * r[0] + m[1] * r[4] + m[2] * r[8] + m[3] * r[12];
+            // assert(!isZero(det), 'det may not be zero, i.e. the matrix is not invertible')
+            let i = 16;
+            while (i--) {
+                r[i] /= det;
+            }
+            return result;
+        }
+        canMultiply(matrix) {
+            assertInst(Matrix, matrix);
+            return this.width == matrix.height;
+        }
+        times(matrix) {
+            assertInst(Matrix, matrix);
+            assert(this.canMultiply(matrix), `Cannot multiply this {this.dimString()} by matrix {matrix.dimString()}`);
+            const nWidth = matrix.width, nHeight = this.height, n = this.width;
+            const nM = new Float64Array(nWidth * nHeight);
+            let nRowIndex = nHeight;
+            while (nRowIndex--) {
+                let nColIndex = nWidth;
+                while (nColIndex--) {
+                    let result = 0;
+                    let i = n;
+                    while (i--) {
+                        result += this.m[nRowIndex * n + i] * matrix.m[i * nWidth + nColIndex];
+                    }
+                    nM[nRowIndex * nWidth + nColIndex] = result;
+                }
+            }
+            return new Matrix(nWidth, nHeight, nM);
+        }
+        timesVector(v) {
+            assertVectors(v);
+            assert(this.width == v.dim());
+            const nHeight = this.height, n = this.width;
+            const nM = new Float64Array(nHeight);
+            let nRowIndex = nHeight;
+            while (nRowIndex--) {
+                let result = 0;
+                let i = n;
+                while (i--) {
+                    result += this.m[nRowIndex * n + i] * v.v[i];
+                }
+                nM[nRowIndex] = result;
+            }
+            return new Vector(nM);
+        }
+        transposed() {
+            const tWidth = this.height, tHeight = this.width;
+            const tM = new Float64Array(tWidth * tHeight);
+            let tRowIndex = tHeight;
+            while (tRowIndex--) {
+                let tColIndex = tWidth;
+                while (tColIndex--) {
+                    tM[tRowIndex * tWidth + tColIndex] = this.m[tColIndex * tHeight + tRowIndex];
+                }
+            }
+            return new Matrix(tWidth, tHeight, tM);
+        }
+        /**
+         * In-place transpose.
+         */
+        transpose() {
+            const h = this.height, w = this.width, tM = this.m;
+            let tRowIndex = h;
+            while (tRowIndex--) {
+                let tColIndex = Math.min(tRowIndex, w);
+                while (tColIndex--) {
+                    const temp = tM[tRowIndex * w + tColIndex];
+                    tM[tRowIndex * w + tColIndex] = tM[tColIndex * h + tRowIndex];
+                    tM[tColIndex * h + tRowIndex] = temp;
+                }
+            }
+            this.width = h;
+            this.height = w;
+        }
+        isSquare() {
+            return this.height == this.width;
+        }
+        diagonal() {
+            if (!this.isSquare()) {
+                throw new Error('!!');
+            }
+            const v = new Float64Array(this.width);
+            let elIndex = this.width * (this.width + 1);
+            let vIndex = this.width;
+            while (vIndex--) {
+                elIndex -= this.width + 1;
+                v[vIndex] = this.m[elIndex];
+            }
+            return new Vector(v);
+        }
+        maxEl() {
+            return Math.max.apply(undefined, this.m);
+        }
+        minEl() {
+            return Math.min.apply(undefined, this.m);
+        }
+        maxAbsColSum() {
+            let result = 0;
+            let colIndex = this.width;
+            while (colIndex--) {
+                let absSum = 0;
+                let rowIndex = this.height;
+                while (rowIndex--) {
+                    absSum += Math.abs(this.m[rowIndex * this.width + colIndex]);
+                }
+                result = Math.max(result, absSum);
+            }
+            return result;
+        }
+        maxAbsRowSum() {
+            let result = 0;
+            let rowIndex = this.height;
+            while (rowIndex--) {
+                let absSum = 0;
+                let colIndex = this.width;
+                while (colIndex--) {
+                    absSum += Math.abs(this.m[rowIndex * this.width + colIndex]);
+                }
+                result = Math.max(result, absSum);
+            }
+            return result;
+        }
+        getTriangularDeterminant() {
+            assert(this.isUpperTriangular() || this.isLowerTriangular(), 'not a triangular matrix');
+            let product = 1;
+            let elIndex = this.width * (this.width + 1);
+            while (elIndex) {
+                elIndex -= this.width + 1;
+                product *= this.m[elIndex];
+            }
+            return product;
+        }
+        /**
+         * Calculates the determinant by first calculating the LU decomposition. If you already have that, use
+         * U.getTriangularDeterminant()
+         */
+        getDeterminant() {
+            // PA = LU
+            // det(A) * det(B) = det(A * B)
+            // det(P) == 1 (permutation matrix)
+            // det(L) == 1 (main diagonal is 1s
+            // =>  det(A) == det(U)
+            return this.luDecomposition().U.getTriangularDeterminant();
+        }
+        hasFullRank() {
+            return Math.min(this.width, this.height) == this.rank();
+        }
+        permutationAsIndexMap() {
+            assertf(() => this.isPermutation());
+            const result = new Array(this.height);
+            let i = this.height;
+            while (i--) {
+                const searchIndexStart = i * this.width;
+                let searchIndex = searchIndexStart;
+                while (this.m[searchIndex] < 0.5)
+                    searchIndex++;
+                result[i] = searchIndex - searchIndexStart;
+            }
+            return result;
+        }
+        getDependentRowIndexes(gauss = this.gauss()) {
+            const { L, U, P } = gauss;
+            // rows which end up as zero vectors in U are not linearly independent
+            const dependents = new Array(this.height);
+            let uRowIndex = this.height;
+            while (uRowIndex--) {
+                const uRow = U.row(uRowIndex);
+                if (uRow.length() < NLA_PRECISION) {
+                    dependents[uRowIndex] = true;
+                }
+                else {
+                    break;
+                }
+            }
+            // figure out from which other rows the rows which end up as zero vectors are created by
+            let lRowIndex = this.height;
+            while (lRowIndex--) {
+                if (dependents[lRowIndex]) {
+                    let lColIndex = Math.min(lRowIndex, this.width);
+                    while (lColIndex--) {
+                        if (0 !== L.e(lRowIndex, lColIndex)) {
+                            dependents[lColIndex] = true;
+                        }
+                    }
+                }
+            }
+            console.log('m\n', this.toString((x) => '' + x));
+            console.log('L\n', L.toString((x) => '' + x));
+            console.log('U\n', U.toString((x) => '' + x));
+            console.log('P\n', P.toString((x) => '' + x));
+            // gauss algorithm permutes the order of the rows, so map our results back to the original indices
+            const indexMap = P.permutationAsIndexMap();
+            const dependentRowIndexes = dependents.map((b, index) => b && indexMap[index]).filter((x) => x != undefined);
+            return dependentRowIndexes;
+        }
+        lerp(b, t, result = this.new()) {
+            assertInst(Matrix, b, result);
+            assertNumbers(t);
+            assert(this.width == b.width && this.height == b.height);
+            const s = 1 - t;
+            let i = this.m.length;
+            while (i--) {
+                result.m[i] = s * this.m[i] + t * b.m[i];
+            }
+            return result;
+        }
+    }
+    function assertVectors(...vectors) {
+        {
+            for (let i = 0; i < arguments.length; i++) {
+                if (!(arguments[i] instanceof V3 || arguments[i] instanceof Vector)) {
+                    throw new Error('assertVectors arguments[' +
+                        i +
+                        '] is not a vector. ' +
+                        typeof arguments[i] +
+                        ' == typeof ' +
+                        arguments[i]);
+                }
+            }
+        }
+        return true;
+    }
+
     const P3YZ = { normal1: V3.X, w: 0 };
     const P3ZX = { normal1: V3.Y, w: 0 };
     const P3XY = { normal1: V3.Z, w: 0 };
@@ -2802,7 +2529,280 @@ var demo = (function (exports) {
         }
     }
 
-    const { PI: PI$1, abs: abs$1 } = Math;
+    const KEYWORD_REGEXP = new RegExp('^(' +
+        'abstract|boolean|break|byte|case|catch|char|class|const|continue|debugger|' +
+        'default|delete|do|double|else|enum|export|extends|false|final|finally|' +
+        'float|for|function|goto|if|implements|import|in|instanceof|int|interface|' +
+        'long|native|new|null|package|private|protected|public|return|short|static|' +
+        'super|switch|synchronized|this|throw|throws|transient|true|try|typeof|' +
+        'undefined|var|void|volatile|while|with' +
+        ')$');
+    function stringIsLegalKey(key) {
+        return /^[a-z_$][0-9a-z_$]*$/gi.test(key) && !KEYWORD_REGEXP.test(key);
+    }
+    const seen = [];
+    function toSource(o, indent = 0) {
+        if (undefined === o)
+            return 'undefined';
+        if (null === o)
+            return 'null';
+        return o.toSource();
+    }
+    function addToSourceMethodToPrototype(clazz, method) {
+        if (!clazz.prototype.toSource) {
+            Object.defineProperty(clazz.prototype, 'toSource', {
+                value: method,
+                writable: true,
+                configurable: true,
+                enumerable: false,
+            });
+        }
+    }
+    addToSourceMethodToPrototype(Boolean, Boolean.prototype.toString);
+    addToSourceMethodToPrototype(Function, Function.prototype.toString);
+    addToSourceMethodToPrototype(Number, Number.prototype.toString);
+    addToSourceMethodToPrototype(RegExp, RegExp.prototype.toString);
+    addToSourceMethodToPrototype(Date, function () {
+        return 'new Date(' + this.getTime() + ')';
+    });
+    addToSourceMethodToPrototype(String, function () {
+        return JSON.stringify(this);
+    });
+    addToSourceMethodToPrototype(Array, function () {
+        if (seen.includes(this)) {
+            return 'CIRCULAR_REFERENCE';
+        }
+        seen.push(this);
+        let result = '[';
+        for (let i = 0; i < this.length; i++) {
+            result += '\n\t' + toSource(this[i]).replace(/\r\n|\n|\r/g, '$&\t');
+            if (i !== this.length - 1) {
+                result += ',';
+            }
+        }
+        result += 0 === this.length ? ']' : '\n]';
+        seen.pop();
+        return result;
+    });
+    addToSourceMethodToPrototype(Object, function () {
+        if (seen.includes(this)) {
+            return 'CIRCULAR_REFERENCE';
+        }
+        seen.push(this);
+        let result = '{';
+        const keys = Object.keys(this).sort();
+        for (let i = 0; i < keys.length; i++) {
+            const k = keys[i];
+            result +=
+                '\n\t' +
+                    (stringIsLegalKey(k) ? k : JSON.stringify(k)) +
+                    ': ' +
+                    toSource(this[k]).replace(/\r\n|\n|\r/g, '$&\t');
+            if (i !== keys.length - 1) {
+                result += ',';
+            }
+        }
+        result += 0 === keys.length ? '}' : '\n}';
+        seen.pop();
+        return result;
+    });
+
+    class AABB extends Transformable {
+        constructor(min = V3.INF, max = V3.INF.negated()) {
+            super();
+            this.min = min;
+            this.max = max;
+            assertVectors(min, max);
+        }
+        static forXYZ(x, y, z) {
+            return new AABB(V3.O, new V3(x, y, z));
+        }
+        static forAABBs(aabbs) {
+            const result = new AABB();
+            for (const aabb of aabbs) {
+                result.addAABB(aabb);
+            }
+            return result;
+        }
+        addPoint(p) {
+            assertVectors(p);
+            this.min = this.min.min(p);
+            this.max = this.max.max(p);
+            return this;
+        }
+        addPoints(ps) {
+            ps.forEach((p) => this.addPoint(p));
+            return this;
+        }
+        addAABB(aabb) {
+            assertInst(AABB, aabb);
+            this.addPoint(aabb.min);
+            this.addPoint(aabb.max);
+            return this;
+        }
+        /**
+         * Returns the largest AABB contained in this which doesn't overlap with aabb
+         * @param aabb
+         */
+        withoutAABB(aabb) {
+            assertInst(AABB, aabb);
+            let min, max;
+            const volume = this.volume(), size = this.size();
+            let remainingVolume = -Infinity;
+            for (let i = 0; i < 3; i++) {
+                const dim = ['x', 'y', 'z'][i];
+                const cond = aabb.min[dim] - this.min[dim] > this.max[dim] - aabb.max[dim];
+                const dimMin = cond ? this.min[dim] : Math.max(this.min[dim], aabb.max[dim]);
+                const dimMax = !cond ? this.max[dim] : Math.min(this.max[dim], aabb.min[dim]);
+                const newRemainingVolume = ((dimMax - dimMin) * volume) / size[dim];
+                if (newRemainingVolume > remainingVolume) {
+                    remainingVolume = newRemainingVolume;
+                    min = this.min.withElement(dim, dimMin);
+                    max = this.max.withElement(dim, dimMax);
+                }
+            }
+            return new AABB(min, max);
+        }
+        getIntersectionAABB(aabb) {
+            assertInst(AABB, aabb);
+            return new AABB(this.min.max(aabb.min), this.max.min(aabb.max));
+        }
+        touchesAABB(aabb) {
+            assertInst(AABB, aabb);
+            return !(this.min.x > aabb.max.x ||
+                this.max.x < aabb.min.x ||
+                this.min.y > aabb.max.y ||
+                this.max.y < aabb.min.y ||
+                this.min.z > aabb.max.z ||
+                this.max.z < aabb.min.z);
+        }
+        touchesAABBfuzzy(aabb, precisision = NLA_PRECISION) {
+            assertInst(AABB, aabb);
+            return !(lt(aabb.max.x, this.min.x, precisision) ||
+                lt(this.max.x, aabb.min.x, precisision) ||
+                lt(aabb.max.y, this.min.y, precisision) ||
+                lt(this.max.y, aabb.min.y, precisision) ||
+                lt(aabb.max.z, this.min.z, precisision) ||
+                lt(this.max.z, aabb.min.z, precisision));
+        }
+        intersectsAABB(aabb) {
+            assertInst(AABB, aabb);
+            return !(this.min.x >= aabb.max.x ||
+                this.max.x <= aabb.min.x ||
+                this.min.y >= aabb.max.y ||
+                this.max.y <= aabb.min.y ||
+                this.min.z >= aabb.max.z ||
+                this.max.z <= aabb.min.z);
+        }
+        intersectsAABB2d(aabb) {
+            assertInst(AABB, aabb);
+            return !(this.min.x >= aabb.max.x ||
+                this.max.x <= aabb.min.x ||
+                this.min.y >= aabb.max.y ||
+                this.max.y <= aabb.min.y);
+        }
+        containsPoint(p) {
+            assertVectors(p);
+            return (this.min.x <= p.x &&
+                this.min.y <= p.y &&
+                this.min.z <= p.z &&
+                this.max.x >= p.x &&
+                this.max.y >= p.y &&
+                this.max.z >= p.z);
+        }
+        containsSphere(center, radius) {
+            assertVectors(center);
+            assertNumbers(radius);
+            return this.distanceToPoint(center) > radius;
+        }
+        intersectsSphere(center, radius) {
+            assertVectors(center);
+            assertNumbers(radius);
+            return this.distanceToPoint(center) <= radius;
+        }
+        distanceToPoint(p) {
+            assertVectors(p);
+            const x = p.x, y = p.y, z = p.z;
+            const min = this.min, max = this.max;
+            if (this.containsPoint(p)) {
+                return Math.max(min.x - x, x - max.x, min.y - y, y - max.y, min.z - z, z - max.z);
+            }
+            return p.distanceTo(new V3(clamp(x, min.x, max.x), clamp(y, min.y, max.y), clamp(z, min.z, max.z)));
+        }
+        containsAABB(aabb) {
+            assertInst(AABB, aabb);
+            return this.containsPoint(aabb.min) && this.containsPoint(aabb.max);
+        }
+        likeAABB(aabb) {
+            assertInst(AABB, aabb);
+            return this.min.like(aabb.min) && this.max.like(aabb.max);
+        }
+        intersectsLine(line) {
+            assertVectors(line.anchor, line.dir1);
+            const dir = line.dir1.map((el) => el || Number.MIN_VALUE);
+            const minTs = this.min.minus(line.anchor).divv(dir);
+            const maxTs = this.max.minus(line.anchor).divv(dir);
+            const tMin = minTs.min(maxTs).maxElement(), tMax = minTs.max(maxTs).minElement();
+            return tMin <= tMax && !(tMax < line.tMin || line.tMax < tMin);
+        }
+        hasVolume() {
+            return this.min.x <= this.max.x && this.min.y <= this.max.y && this.min.z <= this.max.z;
+        }
+        volume() {
+            if (!this.hasVolume()) {
+                return -1;
+            }
+            const v = this.max.minus(this.min);
+            return v.x * v.y * v.z;
+        }
+        size() {
+            return this.max.minus(this.min);
+        }
+        getCenter() {
+            return this.min.plus(this.max).div(2);
+        }
+        transform(m4) {
+            assertInst(M4, m4);
+            assert(m4.isAxisAligned());
+            const aabb = new AABB();
+            aabb.addPoint(m4.transformPoint(this.min));
+            aabb.addPoint(m4.transformPoint(this.max));
+            return aabb;
+        }
+        ofTransformed(m4) {
+            assertInst(M4, m4);
+            const aabb = new AABB();
+            aabb.addPoints(m4.transformedPoints(this.corners()));
+            return aabb;
+        }
+        corners() {
+            const min = this.min, max = this.max;
+            return [
+                min,
+                new V3(min.x, min.y, max.z),
+                new V3(min.x, max.y, min.z),
+                new V3(min.x, max.y, max.z),
+                new V3(max.x, min.y, min.z),
+                new V3(max.x, min.y, max.z),
+                new V3(max.x, max.y, min.z),
+                max,
+            ];
+        }
+        toString() {
+            return callsce('new AABB', this.min, this.max);
+        }
+        toSource() {
+            return this.toString();
+        }
+        /**
+         * Return the matrix which transforms the AABB from V3.O to V3.XYZ to this AABB.
+         */
+        getM4() {
+            return M4.translate(this.min).times(M4.scale(this.size()));
+        }
+    }
+
+    const { PI: PI$1, abs } = Math;
     // tslint:enable:member-ordering
     class M4 extends Matrix {
         /**
@@ -3502,16 +3502,16 @@ var demo = (function (exports) {
             const this3x3 = this.times(M4.IDENTITY3);
             console.log(this.toString());
             console.log(this3x3.toString());
-            let mats = eigenValues.map(ev => M4.IDENTITY3.scale(-ev).plus(this3x3));
-            console.log(mats.map(m => m.determinant3()));
-            console.log(mats.map(m => '' + m.toString(v => '' + v)).join('\n\n'));
-            console.log(mats.map(m => '' + m.gauss().U.toString(v => '' + v)).join('\n\n'));
-            console.log('mats.map(m=>m.rank())', mats.map(m => m.rank()));
+            let mats = eigenValues.map((ev) => M4.IDENTITY3.scale(-ev).plus(this3x3));
+            console.log(mats.map((m) => m.determinant3()));
+            console.log(mats.map((m) => '' + m.toString((v) => '' + v)).join('\n\n'));
+            console.log(mats.map((m) => '' + m.gauss().U.toString((v) => '' + v)).join('\n\n'));
+            console.log('mats.map(m=>m.rank())', mats.map((m) => m.rank()));
             if (1 == eigenValues.length) {
                 console.log(mats[0].toString());
                 assertf(() => 0 == mats[0].rank());
                 // col vectors
-                return arrayFromFunction(3, col => new V3(this.m[col], this.m[4 + col], this.m[8 + col]));
+                return arrayFromFunction(3, (col) => new V3(this.m[col], this.m[4 + col], this.m[8 + col]));
             }
             if (2 == eigenValues.length) {
                 // one matrix should have rank 1, the other rank 2
@@ -3522,15 +3522,8 @@ var demo = (function (exports) {
                 assertf(() => 1 == mats[1].rank());
                 // mat[0] has rank 2, mat[1] has rank 1
                 const gauss0 = mats[0].gauss().U;
-                const eigenVector0 = gauss0
-                    .row(0)
-                    .cross(gauss0.row(1))
-                    .V3()
-                    .unit();
-                const planeNormal = mats[1]
-                    .gauss()
-                    .U.row(0)
-                    .V3();
+                const eigenVector0 = gauss0.row(0).cross(gauss0.row(1)).V3().unit();
+                const planeNormal = mats[1].gauss().U.row(0).V3();
                 const eigenVector1 = planeNormal.getPerpendicular().unit();
                 const eigenVector2 = eigenVector0.cross(eigenVector1).rejectedFrom(planeNormal);
                 return [eigenVector0, eigenVector1, eigenVector2];
@@ -3539,13 +3532,9 @@ var demo = (function (exports) {
                 mats.forEach((mat, i) => assert(2 == mat.rank(), i + ': ' + mat.rank()));
                 // the (A - lambda I) matrices map to a plane. This means, that there is an entire line in R³ which maps to
                 // the point V3.O
-                return mats.map(mat => {
+                return mats.map((mat) => {
                     const gauss = mat.gauss().U;
-                    return gauss
-                        .row(0)
-                        .cross(gauss.row(1))
-                        .V3()
-                        .unit();
+                    return gauss.row(0).cross(gauss.row(1)).V3().unit();
                 });
             }
             throw new Error('there cannot be more than 3 eigen values');
@@ -3565,13 +3554,11 @@ var demo = (function (exports) {
                 return m;
             }
             const A = this.as3x3();
-            let S = A.transposed().times(A), V$$1 = M4.identity();
+            let S = A.transposed().times(A), V = M4.identity();
             console.log(S.str);
             for (let it = 0; it < 16; it++) {
-                console.log('blahg\n', V$$1.times(S).times(V$$1.transposed()).str);
-                assert(V$$1.times(S)
-                    .times(V$$1.transposed())
-                    .likeM4(A.transposed().times(A)), V$$1.times(S).times(V$$1.transposed()).str, A.transposed().times(A).str);
+                console.log('blahg\n', V.times(S).times(V.transposed()).str);
+                assert(V.times(S).times(V.transposed()).likeM4(A.transposed().times(A)), V.times(S).times(V.transposed()).str, A.transposed().times(A).str);
                 let maxOffDiagonal = 0, maxOffDiagonalIndex = 1, j = 10;
                 while (j--) {
                     const val = Math.abs(S.m[j]);
@@ -3586,20 +3573,17 @@ var demo = (function (exports) {
                 console.log(maxOffDiagonalIndex, i, k, 'phi', phi);
                 const cos = Math.cos(phi), sin = Math.sin(phi);
                 const givensRotation = matrixForCS(i, k, cos, -sin);
-                assert(givensRotation
-                    .transposed()
-                    .times(givensRotation)
-                    .likeIdentity());
+                assert(givensRotation.transposed().times(givensRotation).likeIdentity());
                 console.log(givensRotation.str);
-                V$$1 = V$$1.times(givensRotation);
+                V = V.times(givensRotation);
                 S = M4.product(givensRotation.transposed(), S, givensRotation);
                 console.log(S.str);
             }
             const sigma = S.map((el, elIndex) => (elIndex % 5 == 0 ? Math.sqrt(el) : 0));
             return {
-                U: M4.product(A, V$$1, sigma.map((el, elIndex) => (elIndex % 5 == 0 ? 1 / el : 0))),
+                U: M4.product(A, V, sigma.map((el, elIndex) => (elIndex % 5 == 0 ? 1 / el : 0))),
                 SIGMA: sigma,
-                VSTAR: V$$1.transposed(),
+                VSTAR: V.transposed(),
             };
         }
         map(fn) {
@@ -3682,10 +3666,10 @@ var demo = (function (exports) {
                 .V3();
         }
         transformedPoints(vs) {
-            return vs.map(v => this.transformPoint(v));
+            return vs.map((v) => this.transformPoint(v));
         }
         transformedVectors(vs) {
-            return vs.map(v => this.transformVector(v));
+            return vs.map((v) => this.transformVector(v));
         }
         new() {
             return new M4();
@@ -3807,7 +3791,7 @@ var demo = (function (exports) {
          * so we need to divide by the 4th root of the determinant
          */
         normalized() {
-            const detAbs = abs$1(this.determinant());
+            const detAbs = abs(this.determinant());
             return 1 == detAbs ? this : this.divScalar(Math.pow(detAbs, 0.25));
         }
         /**
@@ -3840,16 +3824,13 @@ var demo = (function (exports) {
         isIdentity() {
             return this.m.every((val, i) => (((i / 4) | 0) == i % 4 ? 1 == val : 0 == val));
         }
-        toString(f = v => v.toFixed(6).replace(/([0.])(?=0*$)/g, ' ')) {
+        toString(f = (v) => v.toFixed(6).replace(/([0.])(?=0*$)/g, ' ')) {
             assert(typeof f(0) == 'string', '' + typeof f(0));
             // slice this.m to convert it to an Array (from TypeArray)
             const rounded = Array.prototype.slice.call(this.m).map(f);
-            const colWidths = [0, 1, 2, 3].map(colIndex => rounded
-                .sliceStep(colIndex, 0, 4)
-                .map(x => x.length)
-                .max());
+            const colWidths = [0, 1, 2, 3].map((colIndex) => max(sliceStep(rounded, colIndex, 0, 4).map((x) => x.length)));
             return [0, 1, 2, 3]
-                .map(rowIndex => rounded
+                .map((rowIndex) => rounded
                 .slice(rowIndex * 4, rowIndex * 4 + 4) // select matrix row
                 .map((x, colIndex) => ' '.repeat(colWidths[colIndex] - x.length) + x) // pad numbers with
                 // spaces to col width
@@ -3904,7 +3885,9 @@ var demo = (function (exports) {
                 0, 0, 0, 1
             ];
             return (mask.every((expected, index) => expected == 2 || expected == this.m[index]) &&
-                (eq(1, Math.pow(this.m[0], 2) + Math.pow(this.m[1], 2)) && this.m[0] == this.m[5] && this.m[1] == -this.m[4]));
+                eq(1, Math.pow(this.m[0], 2) + Math.pow(this.m[1], 2)) &&
+                this.m[0] == this.m[5] &&
+                this.m[1] == -this.m[4]);
         }
         toSource() {
             const name = M4.NAMEMAP.get(this);
@@ -3941,9 +3924,7 @@ var demo = (function (exports) {
             }
         }
         xyAreaFactor() {
-            return this.transformVector(V3.X)
-                .cross(this.transformVector(V3.Y))
-                .length();
+            return this.transformVector(V3.X).cross(this.transformVector(V3.Y)).length();
         }
     }
     /**
@@ -3974,279 +3955,6 @@ var demo = (function (exports) {
     M4.prototype.height = 4;
     M4.prototype.width = 4;
     addOwnProperties(M4.prototype, Transformable.prototype, 'constructor');
-
-    const KEYWORD_REGEXP = new RegExp('^(' +
-        'abstract|boolean|break|byte|case|catch|char|class|const|continue|debugger|' +
-        'default|delete|do|double|else|enum|export|extends|false|final|finally|' +
-        'float|for|function|goto|if|implements|import|in|instanceof|int|interface|' +
-        'long|native|new|null|package|private|protected|public|return|short|static|' +
-        'super|switch|synchronized|this|throw|throws|transient|true|try|typeof|' +
-        'undefined|var|void|volatile|while|with' +
-        ')$');
-    function stringIsLegalKey(key) {
-        return /^[a-z_$][0-9a-z_$]*$/gi.test(key) && !KEYWORD_REGEXP.test(key);
-    }
-    const seen = [];
-    function toSource(o, indent = 0) {
-        if (undefined === o)
-            return 'undefined';
-        if (null === o)
-            return 'null';
-        return o.toSource();
-    }
-    function addToSourceMethodToPrototype(clazz, method) {
-        if (!clazz.prototype.toSource) {
-            Object.defineProperty(clazz.prototype, 'toSource', {
-                value: method,
-                writable: true,
-                configurable: true,
-                enumerable: false,
-            });
-        }
-    }
-    addToSourceMethodToPrototype(Boolean, Boolean.prototype.toString);
-    addToSourceMethodToPrototype(Function, Function.prototype.toString);
-    addToSourceMethodToPrototype(Number, Number.prototype.toString);
-    addToSourceMethodToPrototype(RegExp, RegExp.prototype.toString);
-    addToSourceMethodToPrototype(Date, function () {
-        return 'new Date(' + this.getTime() + ')';
-    });
-    addToSourceMethodToPrototype(String, function () {
-        return JSON.stringify(this);
-    });
-    addToSourceMethodToPrototype(Array, function () {
-        if (seen.includes(this)) {
-            return 'CIRCULAR_REFERENCE';
-        }
-        seen.push(this);
-        let result = '[';
-        for (let i = 0; i < this.length; i++) {
-            result += '\n\t' + toSource(this[i]).replace(/\r\n|\n|\r/g, '$&\t');
-            if (i !== this.length - 1) {
-                result += ',';
-            }
-        }
-        result += 0 === this.length ? ']' : '\n]';
-        seen.pop();
-        return result;
-    });
-    addToSourceMethodToPrototype(Object, function () {
-        if (seen.includes(this)) {
-            return 'CIRCULAR_REFERENCE';
-        }
-        seen.push(this);
-        let result = '{';
-        const keys = Object.keys(this).sort();
-        for (let i = 0; i < keys.length; i++) {
-            const k = keys[i];
-            result +=
-                '\n\t' +
-                    (stringIsLegalKey(k) ? k : JSON.stringify(k)) +
-                    ': ' +
-                    toSource(this[k]).replace(/\r\n|\n|\r/g, '$&\t');
-            if (i !== keys.length - 1) {
-                result += ',';
-            }
-        }
-        result += 0 === keys.length ? '}' : '\n}';
-        seen.pop();
-        return result;
-    });
-
-    class AABB extends Transformable {
-        constructor(min = V3.INF, max = V3.INF.negated()) {
-            super();
-            this.min = min;
-            this.max = max;
-            assertVectors(min, max);
-        }
-        static forXYZ(x, y, z) {
-            return new AABB(V3.O, new V3(x, y, z));
-        }
-        static forAABBs(aabbs) {
-            const result = new AABB();
-            for (const aabb of aabbs) {
-                result.addAABB(aabb);
-            }
-            return result;
-        }
-        addPoint(p) {
-            assertVectors(p);
-            this.min = this.min.min(p);
-            this.max = this.max.max(p);
-            return this;
-        }
-        addPoints(ps) {
-            ps.forEach(p => this.addPoint(p));
-            return this;
-        }
-        addAABB(aabb) {
-            assertInst(AABB, aabb);
-            this.addPoint(aabb.min);
-            this.addPoint(aabb.max);
-            return this;
-        }
-        /**
-         * Returns the largest AABB contained in this which doesn't overlap with aabb
-         * @param aabb
-         */
-        withoutAABB(aabb) {
-            assertInst(AABB, aabb);
-            let min, max;
-            const volume = this.volume(), size = this.size();
-            let remainingVolume = -Infinity;
-            for (let i = 0; i < 3; i++) {
-                const dim = ['x', 'y', 'z'][i];
-                const cond = aabb.min[dim] - this.min[dim] > this.max[dim] - aabb.max[dim];
-                const dimMin = cond ? this.min[dim] : Math.max(this.min[dim], aabb.max[dim]);
-                const dimMax = !cond ? this.max[dim] : Math.min(this.max[dim], aabb.min[dim]);
-                const newRemainingVolume = ((dimMax - dimMin) * volume) / size[dim];
-                if (newRemainingVolume > remainingVolume) {
-                    remainingVolume = newRemainingVolume;
-                    min = this.min.withElement(dim, dimMin);
-                    max = this.max.withElement(dim, dimMax);
-                }
-            }
-            return new AABB(min, max);
-        }
-        getIntersectionAABB(aabb) {
-            assertInst(AABB, aabb);
-            return new AABB(this.min.max(aabb.min), this.max.min(aabb.max));
-        }
-        touchesAABB(aabb) {
-            assertInst(AABB, aabb);
-            return !(this.min.x > aabb.max.x ||
-                this.max.x < aabb.min.x ||
-                this.min.y > aabb.max.y ||
-                this.max.y < aabb.min.y ||
-                this.min.z > aabb.max.z ||
-                this.max.z < aabb.min.z);
-        }
-        touchesAABBfuzzy(aabb, precisision = NLA_PRECISION) {
-            assertInst(AABB, aabb);
-            return !(lt(aabb.max.x, this.min.x, precisision) ||
-                lt(this.max.x, aabb.min.x, precisision) ||
-                lt(aabb.max.y, this.min.y, precisision) ||
-                lt(this.max.y, aabb.min.y, precisision) ||
-                lt(aabb.max.z, this.min.z, precisision) ||
-                lt(this.max.z, aabb.min.z, precisision));
-        }
-        intersectsAABB(aabb) {
-            assertInst(AABB, aabb);
-            return !(this.min.x >= aabb.max.x ||
-                this.max.x <= aabb.min.x ||
-                this.min.y >= aabb.max.y ||
-                this.max.y <= aabb.min.y ||
-                this.min.z >= aabb.max.z ||
-                this.max.z <= aabb.min.z);
-        }
-        intersectsAABB2d(aabb) {
-            assertInst(AABB, aabb);
-            return !(this.min.x >= aabb.max.x ||
-                this.max.x <= aabb.min.x ||
-                this.min.y >= aabb.max.y ||
-                this.max.y <= aabb.min.y);
-        }
-        containsPoint(p) {
-            assertVectors(p);
-            return (this.min.x <= p.x &&
-                this.min.y <= p.y &&
-                this.min.z <= p.z &&
-                this.max.x >= p.x &&
-                this.max.y >= p.y &&
-                this.max.z >= p.z);
-        }
-        containsSphere(center, radius) {
-            assertVectors(center);
-            assertNumbers(radius);
-            return this.distanceToPoint(center) > radius;
-        }
-        intersectsSphere(center, radius) {
-            assertVectors(center);
-            assertNumbers(radius);
-            return this.distanceToPoint(center) <= radius;
-        }
-        distanceToPoint(p) {
-            assertVectors(p);
-            const x = p.x, y = p.y, z = p.z;
-            const min = this.min, max = this.max;
-            if (this.containsPoint(p)) {
-                return Math.max(min.x - x, x - max.x, min.y - y, y - max.y, min.z - z, z - max.z);
-            }
-            return p.distanceTo(new V3(clamp(x, min.x, max.x), clamp(y, min.y, max.y), clamp(z, min.z, max.z)));
-        }
-        containsAABB(aabb) {
-            assertInst(AABB, aabb);
-            return this.containsPoint(aabb.min) && this.containsPoint(aabb.max);
-        }
-        likeAABB(aabb) {
-            assertInst(AABB, aabb);
-            return this.min.like(aabb.min) && this.max.like(aabb.max);
-        }
-        intersectsLine(line) {
-            assertVectors(line.anchor, line.dir1);
-            const dir = line.dir1.map(el => el || Number.MIN_VALUE);
-            const minTs = this.min.minus(line.anchor).divv(dir);
-            const maxTs = this.max.minus(line.anchor).divv(dir);
-            const tMin = minTs.min(maxTs).maxElement(), tMax = minTs.max(maxTs).minElement();
-            return tMin <= tMax && !(tMax < line.tMin || line.tMax < tMin);
-        }
-        hasVolume() {
-            return this.min.x <= this.max.x && this.min.y <= this.max.y && this.min.z <= this.max.z;
-        }
-        volume() {
-            if (!this.hasVolume()) {
-                return -1;
-            }
-            const v = this.max.minus(this.min);
-            return v.x * v.y * v.z;
-        }
-        size() {
-            return this.max.minus(this.min);
-        }
-        getCenter() {
-            return this.min.plus(this.max).div(2);
-        }
-        transform(m4) {
-            assertInst(M4, m4);
-            assert(m4.isAxisAligned());
-            const aabb = new AABB();
-            aabb.addPoint(m4.transformPoint(this.min));
-            aabb.addPoint(m4.transformPoint(this.max));
-            return aabb;
-        }
-        ofTransformed(m4) {
-            assertInst(M4, m4);
-            const aabb = new AABB();
-            aabb.addPoints(m4.transformedPoints(this.corners()));
-            return aabb;
-        }
-        corners() {
-            const min = this.min, max = this.max;
-            return [
-                min,
-                new V3(min.x, min.y, max.z),
-                new V3(min.x, max.y, min.z),
-                new V3(min.x, max.y, max.z),
-                new V3(max.x, min.y, min.z),
-                new V3(max.x, min.y, max.z),
-                new V3(max.x, max.y, min.z),
-                max,
-            ];
-        }
-        toString() {
-            return callsce('new AABB', this.min, this.max);
-        }
-        toSource() {
-            return this.toString();
-        }
-        /**
-         * Return the matrix which transforms the AABB from V3.O to V3.XYZ to this AABB.
-         */
-        getM4() {
-            return M4.translate(this.min).times(M4.scale(this.size()));
-        }
-    }
 
     /*! *****************************************************************************
     Copyright (c) Microsoft Corporation. All rights reserved.
@@ -4306,7 +4014,7 @@ var demo = (function (exports) {
      * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
      */
     // tslint:disable:no-unnecessary-qualifier
-    const { abs, atan2, cos, floor, log, min, max, round, sign, sin, sqrt, cbrt, PI: PI$2, hypot } = Math;
+    const { abs: abs$1, atan2, cos, floor, log, min, max: max$1, round, sign, sin, sqrt, cbrt, PI: PI$2, hypot } = Math;
     function lerp$1(a, b, f) {
         return a + (b - a) * f;
     }
@@ -4318,7 +4026,7 @@ var demo = (function (exports) {
     }
     function newtonIterate1d(f, xStart, max_steps, eps = 1e-8) {
         let x = xStart, fx;
-        while (max_steps-- && abs((fx = f(x))) > eps) {
+        while (max_steps-- && abs$1((fx = f(x))) > eps) {
             const dfdx = (f(x + eps) - fx) / eps;
             console.log("fx / dfdx", fx / dfdx, "fx", fx, "x", x);
             x = x - fx / dfdx;
@@ -4647,7 +4355,7 @@ var demo = (function (exports) {
          */
         saturate(amount = 1) {
             const [l, c, h] = this.lch();
-            return lch(l, max(0, c + amount * LAB_Kn), h, this.alpha());
+            return lch(l, max$1(0, c + amount * LAB_Kn), h, this.alpha());
         }
         /**
          * Equivalent to `saturate(-amount)`.
@@ -5488,7 +5196,7 @@ var demo = (function (exports) {
                 clusterSizes.fill(0);
                 for (let i = 0; i < values.length; i++) {
                     const value = values[i];
-                    const minDistIndex = indexOfMax(centroids, (c) => -abs(c - value));
+                    const minDistIndex = indexOfMax(centroids, (c) => -abs$1(c - value));
                     clusterSizes[minDistIndex]++;
                     assignments[i] = minDistIndex;
                 }
@@ -5748,7 +5456,7 @@ var demo = (function (exports) {
         r255 /= 255;
         g255 /= 255;
         b255 /= 255;
-        const k = 1 - max(r255, g255, b255);
+        const k = 1 - max$1(r255, g255, b255);
         if (1 == k)
             return [0, 0, 0, 1];
         const c = (1 - r255 - k) / (1 - k);
@@ -5833,7 +5541,7 @@ var demo = (function (exports) {
      */
     function rgb2hexhue(r, g, b) {
         const m = min(r, g, b);
-        const M = max(r, g, b);
+        const M = max$1(r, g, b);
         const delta = M - m;
         let hueTurnX6; // angle as value between 0 and 6
         if (0 == delta) {
@@ -5879,8 +5587,8 @@ var demo = (function (exports) {
      */
     function hsl2rgb(hueDegrees, s1, l1, alpha1 = 1) {
         hueDegrees = norm360(hueDegrees);
-        const c1 = (1 - abs(2 * l1 - 1)) * s1;
-        return hcxm2rgb(hueDegrees, c1, c1 * (1 - abs(((hueDegrees / 60) % 2) - 1)), l1 - c1 / 2, alpha1);
+        const c1 = (1 - abs$1(2 * l1 - 1)) * s1;
+        return hcxm2rgb(hueDegrees, c1, c1 * (1 - abs$1(((hueDegrees / 60) % 2) - 1)), l1 - c1 / 2, alpha1);
     }
     function rgb2hsl(r255, g255, b255) {
         const [hue, min1, max1] = rgb2hexhue(r255 / 255, g255 / 255, b255 / 255);
@@ -5897,7 +5605,7 @@ var demo = (function (exports) {
     function hsv2rgb(hueDegrees, s1, v1, alpha1 = 1) {
         hueDegrees = norm360(hueDegrees);
         const c1 = v1 * s1;
-        return hcxm2rgb(hueDegrees, c1, c1 * (1 - abs(((hueDegrees / 60) % 2) - 1)), v1 - c1, alpha1);
+        return hcxm2rgb(hueDegrees, c1, c1 * (1 - abs$1(((hueDegrees / 60) % 2) - 1)), v1 - c1, alpha1);
     }
     function rgb2hsv(r255, g255, b255) {
         const [hue, min255, max255] = rgb2hexhue(r255, g255, b255);
@@ -5909,7 +5617,7 @@ var demo = (function (exports) {
     function hcg2rgb(hueDegrees, c1, g1, alpha1 = 1) {
         hueDegrees = norm360(hueDegrees);
         const p = g1 * (1 - c1);
-        return hcxm2rgb(hueDegrees, c1, c1 * (1 - abs(((hueDegrees / 60) % 2) - 1)), p, alpha1);
+        return hcxm2rgb(hueDegrees, c1, c1 * (1 - abs$1(((hueDegrees / 60) % 2) - 1)), p, alpha1);
     }
     function rgb2hcg(r255, g255, b255) {
         const [hue, min255, max255] = rgb2hexhue(r255, g255, b255);
@@ -6161,7 +5869,7 @@ var demo = (function (exports) {
         }
     }
 
-    const { cos: cos$1, sin: sin$1, PI: PI$3, min: min$1, max: max$1 } = Math;
+    const { cos: cos$1, sin: sin$1, PI: PI$3, min: min$1, max: max$2 } = Math;
     const WGL$1 = WebGLRenderingContext;
     const tempM4_1 = new M4();
     const tempM4_2 = new M4();
@@ -6268,7 +5976,7 @@ var demo = (function (exports) {
                 if ('ts_Vertex' !== attribute) {
                     result.addVertexBuffer(bufferName, attribute);
                 }
-                result[bufferName] = allMeshes.map((mesh) => mesh[bufferName]).concatenated();
+                result[bufferName] = [].concat(...allMeshes.map((mesh) => mesh[bufferName]));
             });
             Object.getOwnPropertyNames(this.indexBuffers).forEach((name) => {
                 assert(others.every((other) => !!other.indexBuffers[name]));
@@ -6447,7 +6155,7 @@ var demo = (function (exports) {
                 throw new Error('TRIANGLES must be defined.');
             const canonEdges = new Set();
             function canonEdge(i0, i1) {
-                const iMin = min$1(i0, i1), iMax = max$1(i0, i1);
+                const iMin = min$1(i0, i1), iMax = max$2(i0, i1);
                 return (iMin << 16) | iMax;
             }
             // function uncanonEdge(key) {
@@ -8908,8 +8616,8 @@ void main() {
                     p.pos = mat.transformPoint(p.pos);
                     return p;
                 })));
-            linesMesh.LINES.clear();
-            linesMesh.vertices.clear();
+            linesMesh.LINES.length = 0;
+            linesMesh.vertices.length = 0;
             console.log('generation took (ms): ' +
                 time(() => {
                     for (const [x, y, z] of grid3d(linesDensity, linesDensity, Math.ceil(0.4 * linesDensity))) {

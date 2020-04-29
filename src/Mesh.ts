@@ -161,7 +161,7 @@ export class Mesh extends Transformable {
 			if ('ts_Vertex' !== attribute) {
 				result.addVertexBuffer(bufferName, attribute)
 			}
-			result[bufferName] = allMeshes.map((mesh) => (mesh as any)[bufferName]).concatenated()
+			result[bufferName] = [].concat(...allMeshes.map((mesh) => (mesh as any)[bufferName]))
 		})
 		Object.getOwnPropertyNames(this.indexBuffers).forEach((name) => {
 			assert(others.every((other) => !!other.indexBuffers[name]))

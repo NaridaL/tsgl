@@ -215,7 +215,7 @@ class Mesh extends ts3dutils.Transformable {
             if ('ts_Vertex' !== attribute) {
                 result.addVertexBuffer(bufferName, attribute);
             }
-            result[bufferName] = allMeshes.map((mesh) => mesh[bufferName]).concatenated();
+            result[bufferName] = [].concat(...allMeshes.map((mesh) => mesh[bufferName]));
         });
         Object.getOwnPropertyNames(this.indexBuffers).forEach((name) => {
             ts3dutils.assert(others.every((other) => !!other.indexBuffers[name]));

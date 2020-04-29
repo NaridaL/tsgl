@@ -5,6 +5,7 @@
 		"paths": {
 			"tsgl": ["../.."]
 		},
+		"lib": ["dom", "esnext"],
 		"strict": true,
 		"moduleResolution": "node",
 		"target": "ES6",
