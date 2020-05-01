@@ -105,7 +105,7 @@ export class Texture {
 		this.gl.texImage2D(
 			this.gl.TEXTURE_2D,
 			0,
-			this.format as any,
+			this.internalFormat as any,
 			this.width,
 			this.height,
 			0,

@@ -7065,7 +7065,7 @@ var demo = (function (exports) {
         }
         setData(data) {
             this.gl.bindTexture(this.gl.TEXTURE_2D, this.texture);
-            this.gl.texImage2D(this.gl.TEXTURE_2D, 0, this.format, this.width, this.height, 0, this.format, this.type, data);
+            this.gl.texImage2D(this.gl.TEXTURE_2D, 0, this.internalFormat, this.width, this.height, 0, this.format, this.type, data);
         }
         bind(unit) {
             this.gl.activeTexture((this.gl.TEXTURE0 + unit));
