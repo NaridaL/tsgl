@@ -1,7 +1,7 @@
 /// <reference types="webgl-strict-types" />
-import { assert, int } from 'ts3dutils'
+import { assert, int } from "ts3dutils"
 
-import { currentGL, TSGLContext } from './index'
+import { currentGL, TSGLContext } from "./index"
 import GL = WebGLRenderingContextStrict
 import GL2 = WebGL2RenderingContextStrict
 
@@ -51,7 +51,12 @@ export class Texture {
 	 *     })
 	 *
 	 */
-	constructor(width: int, height: int, options: TextureOptions = {}, readonly gl = currentGL()) {
+	constructor(
+		width: int,
+		height: int,
+		options: TextureOptions = {},
+		readonly gl = currentGL(),
+	) {
 		this.width = width
 		this.height = height
 		this.format = options.format || gl.RGBA
@@ -60,24 +65,32 @@ export class Texture {
 		const magFilter = options.filter || options.magFilter || gl.LINEAR
 		const minFilter = options.filter || options.minFilter || gl.LINEAR
 		if (this.type === gl.FLOAT) {
-			if (gl.version != 2 && !gl.getExtension('OES_texture_float')) {
-				throw new Error('OES_texture_float is required but not supported')
+			if (gl.version != 2 && !gl.getExtension("OES_texture_float")) {
+				throw new Error(
+					"OES_texture_float is required but not supported",
+				)
 			}
 			if (
 				(minFilter !== gl.NEAREST || magFilter !== gl.NEAREST) &&
-				!gl.getExtension('OES_texture_float_linear')
+				!gl.getExtension("OES_texture_float_linear")
 			) {
-				throw new Error('OES_texture_float_linear is required but not supported')
+				throw new Error(
+					"OES_texture_float_linear is required but not supported",
+				)
 			}
 		} else if (this.type === gl.HALF_FLOAT_OES) {
-			if (!gl.getExtension('OES_texture_half_float')) {
-				throw new Error('OES_texture_half_float is required but not supported')
+			if (!gl.getExtension("OES_texture_half_float")) {
+				throw new Error(
+					"OES_texture_half_float is required but not supported",
+				)
 			}
 			if (
 				(minFilter !== gl.NEAREST || magFilter !== gl.NEAREST) &&
-				!gl.getExtension('OES_texture_half_float_linear')
+				!gl.getExtension("OES_texture_half_float_linear")
 			) {
-				throw new Error('OES_texture_half_float_linear is required but not supported')
+				throw new Error(
+					"OES_texture_half_float_linear is required but not supported",
+				)
 			}
 		}
 
@@ -85,8 +98,16 @@ export class Texture {
 		gl.bindTexture(gl.TEXTURE_2D, this.texture)
 		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, magFilter)
 		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, minFilter)
-		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, options.wrap || options.wrapS || gl.CLAMP_TO_EDGE)
-		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, options.wrap || options.wrapT || gl.CLAMP_TO_EDGE)
+		gl.texParameteri(
+			gl.TEXTURE_2D,
+			gl.TEXTURE_WRAP_S,
+			options.wrap || options.wrapS || gl.CLAMP_TO_EDGE,
+		)
+		gl.texParameteri(
+			gl.TEXTURE_2D,
+			gl.TEXTURE_WRAP_T,
+			options.wrap || options.wrapT || gl.CLAMP_TO_EDGE,
+		)
 		gl.texImage2D(
 			gl.TEXTURE_2D,
 			0,
@@ -117,13 +138,25 @@ export class Texture {
 
 	downloadData(data: ArrayBufferView) {
 		if (!this.framebuffer) {
-			throw new Error('No framebuffer. You need to draw to this texture before it makes sense to read from it.')
+			throw new Error(
+				"No framebuffer. You need to draw to this texture before it makes sense to read from it.",
+			)
 		}
 		const gl = this.gl
 		const prevFramebuffer = gl.getParameter(gl.FRAMEBUFFER_BINDING)
 		this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, this.framebuffer)
-		this.gl.readPixels(0, 0, this.width, this.height, this.format as any, this.type as any, data as any, 0)
-		prevFramebuffer !== this.framebuffer && gl.bindFramebuffer(gl.FRAMEBUFFER, prevFramebuffer)
+		this.gl.readPixels(
+			0,
+			0,
+			this.width,
+			this.height,
+			this.format as any,
+			this.type as any,
+			data as any,
+			0,
+		)
+		prevFramebuffer !== this.framebuffer &&
+			gl.bindFramebuffer(gl.FRAMEBUFFER, prevFramebuffer)
 	}
 
 	bind(unit: int) {
@@ -148,16 +181,37 @@ export class Texture {
 			const depthRenderbuffer = gl.createRenderbuffer()
 			gl.bindRenderbuffer(gl.RENDERBUFFER, depthRenderbuffer)
 			// DEPTH_COMPONENT16 is the only depth format
-			gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, this.width, this.height)
+			gl.renderbufferStorage(
+				gl.RENDERBUFFER,
+				gl.DEPTH_COMPONENT16,
+				this.width,
+				this.height,
+			)
 			gl.bindRenderbuffer(gl.RENDERBUFFER, prevRenderbuffer)
 
 			// create a framebuffer to render to
 			this.framebuffer = gl.createFramebuffer()!
 			gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebuffer)
-			gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.texture, 0)
-			gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, depthRenderbuffer)
-			if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) {
-				throw new Error('Rendering to this texture is not supported (incomplete this.framebuffer)')
+			gl.framebufferTexture2D(
+				gl.FRAMEBUFFER,
+				gl.COLOR_ATTACHMENT0,
+				gl.TEXTURE_2D,
+				this.texture,
+				0,
+			)
+			gl.framebufferRenderbuffer(
+				gl.FRAMEBUFFER,
+				gl.DEPTH_ATTACHMENT,
+				gl.RENDERBUFFER,
+				depthRenderbuffer,
+			)
+			if (
+				gl.checkFramebufferStatus(gl.FRAMEBUFFER) !==
+				gl.FRAMEBUFFER_COMPLETE
+			) {
+				throw new Error(
+					"Rendering to this texture is not supported (incomplete this.framebuffer)",
+				)
 			}
 		} else if (prevFramebuffer !== this.framebuffer) {
 			gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebuffer)
@@ -169,8 +223,14 @@ export class Texture {
 		render(gl)
 
 		// restore previous state
-		prevFramebuffer !== this.framebuffer && gl.bindFramebuffer(gl.FRAMEBUFFER, prevFramebuffer)
-		gl.viewport(prevViewport[0], prevViewport[1], prevViewport[2], prevViewport[3])
+		prevFramebuffer !== this.framebuffer &&
+			gl.bindFramebuffer(gl.FRAMEBUFFER, prevFramebuffer)
+		gl.viewport(
+			prevViewport[0],
+			prevViewport[1],
+			prevViewport[2],
+			prevViewport[3],
+		)
 	}
 
 	swapWith(other: Texture): void {
@@ -201,7 +261,12 @@ export class Texture {
 		options: TextureOptions = {},
 		gl: TSGLContext = currentGL(),
 	): Texture {
-		const texture = new Texture(imgElement.width, imgElement.height, options, gl)
+		const texture = new Texture(
+			imgElement.width,
+			imgElement.height,
+			options,
+			gl,
+		)
 		try {
 			gl.texImage2D(
 				gl.TEXTURE_2D,
@@ -212,16 +277,22 @@ export class Texture {
 				imgElement,
 			)
 		} catch (e) {
-			if (location.protocol == 'file:') {
-				throw new Error('imgElement not loaded for security reasons (serve this page over "http://" instead)')
+			if (location.protocol == "file:") {
+				throw new Error(
+					'imgElement not loaded for security reasons (serve this page over "http://" instead)',
+				)
 			} else {
 				throw new Error(
-					'imgElement not loaded for security reasons (imgElement must originate from the same ' +
-						'domain as this page or use Cross-Origin Resource Sharing)',
+					"imgElement not loaded for security reasons (imgElement must originate from the same " +
+						"domain as this page or use Cross-Origin Resource Sharing)",
 				)
 			}
 		}
-		if (options.minFilter && options.minFilter != gl.NEAREST && options.minFilter != gl.LINEAR) {
+		if (
+			options.minFilter &&
+			options.minFilter != gl.NEAREST &&
+			options.minFilter != gl.LINEAR
+		) {
 			gl.generateMipmap(gl.TEXTURE_2D)
 		}
 		return texture
@@ -230,17 +301,21 @@ export class Texture {
 	/**
 	 * Returns a checkerboard texture that will switch to the correct texture when it loads.
 	 */
-	static fromURLSwitch(url: string, options?: TextureOptions, gl = currentGL()): Texture {
+	static fromURLSwitch(
+		url: string,
+		options?: TextureOptions,
+		gl = currentGL(),
+	): Texture {
 		Texture.checkerBoardCanvas =
 			Texture.checkerBoardCanvas ||
 			(function () {
-				const c = document.createElement('canvas').getContext('2d')
-				if (!c) throw new Error('Could not create 2d canvas.')
+				const c = document.createElement("canvas").getContext("2d")
+				if (!c) throw new Error("Could not create 2d canvas.")
 				c.canvas.width = c.canvas.height = 128
 				for (let y = 0; y < c.canvas.height; y += 16) {
 					for (let x = 0; x < c.canvas.width; x += 16) {
 						//noinspection JSBitwiseOperatorUsage
-						c.fillStyle = (x ^ y) & 16 ? '#FFF' : '#DDD'
+						c.fillStyle = (x ^ y) & 16 ? "#FFF" : "#DDD"
 						c.fillRect(x, y, 16, 16)
 					}
 				}
@@ -248,20 +323,26 @@ export class Texture {
 			})()
 		const texture = Texture.fromImage(Texture.checkerBoardCanvas, options)
 		const image = new Image()
-		image.onload = () => Texture.fromImage(image, options, gl).swapWith(texture)
+		image.onload = () =>
+			Texture.fromImage(image, options, gl).swapWith(texture)
 		// error event doesn't return a reason. Most likely a 404.
 		image.onerror = () => {
-			throw new Error('Could not load image ' + image.src + '. 404?')
+			throw new Error("Could not load image " + image.src + ". 404?")
 		}
 		image.src = url
 		return texture
 	}
 
-	static fromURL(url: string, options?: TextureOptions, gl = currentGL()): Promise<Texture> {
+	static fromURL(
+		url: string,
+		options?: TextureOptions,
+		gl = currentGL(),
+	): Promise<Texture> {
 		return new Promise((resolve, reject) => {
 			const image = new Image()
 			image.onload = () => resolve(Texture.fromImage(image, options, gl))
-			image.onerror = (ev) => reject('Could not load image ' + image.src + '. 404?' + ev)
+			image.onerror = (ev) =>
+				reject("Could not load image " + image.src + ". 404?" + ev)
 			image.src = url
 		})
 	}

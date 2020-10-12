@@ -1,6 +1,6 @@
 /// <reference types="webgl-strict-types" />
-import { assert, int, NLA_DEBUG, V3 } from 'ts3dutils'
-import { currentGL, TSGLContext } from './index'
+import { assert, int, NLA_DEBUG, V3 } from "ts3dutils"
+import { currentGL, TSGLContext } from "./index"
 
 import GL = WebGLRenderingContextStrict
 const WGL = (WebGLRenderingContext as any) as WebGLRenderingContextStrict.Constants
@@ -21,7 +21,7 @@ export class Buffer {
 
 	maxValue?: number
 
-	bindSize: GL['UNSIGNED_INT'] | GL['UNSIGNED_SHORT']
+	bindSize: GL["UNSIGNED_INT"] | GL["UNSIGNED_SHORT"]
 
 	/**
 	 * Provides a simple method of uploading data to a GPU buffer.
@@ -41,15 +41,18 @@ export class Buffer {
 	 */
 	constructor(
 		public readonly target: GL.BufferTarget,
-		public readonly type: typeof Float32Array | typeof Uint16Array | typeof Uint32Array,
+		public readonly type:
+			| typeof Float32Array
+			| typeof Uint16Array
+			| typeof Uint32Array,
 	) {
 		assert(
 			target == WGL.ARRAY_BUFFER || target == WGL.ELEMENT_ARRAY_BUFFER,
-			'target == WGL.ARRAY_BUFFER || target == WGL.ELEMENT_ARRAY_BUFFER',
+			"target == WGL.ARRAY_BUFFER || target == WGL.ELEMENT_ARRAY_BUFFER",
 		)
 		assert(
 			type == Float32Array || type == Uint16Array || type == Uint32Array,
-			'type == Float32Array || type == Uint16Array || type == Uint32Array',
+			"type == Float32Array || type == Uint16Array || type == Uint32Array",
 		)
 		if (Uint16Array == type) {
 			this.bindSize = WGL.UNSIGNED_SHORT
@@ -68,20 +71,26 @@ export class Buffer {
 	 *
 	 * @param usage Either `WGL.STATIC_DRAW` or `WGL.DYNAMIC_DRAW`. Defaults to `WGL.STATIC_DRAW`
 	 */
-	compile(usage: GL.BufferDataUsage = WGL.STATIC_DRAW, gl: TSGLContext = currentGL()): void {
+	compile(
+		usage: GL.BufferDataUsage = WGL.STATIC_DRAW,
+		gl: TSGLContext = currentGL(),
+	): void {
 		assert(
 			WGL.STATIC_DRAW == usage || WGL.DYNAMIC_DRAW == usage,
-			'WGL.STATIC_DRAW == type || WGL.DYNAMIC_DRAW == type',
+			"WGL.STATIC_DRAW == type || WGL.DYNAMIC_DRAW == type",
 		)
 		this.buffer = this.buffer || gl.createBuffer()!
 		let buffer: Float32Array | Uint16Array | Uint32Array
 		if (this.data.length == 0) {
-			console.warn('empty buffer ' + this.name)
+			console.warn("empty buffer " + this.name)
 			//console.trace()
 		}
 		if (this.data.length == 0 || this.data[0] instanceof V3) {
 			assert(!(this.data[0] instanceof V3) || this.type == Float32Array)
-			V3.pack(this.data, (buffer = new this.type(this.data.length * 3) as Float32Array)) // asserts that all
+			V3.pack(
+				this.data,
+				(buffer = new this.type(this.data.length * 3) as Float32Array),
+			) // asserts that all
 			// elements are V3s
 			this.spacing = 3
 			this.count = this.data.length
@@ -105,8 +114,14 @@ export class Buffer {
 				buffer = new this.type(this.data)
 			}
 
-			const spacing = this.data.length ? buffer.length / this.data.length : 0
-			assert(spacing % 1 == 0, `buffer ${this.name} elements not of consistent size, average size is ` + spacing)
+			const spacing = this.data.length
+				? buffer.length / this.data.length
+				: 0
+			assert(
+				spacing % 1 == 0,
+				`buffer ${this.name} elements not of consistent size, average size is ` +
+					spacing,
+			)
 			if (NLA_DEBUG) {
 				if (10000 <= buffer.length) {
 					this.maxValue = 0

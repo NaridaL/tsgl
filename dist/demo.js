@@ -5796,8 +5796,8 @@ var demo = (function (exports) {
             /** Space between elements in buffer. 3 for V3s. */
             this.spacing = 1;
             this.hasBeenCompiled = false;
-            assert(target == WGL.ARRAY_BUFFER || target == WGL.ELEMENT_ARRAY_BUFFER, 'target == WGL.ARRAY_BUFFER || target == WGL.ELEMENT_ARRAY_BUFFER');
-            assert(type == Float32Array || type == Uint16Array || type == Uint32Array, 'type == Float32Array || type == Uint16Array || type == Uint32Array');
+            assert(target == WGL.ARRAY_BUFFER || target == WGL.ELEMENT_ARRAY_BUFFER, "target == WGL.ARRAY_BUFFER || target == WGL.ELEMENT_ARRAY_BUFFER");
+            assert(type == Float32Array || type == Uint16Array || type == Uint32Array, "type == Float32Array || type == Uint16Array || type == Uint32Array");
             if (Uint16Array == type) {
                 this.bindSize = WGL.UNSIGNED_SHORT;
             }
@@ -5816,11 +5816,11 @@ var demo = (function (exports) {
          * @param usage Either `WGL.STATIC_DRAW` or `WGL.DYNAMIC_DRAW`. Defaults to `WGL.STATIC_DRAW`
          */
         compile(usage = WGL.STATIC_DRAW, gl = currentGL()) {
-            assert(WGL.STATIC_DRAW == usage || WGL.DYNAMIC_DRAW == usage, 'WGL.STATIC_DRAW == type || WGL.DYNAMIC_DRAW == type');
+            assert(WGL.STATIC_DRAW == usage || WGL.DYNAMIC_DRAW == usage, "WGL.STATIC_DRAW == type || WGL.DYNAMIC_DRAW == type");
             this.buffer = this.buffer || gl.createBuffer();
             let buffer;
             if (this.data.length == 0) {
-                console.warn('empty buffer ' + this.name);
+                console.warn("empty buffer " + this.name);
                 //console.trace()
             }
             if (this.data.length == 0 || this.data[0] instanceof V3) {
@@ -5849,8 +5849,11 @@ var demo = (function (exports) {
                 else {
                     buffer = new this.type(this.data);
                 }
-                const spacing = this.data.length ? buffer.length / this.data.length : 0;
-                assert(spacing % 1 == 0, `buffer ${this.name} elements not of consistent size, average size is ` + spacing);
+                const spacing = this.data.length
+                    ? buffer.length / this.data.length
+                    : 0;
+                assert(spacing % 1 == 0, `buffer ${this.name} elements not of consistent size, average size is ` +
+                    spacing);
                 {
                     if (10000 <= buffer.length) {
                         this.maxValue = 0;
@@ -5885,7 +5888,7 @@ var demo = (function (exports) {
             this.hasBeenCompiled = false;
             this.vertexBuffers = {};
             this.indexBuffers = {};
-            this.addVertexBuffer('vertices', 'ts_Vertex');
+            this.addVertexBuffer("vertices", "ts_Vertex");
         }
         /**
          * Calculate area, volume and centroid of the mesh.
@@ -5934,7 +5937,11 @@ var demo = (function (exports) {
             const volume = totalVolumeX2 / 2;
             return {
                 volume,
-                centroid: eq0(volume) ? V3.O : totalCentroidWithZX2.div(24 * volume).schur(new V3(1, 1, 0.5)),
+                centroid: eq0(volume)
+                    ? V3.O
+                    : totalCentroidWithZX2
+                        .div(24 * volume)
+                        .schur(new V3(1, 1, 0.5)),
                 area: totalAreaX2 / 2,
             };
         }
@@ -5944,11 +5951,11 @@ var demo = (function (exports) {
          * @example new Mesh().addVertexBuffer('coords', 'ts_TexCoord')
          */
         addVertexBuffer(name, attribute) {
-            assert(!this.vertexBuffers[attribute], 'Buffer ' + attribute + ' already exists.');
+            assert(!this.vertexBuffers[attribute], "Buffer " + attribute + " already exists.");
             //assert(!this[name])
             this.hasBeenCompiled = false;
-            assert('string' == typeof name);
-            assert('string' == typeof attribute);
+            assert("string" == typeof name);
+            assert("string" == typeof attribute);
             const buffer = (this.vertexBuffers[attribute] = new Buffer(WGL$1.ARRAY_BUFFER, Float32Array));
             buffer.name = name;
             this[name] = [];
@@ -5973,7 +5980,7 @@ var demo = (function (exports) {
             Object.getOwnPropertyNames(this.vertexBuffers).forEach((attribute) => {
                 assert(others.every((other) => !!other.vertexBuffers[attribute]));
                 const bufferName = this.vertexBuffers[attribute].name;
-                if ('ts_Vertex' !== attribute) {
+                if ("ts_Vertex" !== attribute) {
                     result.addVertexBuffer(bufferName, attribute);
                 }
                 result[bufferName] = [].concat(...allMeshes.map((mesh) => mesh[bufferName]));
@@ -6028,7 +6035,7 @@ var demo = (function (exports) {
         static fromBinarySTL(stl) {
             return __awaiter(this, void 0, void 0, function* () {
                 return new Promise((resolve, reject) => {
-                    const mesh = new Mesh().addVertexBuffer('normals', 'ts_Normal');
+                    const mesh = new Mesh().addVertexBuffer("normals", "ts_Normal");
                     const fileReader = new FileReader();
                     fileReader.onerror = reject;
                     fileReader.onload = function (_progressEvent) {
@@ -6066,11 +6073,13 @@ var demo = (function (exports) {
         }
         toBinarySTL() {
             if (!this.TRIANGLES)
-                throw new Error('TRIANGLES must be defined.');
+                throw new Error("TRIANGLES must be defined.");
             const HEADER_BYTE_SIZE = 80, FLOAT_BYTE_SIZE = 4;
             const triangles = this.TRIANGLES;
             const triangleCount = triangles.length / 3;
-            const buffer = new ArrayBuffer(HEADER_BYTE_SIZE + 4 + triangleCount * (4 * 3 * FLOAT_BYTE_SIZE + 2));
+            const buffer = new ArrayBuffer(HEADER_BYTE_SIZE +
+                4 +
+                triangleCount * (4 * 3 * FLOAT_BYTE_SIZE + 2));
             const dataView = new DataView(buffer);
             dataView.setUint32(HEADER_BYTE_SIZE, triangleCount, true);
             let bufferPtr = HEADER_BYTE_SIZE + 4;
@@ -6090,8 +6099,8 @@ var demo = (function (exports) {
                 // skip 2 bytes, already initalized to zero
                 bufferPtr += 2;
             }
-            assert(bufferPtr == buffer.byteLength, bufferPtr + ' ' + buffer.byteLength);
-            return new Blob([buffer], { type: 'application/octet-stream' });
+            assert(bufferPtr == buffer.byteLength, bufferPtr + " " + buffer.byteLength);
+            return new Blob([buffer], { type: "application/octet-stream" });
         }
         /**
          * Returns a new Mesh with transformed vertices.
@@ -6104,8 +6113,11 @@ var demo = (function (exports) {
             const mesh = new Mesh();
             mesh.vertices = m4.transformedPoints(this.vertices);
             if (this.normals) {
-                mesh.addVertexBuffer('normals', 'ts_Normal');
-                const invTrans = m4.as3x3(tempM4_1).inversed(tempM4_2).transposed(tempM4_1);
+                mesh.addVertexBuffer("normals", "ts_Normal");
+                const invTrans = m4
+                    .as3x3(tempM4_1)
+                    .inversed(tempM4_2)
+                    .transposed(tempM4_1);
                 mesh.normals = this.normals.map((n) => invTrans.transformVector(n).unit());
                 // mesh.normals.forEach(n => assert(n.hasLength(1)))
             }
@@ -6114,7 +6126,7 @@ var demo = (function (exports) {
                 mesh[name] = this[name];
             }
             for (const attribute in this.vertexBuffers) {
-                if ('ts_Vertex' !== attribute && 'ts_Normal' !== attribute) {
+                if ("ts_Vertex" !== attribute && "ts_Normal" !== attribute) {
                     const name = this.vertexBuffers[attribute].name;
                     mesh.addVertexBuffer(name, attribute);
                     mesh[name] = this[name];
@@ -6129,7 +6141,7 @@ var demo = (function (exports) {
          */
         computeNormalsFromFlatTriangles() {
             if (!this.normals)
-                this.addVertexBuffer('normals', 'ts_Normal');
+                this.addVertexBuffer("normals", "ts_Normal");
             // tslint:disable:no-string-literal
             //this.vertexBuffers['ts_Normal'].data = arrayFromFunction(this.vertices.length, i => V3.O)
             const TRIANGLES = this.TRIANGLES, vertices = this.vertices, normals = this.normals;
@@ -6150,9 +6162,9 @@ var demo = (function (exports) {
             this.hasBeenCompiled = false;
             return this;
         }
-        computeWireframeFromFlatTriangles(indexBufferName = 'LINES') {
+        computeWireframeFromFlatTriangles(indexBufferName = "LINES") {
             if (!this.TRIANGLES)
-                throw new Error('TRIANGLES must be defined.');
+                throw new Error("TRIANGLES must be defined.");
             const canonEdges = new Set();
             function canonEdge(i0, i1) {
                 const iMin = min$1(i0, i1), iMax = max$2(i0, i1);
@@ -6175,11 +6187,11 @@ var demo = (function (exports) {
             this.hasBeenCompiled = false;
             return this;
         }
-        computeWireframeFromFlatTrianglesClosedMesh(indexBufferName = 'LINES') {
+        computeWireframeFromFlatTrianglesClosedMesh(indexBufferName = "LINES") {
             if (!this.TRIANGLES)
-                throw new Error('TRIANGLES must be defined.');
+                throw new Error("TRIANGLES must be defined.");
             if (!this.LINES)
-                this.addIndexBuffer('LINES');
+                this.addIndexBuffer("LINES");
             const tris = this.TRIANGLES;
             if (!this[indexBufferName])
                 this.addIndexBuffer(indexBufferName);
@@ -6195,9 +6207,9 @@ var demo = (function (exports) {
             this.hasBeenCompiled = false;
             return this;
         }
-        computeNormalLines(length = 1, indexBufferName = 'LINES') {
+        computeNormalLines(length = 1, indexBufferName = "LINES") {
             if (!this.normals) {
-                throw new Error('normals must be defined.');
+                throw new Error("normals must be defined.");
             }
             const vs = this.vertices, si = this.vertices.length;
             if (!this[indexBufferName])
@@ -6240,10 +6252,10 @@ var demo = (function (exports) {
             const width = options.width || 1;
             const height = options.height || 1;
             const mesh = new Mesh()
-                .addIndexBuffer('LINES')
-                .addIndexBuffer('TRIANGLES')
-                .addVertexBuffer('normals', 'ts_Normal')
-                .addVertexBuffer('coords', 'ts_TexCoord');
+                .addIndexBuffer("LINES")
+                .addIndexBuffer("TRIANGLES")
+                .addVertexBuffer("normals", "ts_Normal")
+                .addVertexBuffer("coords", "ts_TexCoord");
             for (let j = 0; j <= detailY; j++) {
                 const t = j / detailY;
                 for (let i = 0; i <= detailX; i++) {
@@ -6270,12 +6282,16 @@ var demo = (function (exports) {
         }
         static box(xDetail = 1, yDetail = 1, zDetail = 1) {
             const mesh = new Mesh()
-                .addIndexBuffer('LINES')
-                .addIndexBuffer('TRIANGLES')
-                .addVertexBuffer('normals', 'ts_Normal');
+                .addIndexBuffer("LINES")
+                .addIndexBuffer("TRIANGLES")
+                .addVertexBuffer("normals", "ts_Normal");
             mesh.vertices.length = mesh.normals.length =
-                2 * ((xDetail + 1) * (yDetail + 1) + (yDetail + 1) * (zDetail + 1) + (zDetail + 1) * (xDetail + 1));
-            mesh.TRIANGLES.length = 4 * (xDetail * yDetail + yDetail * zDetail + zDetail * xDetail);
+                2 *
+                    ((xDetail + 1) * (yDetail + 1) +
+                        (yDetail + 1) * (zDetail + 1) +
+                        (zDetail + 1) * (xDetail + 1));
+            mesh.TRIANGLES.length =
+                4 * (xDetail * yDetail + yDetail * zDetail + zDetail * xDetail);
             let vi = 0, ti = 0;
             function x(detailX, detailY, m, startX = 0, width = 1, startY = 0, height = 1) {
                 const normal = m.transformVector(V3.Z);
@@ -6313,9 +6329,9 @@ var demo = (function (exports) {
          */
         static cube() {
             const mesh = new Mesh()
-                .addVertexBuffer('normals', 'ts_Normal')
-                .addIndexBuffer('TRIANGLES')
-                .addIndexBuffer('LINES');
+                .addVertexBuffer("normals", "ts_Normal")
+                .addIndexBuffer("TRIANGLES")
+                .addIndexBuffer("LINES");
             // basically indexes for faces of the cube. vertices each need to be added 3 times,
             // as they have different normals depending on the face being rendered
             const VERTEX_CORNERS = [
@@ -6326,7 +6342,14 @@ var demo = (function (exports) {
                 [0, 2, 3, 1],
                 [4, 5, 7, 6],
             ];
-            const VERTEX_NORMALS = [V3.X.negated(), V3.X, V3.Y.negated(), V3.Y, V3.Z.negated(), V3.Z];
+            const VERTEX_NORMALS = [
+                V3.X.negated(),
+                V3.X,
+                V3.Y.negated(),
+                V3.Y,
+                V3.Z.negated(),
+                V3.Z,
+            ];
             for (let i = 0; i < 6; i++) {
                 pushQuad(mesh.TRIANGLES, true, mesh.vertices.length, mesh.vertices.length + 1, mesh.vertices.length + 3, mesh.vertices.length + 2);
                 mesh.vertices.push(...VERTEX_CORNERS[i].map((j) => Mesh.UNIT_CUBE_CORNERS[j]));
@@ -6451,9 +6474,9 @@ var demo = (function (exports) {
                 }
             }
             const mesh = new Mesh()
-                .addVertexBuffer('normals', 'ts_Normal')
-                .addIndexBuffer('TRIANGLES')
-                .addIndexBuffer('LINES');
+                .addVertexBuffer("normals", "ts_Normal")
+                .addIndexBuffer("TRIANGLES")
+                .addIndexBuffer("LINES");
             mesh.vertices.push(...vertices);
             subdivisions = undefined == subdivisions ? 4 : subdivisions;
             for (let i = 0; i < 20; i++) {
@@ -6465,7 +6488,9 @@ var demo = (function (exports) {
             return mesh;
         }
         static aabb(aabb) {
-            const matrix = M4.product(M4.translate(aabb.min), M4.scale(aabb.size().max(new V3(NLA_PRECISION, NLA_PRECISION, NLA_PRECISION))));
+            const matrix = M4.product(M4.translate(aabb.min), M4.scale(aabb
+                .size()
+                .max(new V3(NLA_PRECISION, NLA_PRECISION, NLA_PRECISION))));
             const mesh = Mesh.cube().transform(matrix);
             // mesh.vertices = aabb.corners()
             mesh.computeNormalLines(20);
@@ -6475,11 +6500,16 @@ var demo = (function (exports) {
         static offsetVertices(vertices, offset, close, normals) {
             assertVectors.apply(undefined, vertices);
             assertVectors(offset);
-            const mesh = new Mesh().addIndexBuffer('TRIANGLES').addVertexBuffer('coords', 'ts_TexCoord');
-            normals && mesh.addVertexBuffer('normals', 'ts_Normal');
+            const mesh = new Mesh()
+                .addIndexBuffer("TRIANGLES")
+                .addVertexBuffer("coords", "ts_TexCoord");
+            normals && mesh.addVertexBuffer("normals", "ts_Normal");
             mesh.vertices = vertices.concat(vertices.map((v) => v.plus(offset)));
             const vl = vertices.length;
-            mesh.coords = arrayFromFunction(vl * 2, (i) => [(i % vl) / vl, (i / vl) | 0]);
+            mesh.coords = arrayFromFunction(vl * 2, (i) => [
+                (i % vl) / vl,
+                (i / vl) | 0,
+            ]);
             const triangles = mesh.TRIANGLES;
             for (let i = 0; i < vertices.length - 1; i++) {
                 pushQuad(triangles, false, i, i + 1, vertices.length + i, vertices.length + i + 1);
@@ -6499,9 +6529,9 @@ var demo = (function (exports) {
         // these will also be rotated and correctly added to the mesh.
         // @example const precious = Mesh.rotation([V(10, 0, -2), V(10, 0, 2), V(11, 0, 2), V(11, 0, -2)], , L3.Z, 512)
         static rotation(vertices, lineAxis, totalRads, steps, close = true, normals, vqs) {
-            const mesh = new Mesh().addIndexBuffer('TRIANGLES');
-            normals && mesh.addVertexBuffer('normals', 'ts_Normal');
-            vqs && mesh.addVertexBuffer('coordsUVQ', 'ts_TexCoordUVQ');
+            const mesh = new Mesh().addIndexBuffer("TRIANGLES");
+            normals && mesh.addVertexBuffer("normals", "ts_Normal");
+            vqs && mesh.addVertexBuffer("coordsUVQ", "ts_TexCoordUVQ");
             const vc = vertices.length, vTotal = vc * steps;
             const rotMat = new M4();
             const triangles = mesh.TRIANGLES;
@@ -6512,7 +6542,11 @@ var demo = (function (exports) {
                 mesh.vertices.push(...rotMat.transformedPoints(vertices));
                 normals && mesh.normals.push(...rotMat.transformedVectors(normals));
                 vqs &&
-                    mesh.coordsUVQ.push(...vqs.map(([v, q]) => [(i / steps) * q, v, q]));
+                    mesh.coordsUVQ.push(...vqs.map(([v, q]) => [
+                        (i / steps) * q,
+                        v,
+                        q,
+                    ]));
                 if (close || i !== steps - 1) {
                     for (let j = 0; j < vc - 1; j++) {
                         pushQuad(triangles, false, i * vc + j + 1, i * vc + j, ((i + 1) * vc + j + 1) % vTotal, ((i + 1) * vc + j) % vTotal);
@@ -6523,9 +6557,9 @@ var demo = (function (exports) {
             return mesh;
         }
         static spiral(vertices, lineAxis, totalRads, steps, gradient, normals, vqs) {
-            const mesh = new Mesh().addIndexBuffer('TRIANGLES');
-            normals && mesh.addVertexBuffer('normals', 'ts_Normal');
-            vqs && mesh.addVertexBuffer('coordsUVQ', 'ts_TexCoordUVQ');
+            const mesh = new Mesh().addIndexBuffer("TRIANGLES");
+            normals && mesh.addVertexBuffer("normals", "ts_Normal");
+            vqs && mesh.addVertexBuffer("coordsUVQ", "ts_TexCoordUVQ");
             const vc = vertices.length, vTotal = vc * steps;
             const rotMat = new M4();
             const triangles = mesh.TRIANGLES;
@@ -6538,7 +6572,11 @@ var demo = (function (exports) {
                     .transformedPoints(vertices));
                 normals && mesh.normals.push(...rotMat.transformedVectors(normals));
                 vqs &&
-                    mesh.coordsUVQ.push(...vqs.map(([v, q]) => [(i / steps) * q, v, q]));
+                    mesh.coordsUVQ.push(...vqs.map(([v, q]) => [
+                        (i / steps) * q,
+                        v,
+                        q,
+                    ]));
                 if (i !== steps - 1) {
                     for (let j = 0; j < vc - 1; j++) {
                         pushQuad(triangles, false, i * vc + j + 1, i * vc + j, ((i + 1) * vc + j + 1) % vTotal, ((i + 1) * vc + j) % vTotal);
@@ -6549,7 +6587,9 @@ var demo = (function (exports) {
             return mesh;
         }
         static parametric(pF, pN, sMin, sMax, tMin, tMax, sRes, tRes) {
-            const mesh = new Mesh().addIndexBuffer('TRIANGLES').addVertexBuffer('normals', 'ts_Normal');
+            const mesh = new Mesh()
+                .addIndexBuffer("TRIANGLES")
+                .addVertexBuffer("normals", "ts_Normal");
             for (let si = 0; si <= sRes; si++) {
                 const s = lerp(sMin, sMax, si / sRes);
                 for (let ti = 0; ti <= tRes; ti++) {
@@ -6573,11 +6613,11 @@ var demo = (function (exports) {
                 throw new Error();
             }
             if (json.triangles) {
-                mesh.addIndexBuffer('TRIANGLES');
+                mesh.addIndexBuffer("TRIANGLES");
                 mesh.TRIANGLES = json.triangles;
             }
             if (json.normals) {
-                mesh.addVertexBuffer('normals', 'ts_Normal');
+                mesh.addVertexBuffer("normals", "ts_Normal");
                 mesh.normals = json.normals;
             }
             mesh.compile();
@@ -6617,13 +6657,13 @@ var demo = (function (exports) {
      * These are all the draw modes usable in OpenGL ES
      */
     const DRAW_MODE_NAMES = {
-        [WGL$2.POINTS]: 'POINTS',
-        [WGL$2.LINES]: 'LINES',
-        [WGL$2.LINE_STRIP]: 'LINE_STRIP',
-        [WGL$2.LINE_LOOP]: 'LINE_LOOP',
-        [WGL$2.TRIANGLES]: 'TRIANGLES',
-        [WGL$2.TRIANGLE_STRIP]: 'TRIANGLE_STRIP',
-        [WGL$2.TRIANGLE_FAN]: 'TRIANGLE_FAN',
+        [WGL$2.POINTS]: "POINTS",
+        [WGL$2.LINES]: "LINES",
+        [WGL$2.LINE_STRIP]: "LINE_STRIP",
+        [WGL$2.LINE_LOOP]: "LINE_LOOP",
+        [WGL$2.TRIANGLES]: "TRIANGLES",
+        [WGL$2.TRIANGLE_STRIP]: "TRIANGLE_STRIP",
+        [WGL$2.TRIANGLE_FAN]: "TRIANGLE_FAN",
     };
     const DRAW_MODE_CHECKS = {
         [WGL$2.POINTS]: (_) => true,
@@ -6637,13 +6677,23 @@ var demo = (function (exports) {
     function isFloatArray(obj) {
         return (Float32Array == obj.constructor ||
             Float64Array == obj.constructor ||
-            (Array.isArray(obj) && obj.every((x) => 'number' == typeof x)));
+            (Array.isArray(obj) && obj.every((x) => "number" == typeof x)));
     }
     function isIntArray(x) {
-        if ([Int8Array, Uint8Array, Uint8ClampedArray, Int16Array, Uint16Array, Int32Array, Uint32Array].some((y) => x instanceof y)) {
+        if ([
+            Int8Array,
+            Uint8Array,
+            Uint8ClampedArray,
+            Int16Array,
+            Uint16Array,
+            Int32Array,
+            Uint32Array,
+        ].some((y) => x instanceof y)) {
             return true;
         }
-        return ((x instanceof Float32Array || x instanceof Float64Array || Array.isArray(x)) &&
+        return ((x instanceof Float32Array ||
+            x instanceof Float64Array ||
+            Array.isArray(x)) &&
             x.every((x) => Number.isInteger(x)));
     }
     //const x:UniformTypes = undefined as 'FLOAT_VEC4' | 'FLOAT_VEC3'
@@ -6697,7 +6747,7 @@ var demo = (function (exports) {
                 gl.shaderSource(shader, source);
                 gl.compileShader(shader);
                 if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-                    throw new Error('compile error: ' + gl.getShaderInfoLog(shader));
+                    throw new Error("compile error: " + gl.getShaderInfoLog(shader));
                 }
                 return shader;
             }
@@ -6707,7 +6757,7 @@ var demo = (function (exports) {
             gl.attachShader(this.program, compileSource(gl.FRAGMENT_SHADER, fragmentSource));
             gl.linkProgram(this.program);
             if (!gl.getProgramParameter(this.program, gl.LINK_STATUS)) {
-                throw new Error('link error: ' + gl.getProgramInfoLog(this.program));
+                throw new Error("link error: " + gl.getProgramInfoLog(this.program));
             }
             this.attributeLocations = {};
             this.uniformLocations = {};
@@ -6741,7 +6791,8 @@ var demo = (function (exports) {
             const gl = this.gl;
             gl.useProgram(this.program);
             for (const name in uniforms) {
-                const location = this.uniformLocations[name] || gl.getUniformLocation(this.program, name);
+                const location = this.uniformLocations[name] ||
+                    gl.getUniformLocation(this.program, name);
                 // !location && console.warn(name + ' uniform is not used in shader')
                 if (!location)
                     continue;
@@ -6750,31 +6801,44 @@ var demo = (function (exports) {
                 const info = this.uniformInfos[name];
                 {
                     if (!info) {
-                        throw new Error(`uniform ${name} is not defined (available = ${Object.keys(this.uniformInfos).join(',')})`);
+                        throw new Error(`uniform ${name} is not defined (available = ${Object.keys(this.uniformInfos).join(",")})`);
                     }
                     // TODO: better errors
-                    if (gl.SAMPLER_2D == info.type || gl.SAMPLER_CUBE == info.type || gl.INT == info.type) {
+                    if (gl.SAMPLER_2D == info.type ||
+                        gl.SAMPLER_CUBE == info.type ||
+                        gl.INT == info.type) {
                         if (1 == info.size) {
                             assert(Number.isInteger(value));
                         }
                         else {
-                            assert(isIntArray(value) && value.length == info.size, 'value must be int array if info.size != 1');
+                            assert(isIntArray(value) && value.length == info.size, "value must be int array if info.size != 1");
                         }
                     }
-                    assert(gl.FLOAT != info.type || (1 == info.size && 'number' === typeof value) || isFloatArray(value));
+                    assert(gl.FLOAT != info.type ||
+                        (1 == info.size && "number" === typeof value) ||
+                        isFloatArray(value));
                     assert(gl.FLOAT_VEC3 != info.type ||
                         (1 == info.size && value instanceof V3) ||
-                        (Array.isArray(value) && info.size == value.length && assertVectors(...value)));
-                    assert(gl.FLOAT_VEC4 != info.type || 1 != info.size || (isFloatArray(value) && value.length == 4));
+                        (Array.isArray(value) &&
+                            info.size == value.length &&
+                            assertVectors(...value)));
+                    assert(gl.FLOAT_VEC4 != info.type ||
+                        1 != info.size ||
+                        (isFloatArray(value) && value.length == 4));
                     assert(gl.FLOAT_MAT4 != info.type || value instanceof M4, () => value.toSource());
-                    assert(gl.FLOAT_MAT3 != info.type || value.length == 9 || value instanceof M4);
+                    assert(gl.FLOAT_MAT3 != info.type ||
+                        value.length == 9 ||
+                        value instanceof M4);
                 }
                 if (value instanceof V3) {
                     value = value.toArray();
                 }
                 if (gl.FLOAT_VEC4 == info.type && info.size != 1) {
-                    if (value instanceof Float32Array || value instanceof Float64Array) {
-                        gl.uniform4fv(location, value instanceof Float32Array ? value : Float32Array.from(value));
+                    if (value instanceof Float32Array ||
+                        value instanceof Float64Array) {
+                        gl.uniform4fv(location, value instanceof Float32Array
+                            ? value
+                            : Float32Array.from(value));
                     }
                     else {
                         gl.uniform4fv(location, value.flatMap((x) => x));
@@ -6820,18 +6884,23 @@ var demo = (function (exports) {
                             ]));
                             break;
                         default:
-                            throw new Error('don\'t know how to load uniform "' + name + '" of length ' + value.length);
+                            throw new Error("don't know how to load uniform \"" +
+                                name +
+                                '" of length ' +
+                                value.length);
                     }
                 }
-                else if ('number' == typeof value) {
-                    if (gl.SAMPLER_2D == info.type || gl.SAMPLER_CUBE == info.type || gl.INT == info.type) {
+                else if ("number" == typeof value) {
+                    if (gl.SAMPLER_2D == info.type ||
+                        gl.SAMPLER_CUBE == info.type ||
+                        gl.INT == info.type) {
                         gl.uniform1i(location, value);
                     }
                     else {
                         gl.uniform1f(location, value);
                     }
                 }
-                else if ('boolean' == typeof value) {
+                else if ("boolean" == typeof value) {
                     gl.uniform1i(location, +value);
                 }
                 else if (value instanceof M4) {
@@ -6865,7 +6934,10 @@ var demo = (function (exports) {
                     }
                 }
                 else {
-                    throw new Error('attempted to set uniform "' + name + '" to invalid value ' + value);
+                    throw new Error('attempted to set uniform "' +
+                        name +
+                        '" to invalid value ' +
+                        value);
                 }
             }
             return this;
@@ -6874,9 +6946,10 @@ var demo = (function (exports) {
             const gl = this.gl;
             gl.useProgram(this.program);
             for (const name in attributes) {
-                const location = this.attributeLocations[name] || gl.getAttribLocation(this.program, name);
+                const location = this.attributeLocations[name] ||
+                    gl.getAttribLocation(this.program, name);
                 if (location == -1) {
-                    if (!name.startsWith('ts_')) {
+                    if (!name.startsWith("ts_")) {
                         console.warn(`Vertex buffer ${name} was not bound because the attribute is not active.`);
                     }
                     continue;
@@ -6888,7 +6961,7 @@ var demo = (function (exports) {
                     // TODO: figure out the types here...
                     value = value.toArray();
                 }
-                if ('number' === typeof value) {
+                if ("number" === typeof value) {
                     gl.vertexAttrib1f(location, value);
                 }
                 else {
@@ -6923,7 +6996,7 @@ var demo = (function (exports) {
          * @param count int
          */
         draw(mesh, mode = WGL$2.TRIANGLES, start, count) {
-            assert(mesh.hasBeenCompiled, 'mesh.hasBeenCompiled');
+            assert(mesh.hasBeenCompiled, "mesh.hasBeenCompiled");
             assert(undefined != DRAW_MODE_NAMES[mode]);
             const modeName = DRAW_MODE_NAMES[mode];
             // assert(mesh.indexBuffers[modeStr], `mesh.indexBuffers[${modeStr}] undefined`)
@@ -6944,32 +7017,36 @@ var demo = (function (exports) {
             Object.keys(vertexBuffers).forEach((key) => assertInst(Buffer, vertexBuffers[key]));
             // Only varruct up the built-in matrices that are active in the shader
             const on = this.activeMatrices;
-            const modelViewMatrixInverse = (on['ts_ModelViewMatrixInverse'] || on['ts_NormalMatrix']) &&
+            const modelViewMatrixInverse = (on["ts_ModelViewMatrixInverse"] || on["ts_NormalMatrix"]) &&
                 //&& this.modelViewMatrixVersion != gl.modelViewMatrixVersion
                 gl.modelViewMatrix.inversed();
-            const projectionMatrixInverse = on['ts_ProjectionMatrixInverse'] &&
+            const projectionMatrixInverse = on["ts_ProjectionMatrixInverse"] &&
                 //&& this.projectionMatrixVersion != gl.projectionMatrixVersion
                 gl.projectionMatrix.inversed();
-            const modelViewProjectionMatrix = (on['ts_ModelViewProjectionMatrix'] || on['ts_ModelViewProjectionMatrixInverse']) &&
+            const modelViewProjectionMatrix = (on["ts_ModelViewProjectionMatrix"] ||
+                on["ts_ModelViewProjectionMatrixInverse"]) &&
                 //&& (this.projectionMatrixVersion != gl.projectionMatrixVersion || this.modelViewMatrixVersion !=
                 // gl.modelViewMatrixVersion)
                 gl.projectionMatrix.times(gl.modelViewMatrix);
             const uni = {}; // Uniform Matrices
-            on['ts_ModelViewMatrix'] &&
+            on["ts_ModelViewMatrix"] &&
                 this.modelViewMatrixVersion != gl.modelViewMatrixVersion &&
-                (uni['ts_ModelViewMatrix'] = gl.modelViewMatrix);
-            on['ts_ModelViewMatrixInverse'] && (uni['ts_ModelViewMatrixInverse'] = modelViewMatrixInverse);
-            on['ts_ProjectionMatrix'] &&
+                (uni["ts_ModelViewMatrix"] = gl.modelViewMatrix);
+            on["ts_ModelViewMatrixInverse"] &&
+                (uni["ts_ModelViewMatrixInverse"] = modelViewMatrixInverse);
+            on["ts_ProjectionMatrix"] &&
                 this.projectionMatrixVersion != gl.projectionMatrixVersion &&
-                (uni['ts_ProjectionMatrix'] = gl.projectionMatrix);
-            projectionMatrixInverse && (uni['ts_ProjectionMatrixInverse'] = projectionMatrixInverse);
-            modelViewProjectionMatrix && (uni['ts_ModelViewProjectionMatrix'] = modelViewProjectionMatrix);
+                (uni["ts_ProjectionMatrix"] = gl.projectionMatrix);
+            projectionMatrixInverse &&
+                (uni["ts_ProjectionMatrixInverse"] = projectionMatrixInverse);
             modelViewProjectionMatrix &&
-                on['ts_ModelViewProjectionMatrixInverse'] &&
-                (uni['ts_ModelViewProjectionMatrixInverse'] = modelViewProjectionMatrix.inversed());
-            on['ts_NormalMatrix'] &&
+                (uni["ts_ModelViewProjectionMatrix"] = modelViewProjectionMatrix);
+            modelViewProjectionMatrix &&
+                on["ts_ModelViewProjectionMatrixInverse"] &&
+                (uni["ts_ModelViewProjectionMatrixInverse"] = modelViewProjectionMatrix.inversed());
+            on["ts_NormalMatrix"] &&
                 this.modelViewMatrixVersion != gl.modelViewMatrixVersion &&
-                (uni['ts_NormalMatrix'] = modelViewMatrixInverse.transposed());
+                (uni["ts_NormalMatrix"] = modelViewMatrixInverse.transposed());
             this.uniforms(uni);
             this.projectionMatrixVersion = gl.projectionMatrixVersion;
             this.modelViewMatrixVersion = gl.modelViewMatrixVersion;
@@ -6978,9 +7055,10 @@ var demo = (function (exports) {
             for (const attribute in vertexBuffers) {
                 const buffer = vertexBuffers[attribute];
                 assert(buffer.hasBeenCompiled);
-                const location = this.attributeLocations[attribute] || gl.getAttribLocation(this.program, attribute);
+                const location = this.attributeLocations[attribute] ||
+                    gl.getAttribLocation(this.program, attribute);
                 if (location == -1 || !buffer.buffer) {
-                    if (!attribute.startsWith('ts_')) {
+                    if (!attribute.startsWith("ts_")) {
                         console.warn(`Vertex buffer ${attribute} was not bound because the attribute is not active.`);
                     }
                     continue;
@@ -7003,9 +7081,12 @@ var demo = (function (exports) {
                     const buffer = gl.getVertexAttrib(i, gl.VERTEX_ATTRIB_ARRAY_BUFFER_BINDING);
                     if (!buffer) {
                         const info = gl.getActiveAttrib(this.program, i);
-                        if (!this.constantAttributes[info.name] && !this.outputWarnings[info.name]) {
+                        if (!this.constantAttributes[info.name] &&
+                            !this.outputWarnings[info.name]) {
                             this.outputWarnings[info.name] = true;
-                            console.warn('No buffer is bound to attribute ' + info.name + ' and it was not set with .attributes()');
+                            console.warn("No buffer is bound to attribute " +
+                                info.name +
+                                " and it was not set with .attributes()");
                         }
                     }
                     // console.log('name:', info.name, 'type:', info.type, 'size:', info.size)
@@ -7016,11 +7097,11 @@ var demo = (function (exports) {
                 if (undefined === count) {
                     count = indexBuffer ? indexBuffer.count : minVertexBufferLength;
                 }
-                assert(DRAW_MODE_CHECKS[mode](count), 'count ' +
+                assert(DRAW_MODE_CHECKS[mode](count), "count " +
                     count +
                     "doesn't fulfill requirement +" +
                     DRAW_MODE_CHECKS[mode].toString() +
-                    ' for mode ' +
+                    " for mode " +
                     DRAW_MODE_NAMES[mode]);
                 if (indexBuffer) {
                     assert(indexBuffer.hasBeenCompiled);
@@ -7028,11 +7109,11 @@ var demo = (function (exports) {
                     assert(count % indexBuffer.spacing == 0);
                     assert(start % indexBuffer.spacing == 0);
                     if (start + count > indexBuffer.count) {
-                        throw new Error('Buffer not long enough for passed parameters start/length/buffer length ' +
+                        throw new Error("Buffer not long enough for passed parameters start/length/buffer length " +
                             start +
-                            ' ' +
+                            " " +
                             count +
-                            ' ' +
+                            " " +
                             indexBuffer.count);
                     }
                     gl.bindBuffer(WGL$2.ELEMENT_ARRAY_BUFFER, indexBuffer.buffer);
@@ -7041,7 +7122,7 @@ var demo = (function (exports) {
                 }
                 else {
                     if (start + count > minVertexBufferLength) {
-                        throw new Error('invalid');
+                        throw new Error("invalid");
                     }
                     gl.drawArrays(mode, start, count);
                 }
@@ -7086,21 +7167,21 @@ var demo = (function (exports) {
             const magFilter = options.filter || options.magFilter || gl.LINEAR;
             const minFilter = options.filter || options.minFilter || gl.LINEAR;
             if (this.type === gl.FLOAT) {
-                if (gl.version != 2 && !gl.getExtension('OES_texture_float')) {
-                    throw new Error('OES_texture_float is required but not supported');
+                if (gl.version != 2 && !gl.getExtension("OES_texture_float")) {
+                    throw new Error("OES_texture_float is required but not supported");
                 }
                 if ((minFilter !== gl.NEAREST || magFilter !== gl.NEAREST) &&
-                    !gl.getExtension('OES_texture_float_linear')) {
-                    throw new Error('OES_texture_float_linear is required but not supported');
+                    !gl.getExtension("OES_texture_float_linear")) {
+                    throw new Error("OES_texture_float_linear is required but not supported");
                 }
             }
             else if (this.type === gl.HALF_FLOAT_OES) {
-                if (!gl.getExtension('OES_texture_half_float')) {
-                    throw new Error('OES_texture_half_float is required but not supported');
+                if (!gl.getExtension("OES_texture_half_float")) {
+                    throw new Error("OES_texture_half_float is required but not supported");
                 }
                 if ((minFilter !== gl.NEAREST || magFilter !== gl.NEAREST) &&
-                    !gl.getExtension('OES_texture_half_float_linear')) {
-                    throw new Error('OES_texture_half_float_linear is required but not supported');
+                    !gl.getExtension("OES_texture_half_float_linear")) {
+                    throw new Error("OES_texture_half_float_linear is required but not supported");
                 }
             }
             this.texture = gl.createTexture();
@@ -7117,13 +7198,14 @@ var demo = (function (exports) {
         }
         downloadData(data) {
             if (!this.framebuffer) {
-                throw new Error('No framebuffer. You need to draw to this texture before it makes sense to read from it.');
+                throw new Error("No framebuffer. You need to draw to this texture before it makes sense to read from it.");
             }
             const gl = this.gl;
             const prevFramebuffer = gl.getParameter(gl.FRAMEBUFFER_BINDING);
             this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, this.framebuffer);
             this.gl.readPixels(0, 0, this.width, this.height, this.format, this.type, data, 0);
-            prevFramebuffer !== this.framebuffer && gl.bindFramebuffer(gl.FRAMEBUFFER, prevFramebuffer);
+            prevFramebuffer !== this.framebuffer &&
+                gl.bindFramebuffer(gl.FRAMEBUFFER, prevFramebuffer);
         }
         bind(unit) {
             this.gl.activeTexture((this.gl.TEXTURE0 + unit));
@@ -7149,8 +7231,9 @@ var demo = (function (exports) {
                 gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebuffer);
                 gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.texture, 0);
                 gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, depthRenderbuffer);
-                if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) {
-                    throw new Error('Rendering to this texture is not supported (incomplete this.framebuffer)');
+                if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !==
+                    gl.FRAMEBUFFER_COMPLETE) {
+                    throw new Error("Rendering to this texture is not supported (incomplete this.framebuffer)");
                 }
             }
             else if (prevFramebuffer !== this.framebuffer) {
@@ -7160,7 +7243,8 @@ var demo = (function (exports) {
             gl.viewport(0, 0, this.width, this.height);
             render(gl);
             // restore previous state
-            prevFramebuffer !== this.framebuffer && gl.bindFramebuffer(gl.FRAMEBUFFER, prevFramebuffer);
+            prevFramebuffer !== this.framebuffer &&
+                gl.bindFramebuffer(gl.FRAMEBUFFER, prevFramebuffer);
             gl.viewport(prevViewport[0], prevViewport[1], prevViewport[2], prevViewport[3]);
         }
         swapWith(other) {
@@ -7188,15 +7272,17 @@ var demo = (function (exports) {
                 gl.texImage2D(gl.TEXTURE_2D, 0, texture.format, texture.format, texture.type, imgElement);
             }
             catch (e) {
-                if (location.protocol == 'file:') {
+                if (location.protocol == "file:") {
                     throw new Error('imgElement not loaded for security reasons (serve this page over "http://" instead)');
                 }
                 else {
-                    throw new Error('imgElement not loaded for security reasons (imgElement must originate from the same ' +
-                        'domain as this page or use Cross-Origin Resource Sharing)');
+                    throw new Error("imgElement not loaded for security reasons (imgElement must originate from the same " +
+                        "domain as this page or use Cross-Origin Resource Sharing)");
                 }
             }
-            if (options.minFilter && options.minFilter != gl.NEAREST && options.minFilter != gl.LINEAR) {
+            if (options.minFilter &&
+                options.minFilter != gl.NEAREST &&
+                options.minFilter != gl.LINEAR) {
                 gl.generateMipmap(gl.TEXTURE_2D);
             }
             return texture;
@@ -7208,14 +7294,14 @@ var demo = (function (exports) {
             Texture.checkerBoardCanvas =
                 Texture.checkerBoardCanvas ||
                     (function () {
-                        const c = document.createElement('canvas').getContext('2d');
+                        const c = document.createElement("canvas").getContext("2d");
                         if (!c)
-                            throw new Error('Could not create 2d canvas.');
+                            throw new Error("Could not create 2d canvas.");
                         c.canvas.width = c.canvas.height = 128;
                         for (let y = 0; y < c.canvas.height; y += 16) {
                             for (let x = 0; x < c.canvas.width; x += 16) {
                                 //noinspection JSBitwiseOperatorUsage
-                                c.fillStyle = (x ^ y) & 16 ? '#FFF' : '#DDD';
+                                c.fillStyle = (x ^ y) & 16 ? "#FFF" : "#DDD";
                                 c.fillRect(x, y, 16, 16);
                             }
                         }
@@ -7226,7 +7312,7 @@ var demo = (function (exports) {
             image.onload = () => Texture.fromImage(image, options, gl).swapWith(texture);
             // error event doesn't return a reason. Most likely a 404.
             image.onerror = () => {
-                throw new Error('Could not load image ' + image.src + '. 404?');
+                throw new Error("Could not load image " + image.src + ". 404?");
             };
             image.src = url;
             return texture;
@@ -7235,7 +7321,7 @@ var demo = (function (exports) {
             return new Promise((resolve, reject) => {
                 const image = new Image();
                 image.onload = () => resolve(Texture.fromImage(image, options, gl));
-                image.onerror = (ev) => reject('Could not load image ' + image.src + '. 404?' + ev);
+                image.onerror = (ev) => reject("Could not load image " + image.src + ". 404?" + ev);
                 image.src = url;
             });
         }
@@ -7322,7 +7408,17 @@ var demo = (function (exports) {
         getRenderbufferParameter: { 2: { 0: true, 1: true } },
         renderbufferStorage: { 4: { 0: true, 1: true } },
         // Frame buffer operations (clear, blend, depth test, stencil)
-        clear: { 1: { 0: { enumBitwiseOr: ['COLOR_BUFFER_BIT', 'DEPTH_BUFFER_BIT', 'STENCIL_BUFFER_BIT'] } } },
+        clear: {
+            1: {
+                0: {
+                    enumBitwiseOr: [
+                        "COLOR_BUFFER_BIT",
+                        "DEPTH_BUFFER_BIT",
+                        "STENCIL_BUFFER_BIT",
+                    ],
+                },
+            },
+        },
         depthFunc: { 1: { 0: true } },
         blendFunc: { 2: { 0: true, 1: true } },
         blendFuncSeparate: { 4: { 0: true, 1: true, 2: true, 3: true } },
@@ -7356,7 +7452,16 @@ var demo = (function (exports) {
         getBufferSubData: { 3: { 0: true }, 4: { 0: true }, 5: { 0: true } },
         // WebGL 2 Framebuffer objects
         blitFramebuffer: {
-            10: { 8: { enumBitwiseOr: ['COLOR_BUFFER_BIT', 'DEPTH_BUFFER_BIT', 'STENCIL_BUFFER_BIT'] }, 9: true },
+            10: {
+                8: {
+                    enumBitwiseOr: [
+                        "COLOR_BUFFER_BIT",
+                        "DEPTH_BUFFER_BIT",
+                        "STENCIL_BUFFER_BIT",
+                    ],
+                },
+                9: true,
+            },
         },
         framebufferTextureLayer: { 5: { 0: true, 1: true } },
         invalidateFramebuffer: { 2: { 0: true } },
@@ -7434,7 +7539,9 @@ var demo = (function (exports) {
         getSamplerParameter: { 2: { 1: true } },
         // WebGL 2 Sync objects
         fenceSync: { 2: { 0: true, 1: { enumBitwiseOr: [] } } },
-        clientWaitSync: { 3: { 1: { enumBitwiseOr: ['SYNC_FLUSH_COMMANDS_BIT'] } } },
+        clientWaitSync: {
+            3: { 1: { enumBitwiseOr: ["SYNC_FLUSH_COMMANDS_BIT"] } },
+        },
         waitSync: { 3: { 1: { enumBitwiseOr: [] } } },
         getSyncParameter: { 2: { 1: true } },
         // WebGL 2 Transform Feedback
@@ -7468,12 +7575,13 @@ var demo = (function (exports) {
         if (null === glEnums) {
             glEnums = {};
             enumStringToValue = {};
-            const c = window.WebGL2RenderingContext || window.WebGLRenderingContext;
+            const c = window.WebGL2RenderingContext ||
+                window.WebGLRenderingContext;
             if (!c)
-                throw new Error('Neither WebGL2RenderingContext nor WebGLRenderingContext exists on window.');
+                throw new Error("Neither WebGL2RenderingContext nor WebGLRenderingContext exists on window.");
             for (const propertyName in c) {
                 const prop = c[propertyName];
-                if ('number' === typeof prop) {
+                if ("number" === typeof prop) {
                     glEnums[prop] = propertyName;
                     enumStringToValue[propertyName] = prop;
                 }
@@ -7492,7 +7600,9 @@ var demo = (function (exports) {
     function glEnumToString(value) {
         init();
         var name = glEnums[value];
-        return name !== undefined ? 'gl.' + name : '/*UNKNOWN WebGL ENUM*/ 0x' + value.toString(16) + '';
+        return name !== undefined
+            ? "gl." + name
+            : "/*UNKNOWN WebGL ENUM*/ 0x" + value.toString(16) + "";
     }
     /**
      * Converts the argument of a WebGL function to a string.
@@ -7517,7 +7627,7 @@ var demo = (function (exports) {
             if (funcOverloadInfo !== undefined) {
                 const argInfo = funcOverloadInfo[argumentIndex];
                 if (argInfo) {
-                    if (typeof argInfo === 'object') {
+                    if (typeof argInfo === "object") {
                         const enums = argInfo.enumBitwiseOr;
                         const orEnums = [];
                         let orResult = 0;
@@ -7529,7 +7639,7 @@ var demo = (function (exports) {
                             }
                         }
                         if (orResult === value) {
-                            return orEnums.join(' | ');
+                            return orEnums.join(" | ");
                         }
                         else {
                             return glEnumToString(value);
@@ -7542,10 +7652,10 @@ var demo = (function (exports) {
             }
         }
         if (value === null) {
-            return 'null';
+            return "null";
         }
         else if (value === undefined) {
-            return 'undefined';
+            return "undefined";
         }
         else {
             return value.toString();
@@ -7595,12 +7705,20 @@ var demo = (function (exports) {
             opt_onErrorFunc ||
                 function (err, functionName, args) {
                     // apparently we can't do args.join(',')
-                    var argStr = '';
+                    var argStr = "";
                     var numArgs = args.length;
                     for (let i = 0; i < numArgs; ++i) {
-                        argStr += (i == 0 ? '' : ', ') + glFunctionArgToString(functionName, numArgs, i, args[i]);
+                        argStr +=
+                            (i == 0 ? "" : ", ") +
+                                glFunctionArgToString(functionName, numArgs, i, args[i]);
                     }
-                    error('WebGL error ' + glEnumToString(err) + ' in ' + functionName + '(' + argStr + ')');
+                    error("WebGL error " +
+                        glEnumToString(err) +
+                        " in " +
+                        functionName +
+                        "(" +
+                        argStr +
+                        ")");
                 };
         // Holds booleans for each GL error so after we get the error ourselves
         // we can still return it to the client app.
@@ -7625,8 +7743,8 @@ var demo = (function (exports) {
         const wrapper = {};
         for (let propertyName in ctx) {
             const prop = ctx[propertyName];
-            if ('function' === typeof prop) {
-                if (propertyName != 'getExtension') {
+            if ("function" === typeof prop) {
+                if (propertyName != "getExtension") {
                     wrapper[propertyName] = makeErrorWrapper(ctx, propertyName);
                 }
                 else {
@@ -7671,7 +7789,9 @@ var demo = (function (exports) {
     }
     class TSGLContextBase {
         constructor(gl, immediate = {
-            mesh: new Mesh().addVertexBuffer('coords', 'ts_TexCoord').addVertexBuffer('colors', 'ts_Color'),
+            mesh: new Mesh()
+                .addVertexBuffer("coords", "ts_TexCoord")
+                .addVertexBuffer("colors", "ts_Color"),
             mode: -1,
             coord: [0, 0],
             color: [1, 1, 1, 1],
@@ -7720,31 +7840,37 @@ var demo = (function (exports) {
         matrixMode(mode) {
             switch (mode) {
                 case this.MODELVIEW:
-                    this.currentMatrixName = 'modelViewMatrix';
+                    this.currentMatrixName = "modelViewMatrix";
                     this.stack = this.modelViewStack;
                     break;
                 case this.PROJECTION:
-                    this.currentMatrixName = 'projectionMatrix';
+                    this.currentMatrixName = "projectionMatrix";
                     this.stack = this.projectionStack;
                     break;
                 default:
-                    throw new Error('invalid matrix mode ' + mode);
+                    throw new Error("invalid matrix mode " + mode);
             }
         }
         loadIdentity() {
             M4.identity(this[this.currentMatrixName]);
-            this.currentMatrixName == 'projectionMatrix' ? this.projectionMatrixVersion++ : this.modelViewMatrixVersion++;
+            this.currentMatrixName == "projectionMatrix"
+                ? this.projectionMatrixVersion++
+                : this.modelViewMatrixVersion++;
         }
         loadMatrix(m4) {
             M4.copy(m4, this[this.currentMatrixName]);
-            this.currentMatrixName == 'projectionMatrix' ? this.projectionMatrixVersion++ : this.modelViewMatrixVersion++;
+            this.currentMatrixName == "projectionMatrix"
+                ? this.projectionMatrixVersion++
+                : this.modelViewMatrixVersion++;
         }
         multMatrix(m4) {
             M4.multiply(this[this.currentMatrixName], m4, this.resultMatrix);
             const temp = this.resultMatrix;
             this.resultMatrix = this[this.currentMatrixName];
             this[this.currentMatrixName] = temp;
-            this.currentMatrixName == 'projectionMatrix' ? this.projectionMatrixVersion++ : this.modelViewMatrixVersion++;
+            this.currentMatrixName == "projectionMatrix"
+                ? this.projectionMatrixVersion++
+                : this.modelViewMatrixVersion++;
         }
         mirror(plane) {
             this.multMatrix(M4.mirror(plane));
@@ -7785,7 +7911,9 @@ var demo = (function (exports) {
             const pop = this.stack.pop();
             assert(undefined !== pop);
             this[this.currentMatrixName] = pop;
-            this.currentMatrixName == 'projectionMatrix' ? this.projectionMatrixVersion++ : this.modelViewMatrixVersion++;
+            this.currentMatrixName == "projectionMatrix"
+                ? this.projectionMatrixVersion++
+                : this.modelViewMatrixVersion++;
         }
         /**
          * World coordinates (WC) to screen/window coordinates matrix
@@ -7817,7 +7945,7 @@ var demo = (function (exports) {
         }
         begin(mode) {
             if (this.immediate.mode != -1)
-                throw new Error('mismatched viewerGL.begin() and viewerGL.end() calls');
+                throw new Error("mismatched viewerGL.begin() and viewerGL.end() calls");
             this.immediate.mode = mode;
             this.immediate.mesh.colors = [];
             this.immediate.mesh.coords = [];
@@ -7827,9 +7955,9 @@ var demo = (function (exports) {
             this.immediate.color =
                 1 == args.length && Array.isArray(args[0])
                     ? args[0]
-                    : 1 == args.length && 'number' == typeof args[0]
+                    : 1 == args.length && "number" == typeof args[0]
                         ? hexIntToGLColor(args[0])
-                        : 1 == args.length && 'string' == typeof args[0]
+                        : 1 == args.length && "string" == typeof args[0]
                             ? color(args[0]).gl()
                             : [args[0], args[1], args[2], args[3] || 1];
         }
@@ -7843,7 +7971,7 @@ var demo = (function (exports) {
         }
         end() {
             if (this.immediate.mode == -1)
-                throw new Error('mismatched viewerGL.begin() and viewerGL.end() calls');
+                throw new Error("mismatched viewerGL.begin() and viewerGL.end() calls");
             this.immediate.mesh.compile();
             this.immediate.shader
                 .uniforms({
@@ -7902,15 +8030,15 @@ var demo = (function (exports) {
             const bottom = options.paddingBottom || 0;
             if (!document.body) {
                 throw new Error("document.body doesn't exist yet (call viewerGL.fullscreen() from " +
-                    'window.onload() or from inside the <body> tag)');
+                    "window.onload() or from inside the <body> tag)");
             }
             document.body.appendChild(this.canvas);
-            document.body.style.overflow = 'hidden';
-            this.canvas.style.position = 'absolute';
-            this.canvas.style.left = left + 'px';
-            this.canvas.style.top = top + 'px';
-            this.canvas.style.width = window.innerWidth - left - right + 'px';
-            this.canvas.style.bottom = window.innerHeight - top - bottom + 'px';
+            document.body.style.overflow = "hidden";
+            this.canvas.style.position = "absolute";
+            this.canvas.style.left = left + "px";
+            this.canvas.style.top = top + "px";
+            this.canvas.style.width = window.innerWidth - left - right + "px";
+            this.canvas.style.bottom = window.innerHeight - top - bottom + "px";
             this.addResizeListener();
             return this;
         }
@@ -7928,7 +8056,7 @@ var demo = (function (exports) {
                     gl.matrixMode(TSGLContextBase.MODELVIEW);
                 }
             }
-            window.addEventListener('resize', windowOnResize);
+            window.addEventListener("resize", windowOnResize);
             windowOnResize();
             return this;
         }
@@ -7968,14 +8096,16 @@ var demo = (function (exports) {
             return (this.cachedSDFMeshes[str] ||
                 (this.cachedSDFMeshes[str] = createTextMesh(this.textMetrics, this.textAtlas, str)));
         }
-        renderText(string, color, size = 1, xAlign = 'left', baseline = 'bottom', gamma = 0.05, lineHeight = 1.2) {
+        renderText(string, color, size = 1, xAlign = "left", baseline = "bottom", gamma = 0.05, lineHeight = 1.2) {
             const strMesh = this.getSDFMeshForString(string);
             this.pushMatrix();
             this.scale(size);
             const xTranslate = { left: 0, center: -0.5, right: -1 };
             const yTranslate = {
                 top: -this.textMetrics.ascender / this.textMetrics.size,
-                middle: (-this.textMetrics.ascender - this.textMetrics.descender) / 2 / this.textMetrics.size,
+                middle: (-this.textMetrics.ascender - this.textMetrics.descender) /
+                    2 /
+                    this.textMetrics.size,
                 alphabetic: 0,
                 bottom: -this.textMetrics.descender / this.textMetrics.size,
             };
@@ -7984,7 +8114,13 @@ var demo = (function (exports) {
             this.multMatrix(M4.forSys(V3.X, V3.Y, new V3(0, -lineHeight, 0)));
             this.textAtlas.bind(0);
             this.textRenderShader
-                .uniforms({ texture: 0, u_color: color, u_debug: 0, u_gamma: gamma, u_buffer: 192 / 256 })
+                .uniforms({
+                texture: 0,
+                u_color: color,
+                u_debug: 0,
+                u_gamma: gamma,
+                u_buffer: 192 / 256,
+            })
                 .draw(strMesh);
             this.popMatrix();
             // gl.uniform1f(shader.u_debug, debug ? 1 : 0)
@@ -7997,31 +8133,33 @@ var demo = (function (exports) {
             // gl.drawArrays(gl.TRIANGLES, 0, vertexBuffer.numItems)
         }
         static create(options = {}) {
-            const canvas = options.canvas || document.createElement('canvas');
+            const canvas = options.canvas || document.createElement("canvas");
             if (!options.canvas) {
                 canvas.width = 800;
                 canvas.height = 600;
             }
-            if (!('alpha' in options))
+            if (!("alpha" in options))
                 options.alpha = false;
             let newGL = undefined;
             try {
-                newGL = canvas.getContext('webgl2', options);
+                newGL = canvas.getContext("webgl2", options);
                 newGL && (newGL.version = 2);
                 if (!newGL) {
-                    newGL = canvas.getContext('webgl', options) || canvas.getContext('experimental-webgl', options);
+                    newGL =
+                        canvas.getContext("webgl", options) ||
+                            canvas.getContext("experimental-webgl", options);
                     newGL && (newGL.version = 1);
                 }
-                console.log('getting context');
+                console.log("getting context");
             }
             catch (e) {
-                console.log(e, 'Failed to get context');
+                console.log(e, "Failed to get context");
             }
             if (!newGL)
-                throw new Error('WebGL not supported');
+                throw new Error("WebGL not supported");
             if (options.throwOnError) {
                 newGL = makeDebugContext(newGL, (err, funcName) => {
-                    throw new Error(glEnumToString(err) + ' was caused by ' + funcName);
+                    throw new Error(glEnumToString(err) + " was caused by " + funcName);
                 });
             }
             TSGLContextBase.gl = newGL;
@@ -8036,8 +8174,12 @@ var demo = (function (exports) {
          * @param maxPixelRatio A limit for the pixelRatio. Useful for very high DPI devices such as mobile devices.
          */
         fixCanvasRes(maxPixelRatio = Infinity) {
-            this.canvas.width = this.canvas.clientWidth * Math.min(window.devicePixelRatio, maxPixelRatio);
-            this.canvas.height = this.canvas.clientHeight * Math.min(window.devicePixelRatio, maxPixelRatio);
+            this.canvas.width =
+                this.canvas.clientWidth *
+                    Math.min(window.devicePixelRatio, maxPixelRatio);
+            this.canvas.height =
+                this.canvas.clientHeight *
+                    Math.min(window.devicePixelRatio, maxPixelRatio);
             this.viewport(0, 0, this.canvas.width, this.canvas.height);
         }
         drawVector(vector, anchor, color = GL_COLOR_BLACK, size = 1) {
@@ -8104,7 +8246,12 @@ var demo = (function (exports) {
         }
     }
     function hexIntToGLColor(color) {
-        return [(color >> 16) / 255.0, ((color >> 8) & 0xff) / 255.0, (color & 0xff) / 255.0, 1.0];
+        return [
+            (color >> 16) / 255.0,
+            ((color >> 8) & 0xff) / 255.0,
+            (color & 0xff) / 255.0,
+            1.0,
+        ];
     }
     // function measureText(metrics: FontJsonMetrics, text: string, size: number) {
     // 	const dimensions = {
@@ -8124,14 +8271,16 @@ var demo = (function (exports) {
     // const vertexBuffer = gl.createBuffer()
     // const textureBuffer = gl.createBuffer()
     function createTextMesh(fontMetrics, fontTextureAtlas, str, lineHeight = 1) {
-        const mesh = new Mesh().addIndexBuffer('TRIANGLES').addVertexBuffer('coords', 'ts_TexCoord');
+        const mesh = new Mesh()
+            .addIndexBuffer("TRIANGLES")
+            .addVertexBuffer("coords", "ts_TexCoord");
         let cursorX = 0;
         let cursorY = 0;
         function drawGlyph(chr) {
             const metric = fontMetrics.chars[chr];
             if (!metric)
                 return;
-            const [width, height, horiBearingX, horiBearingY, horiAdvance, posX, posY] = metric;
+            const [width, height, horiBearingX, horiBearingY, horiAdvance, posX, posY,] = metric;
             const { size, buffer } = fontMetrics;
             const quadStartIndex = mesh.vertices.length;
             // buffer = margin on texture
@@ -8155,7 +8304,7 @@ var demo = (function (exports) {
         }
         for (let i = 0; i < str.length; i++) {
             const chr = str[i];
-            if ('\n' == chr) {
+            if ("\n" == chr) {
                 cursorX = 0;
                 cursorY += lineHeight * fontMetrics.size;
             }
@@ -8163,7 +8312,10 @@ var demo = (function (exports) {
                 drawGlyph(chr);
             }
         }
-        return Object.assign(mesh.compile(), { width: cursorX / fontMetrics.size, lineCount: cursorY + 1 });
+        return Object.assign(mesh.compile(), {
+            width: cursorX / fontMetrics.size,
+            lineCount: cursorY + 1,
+        });
     }
 
     var posNormalColorVS = "precision mediump float;uniform mat4 ts_ModelViewProjectionMatrix;uniform mat3 ts_NormalMatrix;attribute vec3 ts_Normal;attribute vec4 ts_Vertex;attribute vec4 ts_Color;varying vec3 normal;varying vec4 color;void main(){gl_Position=ts_ModelViewProjectionMatrix*ts_Vertex;normal=ts_NormalMatrix*ts_Normal;color=ts_Color;}";
@@ -8196,7 +8348,7 @@ void main() {
             }
             lastPos = pagePos;
         };
-        gl.canvas.contentEditable = 'true';
+        gl.canvas.contentEditable = "true";
         const keys = {};
         gl.canvas.onkeydown = function (e) {
             keys[e.code] = true;
@@ -8234,8 +8386,12 @@ void main() {
             // Sideways movement
             const sideMov = +!!(keys.KeyA || keys.ArrowLeft) - +!!(keys.KeyD || keys.ArrowRight);
             const sideV3 = V3.sphere(zRot + Math.PI / 2, 0);
-            const movementV3 = forwardV3.times(forwardMov).plus(sideV3.times(sideMov));
-            camera = movementV3.likeO() ? camera : camera.plus(movementV3.toLength(speed));
+            const movementV3 = forwardV3
+                .times(forwardMov)
+                .plus(sideV3.times(sideMov));
+            camera = movementV3.likeO()
+                ? camera
+                : camera.plus(movementV3.toLength(speed));
             gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
             gl.matrixMode(gl.PROJECTION);
             gl.loadIdentity();
@@ -8248,12 +8404,71 @@ void main() {
             gl.translate(-camera.x, -camera.y, -camera.z);
             shader
                 .uniforms({ brightness: 1 })
-                .attributes({ ts_Color: color('red').gl() })
+                .attributes({ ts_Color: color("red").gl() })
                 .draw(mesh, gl.TRIANGLES);
             shader.uniforms({ brightness: 0 }).draw(mesh, gl.LINES);
         });
     }
-    camera.info = 'LMB-drag to move camera.';
+    camera.info = "LMB-drag to move camera.";
+
+    /// <reference path="../types.d.ts" />
+    /**
+     * OpenGL-style immediate mode.
+     */
+    function immediateMode(gl) {
+        // setup camera
+        gl.disable(gl.CULL_FACE);
+        gl.matrixMode(gl.PROJECTION);
+        gl.loadIdentity();
+        gl.perspective(90, gl.canvas.width / gl.canvas.height, 0.0001, 1000000);
+        gl.lookAt(V(0, -3, 2), V3.O, V3.Z);
+        gl.matrixMode(gl.MODELVIEW);
+        gl.enable(gl.DEPTH_TEST);
+        gl.clearColor(1, 1, 1, 0);
+        return gl.animate(function (abs, _diff) {
+            const angleDeg = (abs / 1000) * 45;
+            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+            gl.loadIdentity();
+            // gl.translate(0, 0, -5)
+            gl.rotate(angleDeg, 0, 0, 1);
+            gl.color(0.5, 0.5, 0.5);
+            gl.lineWidth(1);
+            gl.begin(gl.LINES);
+            for (let i = -10; i <= 10; i++) {
+                gl.vertex(i, -10, 0);
+                gl.vertex(i, +10, 0);
+                gl.vertex(-10, i, 0);
+                gl.vertex(+10, i, 0);
+            }
+            gl.end();
+            gl.pointSize(10);
+            gl.begin(gl.POINTS);
+            gl.color(1, 0, 0);
+            gl.vertex(1, 0, 0);
+            gl.color(0, 1, 0);
+            gl.vertex(0, 1, 0);
+            gl.color(0, 0, 1);
+            gl.vertex(0, 0, 1);
+            gl.end();
+            gl.lineWidth(2);
+            gl.begin(gl.LINE_LOOP);
+            gl.color("red");
+            gl.vertex(1, 0, 0);
+            gl.color("green");
+            gl.vertex(0, 1, 0);
+            gl.color("blue");
+            gl.vertex(0, 0, 1);
+            gl.end();
+            gl.begin(gl.TRIANGLES);
+            gl.color(1, 1, 0);
+            gl.vertex(0.5, 0.5, 0);
+            gl.color(0, 1, 1);
+            gl.vertex(0, 0.5, 0.5);
+            gl.color(1, 0, 1);
+            gl.vertex(0.5, 0, 0.5);
+            gl.end();
+        });
+    }
 
     /// <reference path="../types.d.ts" />
     /**
@@ -8261,14 +8476,16 @@ void main() {
      */
     function gpuLightMap(gl) {
         if (!isWebGL2RenderingContext(gl))
-            throw new Error('needs WebGL2');
-        gl.getExtension('EXT_color_buffer_float');
+            throw new Error("needs WebGL2");
+        gl.getExtension("EXT_color_buffer_float");
         // modified version of https://evanw.github.io/lightgl.js/tests/gpulightmap.html
         let angleX = 0;
         let angleY = 0;
-        if (gl.version !== 2 && (!gl.getExtension('OES_texture_float') || !gl.getExtension('OES_texture_float_linear'))) {
-            document.write('This demo requires the OES_texture_float and OES_texture_float_linear extensions to run');
-            throw new Error('not supported');
+        if (gl.version !== 2 &&
+            (!gl.getExtension("OES_texture_float") ||
+                !gl.getExtension("OES_texture_float_linear"))) {
+            document.write("This demo requires the OES_texture_float and OES_texture_float_linear extensions to run");
+            throw new Error("not supported");
         }
         const texturePlane = Mesh.plane();
         const textureShader = Shader.create(`
@@ -8341,11 +8558,11 @@ void main() {
         class QuadMesh {
             constructor() {
                 this.mesh = new Mesh()
-                    .addVertexBuffer('normals', 'ts_Normal')
-                    .addIndexBuffer('TRIANGLES')
-                    .addVertexBuffer('coords', 'ts_TexCoord')
-                    .addVertexBuffer('offsetCoords', 'offsetCoord')
-                    .addVertexBuffer('offsetPositions', 'offsetPosition');
+                    .addVertexBuffer("normals", "ts_Normal")
+                    .addIndexBuffer("TRIANGLES")
+                    .addVertexBuffer("coords", "ts_TexCoord")
+                    .addVertexBuffer("offsetCoords", "offsetCoord")
+                    .addVertexBuffer("offsetPositions", "offsetPosition");
                 this.index = 0;
                 this.sampleCount = 0;
                 this.countedQuads = 0;
@@ -8380,7 +8597,7 @@ void main() {
             compile(texelsPerSide) {
                 const numQuads = this.mesh.vertices.length / 4;
                 if (numQuads % 1 != 0)
-                    throw new Error('not quads');
+                    throw new Error("not quads");
                 const quadsPerSide = Math.ceil(Math.sqrt(numQuads));
                 for (let i = 0; i < numQuads; i++) {
                     // Compute location of texture cell
@@ -8414,14 +8631,14 @@ void main() {
                 this.bounds = this.mesh.getBoundingSphere();
                 // Create textures
                 const textureSize = quadsPerSide * texelsPerSide;
-                console.log('texture size: ' + textureSize);
+                console.log("texture size: " + textureSize);
                 this.lightmapTexture = new Texture(textureSize, textureSize, {
                     internalFormat: gl.RGBA32F,
                     format: gl.RGBA,
                     type: gl.FLOAT,
                     filter: gl.LINEAR,
                 });
-                console.log('compiled quad mesh');
+                console.log("compiled quad mesh");
             }
             drawShadow(dir) {
                 // Construct a camera looking from the light toward the object
@@ -8548,7 +8765,9 @@ void main() {
             gl.rotate(angleY, 0, 0, 1);
             const dir = Math.random() < ambientFraction
                 ? V3.randomUnit()
-                : lightDir.plus(V3.randomUnit().times(0.1 * Math.sqrt(Math.random()))).unit();
+                : lightDir
+                    .plus(V3.randomUnit().times(0.1 * Math.sqrt(Math.random())))
+                    .unit();
             quadMesh.drawShadow(dir.z < 0 ? dir.negated() : dir);
             // Draw the mesh with the ambient occlusion so far
             gl.enable(gl.DEPTH_TEST);
@@ -8563,66 +8782,7 @@ void main() {
             gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
         });
     }
-    gpuLightMap.info = 'LMB-drag to rotate camera.';
-
-    /// <reference path="../types.d.ts" />
-    /**
-     * OpenGL-style immediate mode.
-     */
-    function immediateMode(gl) {
-        // setup camera
-        gl.disable(gl.CULL_FACE);
-        gl.matrixMode(gl.PROJECTION);
-        gl.loadIdentity();
-        gl.perspective(90, gl.canvas.width / gl.canvas.height, 0.0001, 1000000);
-        gl.lookAt(V(0, -3, 2), V3.O, V3.Z);
-        gl.matrixMode(gl.MODELVIEW);
-        gl.enable(gl.DEPTH_TEST);
-        gl.clearColor(1, 1, 1, 0);
-        return gl.animate(function (abs, _diff) {
-            const angleDeg = (abs / 1000) * 45;
-            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-            gl.loadIdentity();
-            // gl.translate(0, 0, -5)
-            gl.rotate(angleDeg, 0, 0, 1);
-            gl.color(0.5, 0.5, 0.5);
-            gl.lineWidth(1);
-            gl.begin(gl.LINES);
-            for (let i = -10; i <= 10; i++) {
-                gl.vertex(i, -10, 0);
-                gl.vertex(i, +10, 0);
-                gl.vertex(-10, i, 0);
-                gl.vertex(+10, i, 0);
-            }
-            gl.end();
-            gl.pointSize(10);
-            gl.begin(gl.POINTS);
-            gl.color(1, 0, 0);
-            gl.vertex(1, 0, 0);
-            gl.color(0, 1, 0);
-            gl.vertex(0, 1, 0);
-            gl.color(0, 0, 1);
-            gl.vertex(0, 0, 1);
-            gl.end();
-            gl.lineWidth(2);
-            gl.begin(gl.LINE_LOOP);
-            gl.color('red');
-            gl.vertex(1, 0, 0);
-            gl.color('green');
-            gl.vertex(0, 1, 0);
-            gl.color('blue');
-            gl.vertex(0, 0, 1);
-            gl.end();
-            gl.begin(gl.TRIANGLES);
-            gl.color(1, 1, 0);
-            gl.vertex(0.5, 0.5, 0);
-            gl.color(0, 1, 1);
-            gl.vertex(0, 0.5, 0.5);
-            gl.color(1, 0, 1);
-            gl.vertex(0.5, 0, 0.5);
-            gl.end();
-        });
-    }
+    gpuLightMap.info = "LMB-drag to rotate camera.";
 
     var varyingColorFS = "precision mediump float;varying vec4 color;void main(){gl_FragColor=color;}";
 
@@ -8674,7 +8834,10 @@ void main() {
             return arrayFromFunction(count * count, (i) => {
                 const x = i % count;
                 const y = (i / count) | 0;
-                return { pos: V((0.5 + x) / count, (0.5 + y) / count, 0), charge: +(x < count / 2) || -1 };
+                return {
+                    pos: V((0.5 + x) / count, (0.5 + y) / count, 0),
+                    charge: +(x < count / 2) || -1,
+                };
             });
         }
         const enabledBarMagnets = [true, true, true, true, true];
@@ -8700,7 +8863,7 @@ void main() {
         ];
         const bounds = new AABB(V3.O, V(1, 1, 0.3));
         let linesDensity = 10;
-        const linesMesh = new Mesh().addIndexBuffer('LINES');
+        const linesMesh = new Mesh().addIndexBuffer("LINES");
         function calculateFieldLines() {
             const ps = [];
             barMagnetMatrices.forEach((mat, index) => enabledBarMagnets[index] &&
@@ -8710,7 +8873,7 @@ void main() {
                 })));
             linesMesh.LINES.length = 0;
             linesMesh.vertices.length = 0;
-            console.log('generation took (ms): ' +
+            console.log("generation took (ms): " +
                 time(() => {
                     for (const [x, y, z] of grid3d(linesDensity, linesDensity, Math.ceil(0.4 * linesDensity))) {
                         const start = V(x, y, z * bounds.max.z);
@@ -8758,17 +8921,17 @@ void main() {
         // })
         gl.canvas.tabIndex = 0;
         gl.canvas.focus();
-        gl.canvas.addEventListener('keypress', (e) => {
-            const index = e.key.charCodeAt(0) - '1'.charCodeAt(0);
+        gl.canvas.addEventListener("keypress", (e) => {
+            const index = e.key.charCodeAt(0) - "1".charCodeAt(0);
             if (0 <= index && index <= 4) {
                 enabledBarMagnets[index] = !enabledBarMagnets[index];
                 calculateFieldLines();
             }
-            if (e.key == '+' && linesDensity < 50) {
+            if (e.key == "+" && linesDensity < 50) {
                 linesDensity++;
                 calculateFieldLines();
             }
-            if (e.key == '-' && linesDensity > 1) {
+            if (e.key == "-" && linesDensity > 1) {
                 linesDensity--;
                 calculateFieldLines();
             }
@@ -8779,20 +8942,28 @@ void main() {
             gl.multMatrix(M4.rotateLine(V(0.5, 0.5), V3.Z, abs / 5000));
             // gl.translate(-1, -1, -1)
             // gl.scale(2)
-            shader.attributes({ ts_Color: color('black').gl() }).draw(linesMesh, gl.LINES);
+            shader
+                .attributes({ ts_Color: color("black").gl() })
+                .draw(linesMesh, gl.LINES);
             barMagnetMatrices.forEach((mat, index) => {
                 if (enabledBarMagnets[index]) {
                     gl.pushMatrix();
                     gl.multMatrix(mat);
                     gl.scale(0.5, 1, 1);
-                    shader.attributes({ ts_Color: color('red').gl() }).draw(cubeMesh, gl.LINES);
+                    shader
+                        .attributes({ ts_Color: color("red").gl() })
+                        .draw(cubeMesh, gl.LINES);
                     gl.translate(1, 0);
-                    shader.attributes({ ts_Color: color('blue').gl() }).draw(cubeMesh, gl.LINES);
+                    shader
+                        .attributes({ ts_Color: color("blue").gl() })
+                        .draw(cubeMesh, gl.LINES);
                     gl.popMatrix();
                 }
             });
             gl.scale(bounds.max);
-            shader.attributes({ ts_Color: color('grey').gl() }).draw(cubeMesh, gl.LINES);
+            shader
+                .attributes({ ts_Color: color("grey").gl() })
+                .draw(cubeMesh, gl.LINES);
             // vectorFieldShader.drawBuffers(vectorFieldMesh.vertexBuffers, undefined, DRAW_MODES.LINES)
         });
     }
@@ -8823,7 +8994,8 @@ void main() {
             return new V3(x / xCount, y / yCount, z / zCount);
         });
     }
-    mag.info = 'Press keys 1-5 to toggle magnets, +/- to change to number of field lines.';
+    mag.info =
+        "Press keys 1-5 to toggle magnets, +/- to change to number of field lines.";
 
     /// <reference path="../types.d.ts" />
     /**
@@ -8831,8 +9003,8 @@ void main() {
      */
     function multiTexture(gl) {
         const mesh = Mesh.plane();
-        const texture = Texture.fromURLSwitch('texture.png');
-        const texture2 = Texture.fromURLSwitch('texture2.png');
+        const texture = Texture.fromURLSwitch("texture.png");
+        const texture2 = Texture.fromURLSwitch("texture2.png");
         const shader = Shader.create(`
 	attribute vec2 ts_TexCoord;
 	attribute vec4 ts_Vertex;
@@ -8889,7 +9061,7 @@ void main() {
     function rayTracing(gl) {
         return __awaiter(this, void 0, void 0, function* () {
             if (!isWebGL2RenderingContext(gl))
-                throw new Error('require webgl2');
+                throw new Error("require webgl2");
             let angleX = 30;
             let angleY = 10;
             // This is the mesh we tell WebGL to draw. It covers the whole view so each pixel will get a fragment shader call.
@@ -8899,12 +9071,12 @@ void main() {
             // specular=1 means it is perfectly reflective, specular=0 perfectly matte
             // meshes neeed coords vertex buffer as we will draw them with meshes
             const floor = Mesh.plane({ startX: -4, startY: -4, width: 8, height: 8 })
-                .addVertexBuffer('specular', 'specular')
+                .addVertexBuffer("specular", "specular")
                 .rotateX(90 * DEG);
             floor.specular = floor.vertices.map((_) => 0); // floor doesn't reflect
             const dodecahedron = Mesh.sphere(0)
-                .addVertexBuffer('specular', 'specular')
-                .addVertexBuffer('coords', 'ts_TexCoord')
+                .addVertexBuffer("specular", "specular")
+                .addVertexBuffer("coords", "ts_TexCoord")
                 .translate(3, 1);
             // d20 reflects most of the light
             dodecahedron.specular = dodecahedron.vertices.map((_) => 0.8);
@@ -8917,7 +9089,7 @@ void main() {
             const sphereCenters = arrayFromFunction(8, (i) => [V(0.0, 1.6, 0.0), V(3, 3, 3), V(-3, 3, 3)][i] || V3.O);
             const sphereRadii = arrayFromFunction(8, (i) => [1.5, 0.5, 0.5][i] || 0);
             // texture for ray-traced mesh
-            const floorTexture = yield Texture.fromURL('./mandelbrot.jpg');
+            const floorTexture = yield Texture.fromURL("./mandelbrot.jpg");
             const showMesh = floor.concat(dodecahedron);
             const textureWidth = 1024;
             const textureHeight = 1;
@@ -8928,7 +9100,10 @@ void main() {
             V3.pack(showMesh.TRIANGLES.map((i) => showMesh.vertices[i]), verticesBuffer);
             gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB32F, textureWidth, textureHeight, 0, gl.RGB, gl.FLOAT, verticesBuffer);
             // uvTexture contains the uv coordinates for the vertices as wel as the specular value for each vertex
-            const uvTexture = new Texture(textureWidth, textureHeight, { format: gl.RGB, type: gl.FLOAT });
+            const uvTexture = new Texture(textureWidth, textureHeight, {
+                format: gl.RGB,
+                type: gl.FLOAT,
+            });
             const uvBuffer = new Float32Array(textureWidth * textureHeight * 3);
             showMesh.TRIANGLES.forEach((i, index) => {
                 uvBuffer[index * 3] = showMesh.coords[i][0];
@@ -8953,8 +9128,8 @@ void main() {
             floorTexture.bind(1);
             uvTexture.bind(2);
             shader.uniforms({
-                'sphereCenters[0]': sphereCenters,
-                'sphereRadii[0]': sphereRadii,
+                "sphereCenters[0]": sphereCenters,
+                "sphereRadii[0]": sphereRadii,
                 vertices: 0,
                 triangleTexture: 1,
                 texCoords: 2,
@@ -8987,7 +9162,7 @@ void main() {
             });
         });
     }
-    rayTracing.info = 'LMB-drag to rotate camera.';
+    rayTracing.info = "LMB-drag to rotate camera.";
 
     /**
      * Render SDF text.
@@ -8995,7 +9170,7 @@ void main() {
     function renderText(gl) {
         return __awaiter(this, void 0, void 0, function* () {
             gl.clearColor(1, 1, 1, 1);
-            yield gl.setupTextRendering('font/OpenSans-Regular.png', 'font/OpenSans-Regular.json');
+            yield gl.setupTextRendering("font/OpenSans-Regular.png", "font/OpenSans-Regular.json");
             gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE);
             gl.enable(gl.BLEND);
             // setup camera
@@ -9007,50 +9182,50 @@ void main() {
             gl.enable(gl.DEPTH_TEST);
             return gl.animate(function (abs, _diff) {
                 const angleDeg = Math.sin(abs / 10000) * 15;
-                const textColor = color('brown').darker().gl();
+                const textColor = color("brown").darker().gl();
                 gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
                 gl.loadIdentity();
                 gl.rotate(angleDeg, 1, 1, 0);
                 gl.pushMatrix();
                 gl.translate(-18, 8);
                 [0, 0.05, 0.1, 0.15, 0.2, 0.5].forEach((gamma) => {
-                    gl.renderText('sdf text w/ gamma=' + gamma, textColor, 1, 'left', 'top', gamma);
+                    gl.renderText("sdf text w/ gamma=" + gamma, textColor, 1, "left", "top", gamma);
                     gl.translate(0, -1);
                 });
                 gl.popMatrix();
                 gl.pushMatrix();
                 gl.translate(-18, 0);
-                gl.renderText('This text has\nmultiple newlines\nand a line height of 1.2.', [1, 0, 0, 1], 1, 'left', 'middle', undefined, 1.2);
+                gl.renderText("This text has\nmultiple newlines\nand a line height of 1.2.", [1, 0, 0, 1], 1, "left", "middle", undefined, 1.2);
                 gl.translate(0, -5);
-                gl.renderText('VERY LARGE', [1, 0, 0, 1], 3, 'left', 'middle');
+                gl.renderText("VERY LARGE", [1, 0, 0, 1], 3, "left", "middle");
                 gl.translate(0, -3);
-                gl.renderText('This text is very small yet remains legible. gamma=0.15', [1, 0, 0, 1], 0.25, 'left', 'middle', 0.15);
+                gl.renderText("This text is very small yet remains legible. gamma=0.15", [1, 0, 0, 1], 0.25, "left", "middle", 0.15);
                 gl.popMatrix();
                 gl.pushMatrix();
                 gl.translate(0, 8);
-                ['top', 'middle', 'alphabetic', 'bottom'].forEach((baseline) => {
+                ["top", "middle", "alphabetic", "bottom"].forEach((baseline) => {
                     gl.begin(gl.LINES);
-                    gl.color('green');
+                    gl.color("green");
                     gl.vertex(0, 0, 0);
                     gl.vertex(20, 0, 0);
                     gl.vertex(0, -1, 0);
                     gl.vertex(0, 1, 0);
                     gl.end();
-                    gl.renderText('baseline="' + baseline + '"|{}() ABC XYZ yjg Ẫß', color('blue').gl(), 1, 'left', baseline);
+                    gl.renderText('baseline="' + baseline + '"|{}() ABC XYZ yjg Ẫß', color("blue").gl(), 1, "left", baseline);
                     gl.translate(0, -2.2);
                 });
                 gl.popMatrix();
                 gl.pushMatrix();
                 gl.translate(10, -2);
-                ['left', 'center', 'right'].forEach((align) => {
+                ["left", "center", "right"].forEach((align) => {
                     gl.begin(gl.LINES);
-                    gl.color('red');
+                    gl.color("red");
                     gl.vertex(-10, 0, 0);
                     gl.vertex(10, 0, 0);
                     gl.vertex(0, -1, 0);
                     gl.vertex(0, 1, 0);
                     gl.end();
-                    gl.renderText('align="' + align + '"', color('blue').gl(), 1, align, 'alphabetic');
+                    gl.renderText('align="' + align + '"', color("blue").gl(), 1, align, "alphabetic");
                     gl.translate(0, -2.2);
                 });
                 gl.popMatrix();
@@ -51459,7 +51634,7 @@ void main() {
         });
         const cyl = Mesh.offsetVertices(sinVertices, V3.Z, false);
         const plane = Mesh.plane();
-        const texture = Texture.fromURLSwitch('texture.png');
+        const texture = Texture.fromURLSwitch("texture.png");
         const overlay = new Texture(1024, 1024);
         const meshShader = Shader.create(`
 	attribute vec3 ts_Normal;
@@ -51535,46 +51710,6 @@ void main() {
             gl.rotate(90, 1, 0, 0);
             gl.translate(0.5, 0);
             planeShader.draw(plane);
-        });
-    }
-
-    /**
-     * Draw a rotating cube.
-     */
-    function setupDemo(gl) {
-        const mesh = Mesh.cube();
-        const shader = Shader.create(`
-		uniform mat4 ts_ModelViewProjectionMatrix;
-		attribute vec4 ts_Vertex;
-		varying vec4 foo;
-		void main() {
-			foo = vec4(1.0, 1.0, 1.0, 1.0);
-			gl_Position = ts_ModelViewProjectionMatrix * ts_Vertex;
-		}
-	`, `
-		precision highp float;
-		uniform vec4 color;
-		varying vec4 bar;
-		void main() {
-			gl_FragColor = color;
-		}
-	`);
-        // setup camera
-        gl.matrixMode(gl.PROJECTION);
-        gl.loadIdentity();
-        gl.perspective(70, gl.canvas.width / gl.canvas.height, 0.1, 1000);
-        gl.lookAt(V(0, -2, 1.5), V3.O, V3.Z);
-        gl.matrixMode(gl.MODELVIEW);
-        gl.enable(gl.DEPTH_TEST);
-        return gl.animate(function (abs, _diff) {
-            const angleDeg = (abs / 1000) * 45;
-            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-            gl.loadIdentity();
-            gl.rotate(angleDeg, 0, 0, 1);
-            gl.scale(1.5);
-            gl.translate(-0.5, -0.5, -0.5);
-            shader.uniforms({ color: [1, 1, 0, 1] }).draw(mesh);
-            shader.uniforms({ color: [0, 0, 0, 1] }).draw(mesh, gl.LINES);
         });
     }
 
@@ -111392,12 +111527,18 @@ void main() {
         let useBoundingSphere = true;
         const cube = Mesh.cube();
         const sphere = Mesh.sphere(2).computeWireframeFromFlatTriangles().compile();
-        const plane = Mesh.plane().translate(-0.5, -0.5).scale(300, 300, 1).compile();
+        const plane = Mesh.plane()
+            .translate(-0.5, -0.5)
+            .scale(300, 300, 1)
+            .compile();
         const depthMap = new Texture(1024, 1024, { format: gl.RGBA });
         const texturePlane = Mesh.plane();
         const boundingSphere = mesh.getBoundingSphere();
         const boundingBox = mesh.getAABB();
-        const frustrumCube = Mesh.cube().scale(2).translate(V3.XYZ.negated()).compile();
+        const frustrumCube = Mesh.cube()
+            .scale(2)
+            .translate(V3.XYZ.negated())
+            .compile();
         const colorShader = Shader.create(`
 	uniform mat4 ts_ModelViewProjectionMatrix;
 	attribute vec4 ts_Vertex;
@@ -111494,8 +111635,8 @@ void main() {
             }
             lastPos = pagePos;
         };
-        gl.canvas.contentEditable = 'true';
-        gl.canvas.addEventListener('keypress', () => {
+        gl.canvas.contentEditable = "true";
+        gl.canvas.addEventListener("keypress", () => {
             useBoundingSphere = !useBoundingSphere;
         });
         gl.enable(gl.DEPTH_TEST);
@@ -111637,7 +111778,48 @@ void main() {
             gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
         });
     }
-    shadowMap.info = 'Press any key to toggle between sphere- or AABB-based camera clipping.';
+    shadowMap.info =
+        "Press any key to toggle between sphere- or AABB-based camera clipping.";
+
+    /**
+     * Draw a rotating cube.
+     */
+    function setupDemo(gl) {
+        const mesh = Mesh.cube();
+        const shader = Shader.create(`
+		uniform mat4 ts_ModelViewProjectionMatrix;
+		attribute vec4 ts_Vertex;
+		varying vec4 foo;
+		void main() {
+			foo = vec4(1.0, 1.0, 1.0, 1.0);
+			gl_Position = ts_ModelViewProjectionMatrix * ts_Vertex;
+		}
+	`, `
+		precision highp float;
+		uniform vec4 color;
+		varying vec4 bar;
+		void main() {
+			gl_FragColor = color;
+		}
+	`);
+        // setup camera
+        gl.matrixMode(gl.PROJECTION);
+        gl.loadIdentity();
+        gl.perspective(70, gl.canvas.width / gl.canvas.height, 0.1, 1000);
+        gl.lookAt(V(0, -2, 1.5), V3.O, V3.Z);
+        gl.matrixMode(gl.MODELVIEW);
+        gl.enable(gl.DEPTH_TEST);
+        return gl.animate(function (abs, _diff) {
+            const angleDeg = (abs / 1000) * 45;
+            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+            gl.loadIdentity();
+            gl.rotate(angleDeg, 0, 0, 1);
+            gl.scale(1.5);
+            gl.translate(-0.5, -0.5, -0.5);
+            shader.uniforms({ color: [1, 1, 0, 1] }).draw(mesh);
+            shader.uniforms({ color: [0, 0, 0, 1] }).draw(mesh, gl.LINES);
+        });
+    }
 
     exports.camera = camera;
     exports.gpuLightMap = gpuLightMap;

@@ -1,7 +1,14 @@
 /// <reference path="../types.d.ts" />
-import { clamp, int, M4, TAU, V, V3 } from 'ts3dutils'
+import { clamp, int, M4, TAU, V, V3 } from "ts3dutils"
 
-import { isWebGL2RenderingContext, Mesh, pushQuad, Shader, Texture, TSGLContext } from 'tsgl'
+import {
+	isWebGL2RenderingContext,
+	Mesh,
+	pushQuad,
+	Shader,
+	Texture,
+	TSGLContext,
+} from "tsgl"
 
 export { TSGLContext }
 
@@ -9,15 +16,21 @@ export { TSGLContext }
  * Draw soft shadows by calculating a light map in multiple passes.
  */
 export function gpuLightMap(gl: TSGLContext & WebGL2RenderingContextStrict) {
-	if (!isWebGL2RenderingContext(gl)) throw new Error('needs WebGL2')
-	gl.getExtension('EXT_color_buffer_float')
+	if (!isWebGL2RenderingContext(gl)) throw new Error("needs WebGL2")
+	gl.getExtension("EXT_color_buffer_float")
 	// modified version of https://evanw.github.io/lightgl.js/tests/gpulightmap.html
 
 	let angleX = 0
 	let angleY = 0
-	if (gl.version !== 2 && (!gl.getExtension('OES_texture_float') || !gl.getExtension('OES_texture_float_linear'))) {
-		document.write('This demo requires the OES_texture_float and OES_texture_float_linear extensions to run')
-		throw new Error('not supported')
+	if (
+		gl.version !== 2 &&
+		(!gl.getExtension("OES_texture_float") ||
+			!gl.getExtension("OES_texture_float_linear"))
+	) {
+		document.write(
+			"This demo requires the OES_texture_float and OES_texture_float_linear extensions to run",
+		)
+		throw new Error("not supported")
 	}
 	const texturePlane = Mesh.plane()
 	const textureShader = Shader.create(
@@ -101,11 +114,11 @@ export function gpuLightMap(gl: TSGLContext & WebGL2RenderingContextStrict) {
 	 */
 	class QuadMesh {
 		mesh = new Mesh()
-			.addVertexBuffer('normals', 'ts_Normal')
-			.addIndexBuffer('TRIANGLES')
-			.addVertexBuffer('coords', 'ts_TexCoord')
-			.addVertexBuffer('offsetCoords', 'offsetCoord')
-			.addVertexBuffer('offsetPositions', 'offsetPosition')
+			.addVertexBuffer("normals", "ts_Normal")
+			.addIndexBuffer("TRIANGLES")
+			.addVertexBuffer("coords", "ts_TexCoord")
+			.addVertexBuffer("offsetCoords", "offsetCoord")
+			.addVertexBuffer("offsetPositions", "offsetPosition")
 		index: int = 0
 		lightmapTexture: Texture | undefined
 		bounds: { center: V3; radius: number } | undefined
@@ -142,12 +155,14 @@ export function gpuLightMap(gl: TSGLContext & WebGL2RenderingContextStrict) {
 				[V3.X, new V3(1, 1, 0), new V3(1, 0, 1), new V3(1, 1, 1)],
 				[new V3(1, 1, 0), V3.Y, V3.XYZ, new V3(0, 1, 1)],
 				[V3.Y, V3.O, new V3(0, 1, 1), V3.Z],
-			].forEach((vs) => (this.addQuad as any)(...(m4 ? m4.transformedPoints(vs) : vs)))
+			].forEach((vs) =>
+				(this.addQuad as any)(...(m4 ? m4.transformedPoints(vs) : vs)),
+			)
 		}
 
 		compile(texelsPerSide: int) {
 			const numQuads = this.mesh.vertices.length / 4
-			if (numQuads % 1 != 0) throw new Error('not quads')
+			if (numQuads % 1 != 0) throw new Error("not quads")
 			const quadsPerSide = Math.ceil(Math.sqrt(numQuads))
 
 			for (let i = 0; i < numQuads; i++) {
@@ -160,11 +175,19 @@ export function gpuLightMap(gl: TSGLContext & WebGL2RenderingContextStrict) {
 				const rt0 = t / quadsPerSide
 				const rs1 = (s + 1) / quadsPerSide
 				const rt1 = (t + 1) / quadsPerSide
-				this.mesh.coords.push([rs0, rt0], [rs1, rt0], [rs0, rt1], [rs1, rt1])
+				this.mesh.coords.push(
+					[rs0, rt0],
+					[rs1, rt0],
+					[rs0, rt1],
+					[rs1, rt1],
+				)
 
 				const half = 1 / texelsPerSide
 
-				const [a, b, c, d] = this.mesh.vertices.slice(i * 4, (i + 1) * 4)
+				const [a, b, c, d] = this.mesh.vertices.slice(
+					i * 4,
+					(i + 1) * 4,
+				)
 
 				// Add fake positions
 				const bilerp = (x: number, y: number) => {
@@ -186,7 +209,12 @@ export function gpuLightMap(gl: TSGLContext & WebGL2RenderingContextStrict) {
 				const t0 = (t + half) / quadsPerSide
 				const s1 = (s + 1 - half) / quadsPerSide
 				const t1 = (t + 1 - half) / quadsPerSide
-				this.mesh.offsetCoords.push([s0, t0], [s1, t0], [s0, t1], [s1, t1])
+				this.mesh.offsetCoords.push(
+					[s0, t0],
+					[s1, t0],
+					[s0, t1],
+					[s1, t1],
+				)
 			}
 			// Finalize mesh
 			this.mesh.compile()
@@ -194,7 +222,7 @@ export function gpuLightMap(gl: TSGLContext & WebGL2RenderingContextStrict) {
 
 			// Create textures
 			const textureSize = quadsPerSide * texelsPerSide
-			console.log('texture size: ' + textureSize)
+			console.log("texture size: " + textureSize)
 			this.lightmapTexture = new Texture(textureSize, textureSize, {
 				internalFormat: gl.RGBA32F,
 				format: gl.RGBA,
@@ -202,7 +230,7 @@ export function gpuLightMap(gl: TSGLContext & WebGL2RenderingContextStrict) {
 				filter: gl.LINEAR,
 			})
 
-			console.log('compiled quad mesh')
+			console.log("compiled quad mesh")
 		}
 
 		drawShadow(dir: V3) {
@@ -223,7 +251,9 @@ export function gpuLightMap(gl: TSGLContext & WebGL2RenderingContextStrict) {
 
 			// Render the object viewed from the light using a shader that returns the fragment depth
 			const mesh = this.mesh
-			const shadowMapMatrix = gl.projectionMatrix.times(gl.modelViewMatrix)
+			const shadowMapMatrix = gl.projectionMatrix.times(
+				gl.modelViewMatrix,
+			)
 			depthMap.drawTo(function (gl) {
 				gl.enable(gl.DEPTH_TEST)
 				gl.clearColor(1, 1, 1, 1)
@@ -264,7 +294,9 @@ export function gpuLightMap(gl: TSGLContext & WebGL2RenderingContextStrict) {
 	const groundTilesPerSide = 5
 	const quadMesh = new QuadMesh()
 	// Arc of randomly oriented quads
-	quadMesh.addCube(M4.product(M4.translate(0, 0, -0.2), M4.rotateAB(V3.XYZ, V3.Z)))
+	quadMesh.addCube(
+		M4.product(M4.translate(0, 0, -0.2), M4.rotateAB(V3.XYZ, V3.Z)),
+	)
 	for (let i = 0; i < numArcQuads; i++) {
 		const r = 0.4
 		const t = (i / numArcQuads) * TAU
@@ -275,7 +307,12 @@ export function gpuLightMap(gl: TSGLContext & WebGL2RenderingContextStrict) {
 		const a = V3.randomUnit()
 		const b = V3.randomUnit().cross(a).unit()
 		quadMesh.addCube(
-			M4.product(M4.translate(center), M4.forSys(a, b), M4.scale(r, r, r), M4.translate(-0.5, -0.5, -0.5)),
+			M4.product(
+				M4.translate(center),
+				M4.forSys(a, b),
+				M4.scale(r, r, r),
+				M4.translate(-0.5, -0.5, -0.5),
+			),
 		)
 	}
 
@@ -284,7 +321,12 @@ export function gpuLightMap(gl: TSGLContext & WebGL2RenderingContextStrict) {
 		for (let z = 0; z < groundTilesPerSide; z++) {
 			const dx = x - groundTilesPerSide / 2
 			const dz = z - groundTilesPerSide / 2
-			quadMesh.addQuad(new V3(dx, dz, 0), new V3(dx + 1, dz, 0), new V3(dx, dz + 1, 0), new V3(dx + 1, dz + 1, 0))
+			quadMesh.addQuad(
+				new V3(dx, dz, 0),
+				new V3(dx + 1, dz, 0),
+				new V3(dx, dz + 1, 0),
+				new V3(dx + 1, dz + 1, 0),
+			)
 		}
 	}
 	quadMesh.compile(128)
@@ -356,7 +398,13 @@ export function gpuLightMap(gl: TSGLContext & WebGL2RenderingContextStrict) {
 		const dir =
 			Math.random() < ambientFraction
 				? V3.randomUnit()
-				: lightDir.plus(V3.randomUnit().times(0.1 * Math.sqrt(Math.random()))).unit()
+				: lightDir
+						.plus(
+							V3.randomUnit().times(
+								0.1 * Math.sqrt(Math.random()),
+							),
+						)
+						.unit()
 		quadMesh.drawShadow(dir.z < 0 ? dir.negated() : dir)
 
 		// Draw the mesh with the ambient occlusion so far
@@ -373,4 +421,4 @@ export function gpuLightMap(gl: TSGLContext & WebGL2RenderingContextStrict) {
 		gl.viewport(0, 0, gl.canvas.width, gl.canvas.height)
 	})
 }
-;(gpuLightMap as any).info = 'LMB-drag to rotate camera.'
+;(gpuLightMap as any).info = "LMB-drag to rotate camera."

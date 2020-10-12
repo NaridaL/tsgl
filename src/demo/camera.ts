@@ -1,9 +1,9 @@
 /// <reference path="../types.d.ts" />
-import { clamp, DEG, V, V3 } from 'ts3dutils'
-import { Mesh, Shader, TSGLContext } from 'tsgl'
+import { clamp, DEG, V, V3 } from "ts3dutils"
+import { Mesh, Shader, TSGLContext } from "tsgl"
 
-import { color } from 'chroma.ts'
-import posNormalColorVS from '../shaders/posNormalColorVS.glslx'
+import { color } from "chroma.ts"
+import posNormalColorVS from "../shaders/posNormalColorVS.glslx"
 
 /**
  * Move camera using mouse.
@@ -36,7 +36,7 @@ void main() {
 		}
 		lastPos = pagePos
 	}
-	gl.canvas.contentEditable = 'true'
+	gl.canvas.contentEditable = "true"
 	const keys: { [key: string]: boolean } = {}
 	gl.canvas.onkeydown = function (e) {
 		keys[e.code] = true
@@ -77,15 +77,21 @@ void main() {
 		const speed = (diff / 1000) * 4
 
 		// Forward movement
-		const forwardMov = +!!(keys.KeyW || keys.ArrowUp) - +!!(keys.KeyS || keys.ArrowDown)
+		const forwardMov =
+			+!!(keys.KeyW || keys.ArrowUp) - +!!(keys.KeyS || keys.ArrowDown)
 		const forwardV3 = V3.sphere(zRot, yRot)
 
 		// Sideways movement
-		const sideMov = +!!(keys.KeyA || keys.ArrowLeft) - +!!(keys.KeyD || keys.ArrowRight)
+		const sideMov =
+			+!!(keys.KeyA || keys.ArrowLeft) - +!!(keys.KeyD || keys.ArrowRight)
 		const sideV3 = V3.sphere(zRot + Math.PI / 2, 0)
 
-		const movementV3 = forwardV3.times(forwardMov).plus(sideV3.times(sideMov))
-		camera = movementV3.likeO() ? camera : camera.plus(movementV3.toLength(speed))
+		const movementV3 = forwardV3
+			.times(forwardMov)
+			.plus(sideV3.times(sideMov))
+		camera = movementV3.likeO()
+			? camera
+			: camera.plus(movementV3.toLength(speed))
 
 		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 
@@ -102,10 +108,10 @@ void main() {
 
 		shader
 			.uniforms({ brightness: 1 })
-			.attributes({ ts_Color: color('red').gl() })
+			.attributes({ ts_Color: color("red").gl() })
 			.draw(mesh, gl.TRIANGLES)
 		shader.uniforms({ brightness: 0 }).draw(mesh, gl.LINES)
 	})
 }
 
-;(camera as any).info = 'LMB-drag to move camera.'
+;(camera as any).info = "LMB-drag to move camera."

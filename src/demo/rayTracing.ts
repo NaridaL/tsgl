@@ -1,17 +1,23 @@
 /// <reference path="../types.d.ts" />
 
-import { arrayFromFunction, clamp, DEG, Tuple2, V, V3 } from 'ts3dutils'
+import { arrayFromFunction, clamp, DEG, Tuple2, V, V3 } from "ts3dutils"
 
-import { isWebGL2RenderingContext, Mesh, Shader, Texture, TSGLContext } from 'tsgl'
+import {
+	isWebGL2RenderingContext,
+	Mesh,
+	Shader,
+	Texture,
+	TSGLContext,
+} from "tsgl"
 
-import rayTracerFS from '../shaders/rayTracerFS.glslx'
-import rayTracerVS from '../shaders/rayTracerVS.glslx'
+import rayTracerFS from "../shaders/rayTracerFS.glslx"
+import rayTracerVS from "../shaders/rayTracerVS.glslx"
 
 /**
  * Realtime GPU ray tracing including reflection.
  */
 export async function rayTracing(gl: TSGLContext) {
-	if (!isWebGL2RenderingContext(gl)) throw new Error('require webgl2')
+	if (!isWebGL2RenderingContext(gl)) throw new Error("require webgl2")
 	let angleX = 30
 	let angleY = 10
 
@@ -23,28 +29,33 @@ export async function rayTracing(gl: TSGLContext) {
 	// specular=1 means it is perfectly reflective, specular=0 perfectly matte
 	// meshes neeed coords vertex buffer as we will draw them with meshes
 	const floor = Mesh.plane({ startX: -4, startY: -4, width: 8, height: 8 })
-		.addVertexBuffer('specular', 'specular')
+		.addVertexBuffer("specular", "specular")
 		.rotateX(90 * DEG)
 	floor.specular = floor.vertices.map((_) => 0) // floor doesn't reflect
 	const dodecahedron = Mesh.sphere(0)
-		.addVertexBuffer('specular', 'specular')
-		.addVertexBuffer('coords', 'ts_TexCoord')
+		.addVertexBuffer("specular", "specular")
+		.addVertexBuffer("coords", "ts_TexCoord")
 		.translate(3, 1)
 	// d20 reflects most of the light
 	dodecahedron.specular = dodecahedron.vertices.map((_) => 0.8)
 	// all uv coordinates the same to pick a solid color from the texture
-	dodecahedron.coords = dodecahedron.vertices.map((_) => [0, 0] as Tuple2<number>)
+	dodecahedron.coords = dodecahedron.vertices.map(
+		(_) => [0, 0] as Tuple2<number>,
+	)
 
 	// don't transform the vertices at all
 	// out/in pos so we get the world position of the fragments
 	const shader = Shader.create(rayTracerVS, rayTracerFS)
 
 	// define spheres which we will have the shader ray-trace
-	const sphereCenters = arrayFromFunction(8, (i) => [V(0.0, 1.6, 0.0), V(3, 3, 3), V(-3, 3, 3)][i] || V3.O)
+	const sphereCenters = arrayFromFunction(
+		8,
+		(i) => [V(0.0, 1.6, 0.0), V(3, 3, 3), V(-3, 3, 3)][i] || V3.O,
+	)
 	const sphereRadii = arrayFromFunction(8, (i) => [1.5, 0.5, 0.5][i] || 0)
 
 	// texture for ray-traced mesh
-	const floorTexture = await Texture.fromURL('./mandelbrot.jpg')
+	const floorTexture = await Texture.fromURL("./mandelbrot.jpg")
 
 	const showMesh = floor.concat(dodecahedron)
 	const textureWidth = 1024
@@ -58,17 +69,40 @@ export async function rayTracing(gl: TSGLContext) {
 		showMesh.TRIANGLES.map((i) => showMesh.vertices[i]),
 		verticesBuffer,
 	)
-	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB32F, textureWidth, textureHeight, 0, gl.RGB, gl.FLOAT, verticesBuffer)
+	gl.texImage2D(
+		gl.TEXTURE_2D,
+		0,
+		gl.RGB32F,
+		textureWidth,
+		textureHeight,
+		0,
+		gl.RGB,
+		gl.FLOAT,
+		verticesBuffer,
+	)
 
 	// uvTexture contains the uv coordinates for the vertices as wel as the specular value for each vertex
-	const uvTexture = new Texture(textureWidth, textureHeight, { format: gl.RGB, type: gl.FLOAT })
+	const uvTexture = new Texture(textureWidth, textureHeight, {
+		format: gl.RGB,
+		type: gl.FLOAT,
+	})
 	const uvBuffer = new Float32Array(textureWidth * textureHeight * 3)
 	showMesh.TRIANGLES.forEach((i, index) => {
 		uvBuffer[index * 3] = showMesh.coords[i][0]
 		uvBuffer[index * 3 + 1] = showMesh.coords[i][1]
 		uvBuffer[index * 3 + 2] = showMesh.specular[i]
 	})
-	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB32F, textureWidth, textureHeight, 0, gl.RGB, gl.FLOAT, uvBuffer)
+	gl.texImage2D(
+		gl.TEXTURE_2D,
+		0,
+		gl.RGB32F,
+		textureWidth,
+		textureHeight,
+		0,
+		gl.RGB,
+		gl.FLOAT,
+		uvBuffer,
+	)
 
 	let lastPos = V3.O
 	// scene rotation
@@ -89,8 +123,8 @@ export async function rayTracing(gl: TSGLContext) {
 	floorTexture.bind(1)
 	uvTexture.bind(2)
 	shader.uniforms({
-		'sphereCenters[0]': sphereCenters,
-		'sphereRadii[0]': sphereRadii,
+		"sphereCenters[0]": sphereCenters,
+		"sphereRadii[0]": sphereRadii,
 		vertices: 0,
 		triangleTexture: 1,
 		texCoords: 2,
@@ -125,4 +159,4 @@ export async function rayTracing(gl: TSGLContext) {
 		gl.disable(gl.BLEND)
 	})
 }
-;(rayTracing as any).info = 'LMB-drag to rotate camera.'
+;(rayTracing as any).info = "LMB-drag to rotate camera."

@@ -1,11 +1,11 @@
 /// <reference types="webgl-strict-types" />
-import * as chroma from 'chroma.ts'
-import { addOwnProperties, assert, DEG, int, M4, P3ZX, V, V3 } from 'ts3dutils'
+import * as chroma from "chroma.ts"
+import { addOwnProperties, assert, DEG, int, M4, P3ZX, V, V3 } from "ts3dutils"
 
-import posCoordVS from '../src/shaders/posCoordVS.glslx'
-import sdfRenderFS from '../src/shaders/sdfRenderFS.glslx'
-import { makeDebugContext, Mesh, Shader, Texture } from './index'
-import { glEnumToString } from './KhronosGroupWebGLDebug'
+import posCoordVS from "../src/shaders/posCoordVS.glslx"
+import sdfRenderFS from "../src/shaders/sdfRenderFS.glslx"
+import { makeDebugContext, Mesh, Shader, Texture } from "./index"
+import { glEnumToString } from "./KhronosGroupWebGLDebug"
 
 import GL = WebGLRenderingContextStrict
 export type GL_COLOR = [number, number, number, number]
@@ -20,11 +20,12 @@ export function currentGL(): TSGLContext {
 
 export function isNumber(obj: any) {
 	const str = Object.prototype.toString.call(obj)
-	return str == '[object Number]' || str == '[object Boolean]'
+	return str == "[object Number]" || str == "[object Boolean]"
 }
 
 export type UniformType = V3 | M4 | number[] | boolean | number
-export type TSGLContext = TSGLContextBase & (WebGLRenderingContextStrict | WebGL2RenderingContextStrict)
+export type TSGLContext = TSGLContextBase &
+	(WebGLRenderingContextStrict | WebGL2RenderingContextStrict)
 export interface TSGLContextBase extends WebGLRenderingContextStrict {}
 export class TSGLContextBase {
 	modelViewMatrix: M4 = M4.identity()
@@ -43,7 +44,7 @@ export class TSGLContextBase {
 	private resultMatrix = new M4()
 	private modelViewStack: M4[] = []
 	private projectionStack: M4[] = []
-	private currentMatrixName: 'modelViewMatrix' | 'projectionMatrix'
+	private currentMatrixName: "modelViewMatrix" | "projectionMatrix"
 	private stack: M4[]
 
 	meshes: { [name: string]: Mesh }
@@ -61,7 +62,9 @@ export class TSGLContextBase {
 	protected constructor(
 		gl: TSGLContextBase,
 		private immediate = {
-			mesh: new Mesh().addVertexBuffer('coords', 'ts_TexCoord').addVertexBuffer('colors', 'ts_Color'),
+			mesh: new Mesh()
+				.addVertexBuffer("coords", "ts_TexCoord")
+				.addVertexBuffer("colors", "ts_Color"),
 			mode: -1 as GL.DrawMode | -1,
 			coord: [0, 0] as [number, number],
 			color: [1, 1, 1, 1] as GL_COLOR,
@@ -105,26 +108,30 @@ export class TSGLContextBase {
 	matrixMode(mode: { __MATRIX_MODE_CONSTANT: any }): void {
 		switch (mode) {
 			case this.MODELVIEW:
-				this.currentMatrixName = 'modelViewMatrix'
+				this.currentMatrixName = "modelViewMatrix"
 				this.stack = this.modelViewStack
 				break
 			case this.PROJECTION:
-				this.currentMatrixName = 'projectionMatrix'
+				this.currentMatrixName = "projectionMatrix"
 				this.stack = this.projectionStack
 				break
 			default:
-				throw new Error('invalid matrix mode ' + mode)
+				throw new Error("invalid matrix mode " + mode)
 		}
 	}
 
 	loadIdentity(): void {
 		M4.identity(this[this.currentMatrixName])
-		this.currentMatrixName == 'projectionMatrix' ? this.projectionMatrixVersion++ : this.modelViewMatrixVersion++
+		this.currentMatrixName == "projectionMatrix"
+			? this.projectionMatrixVersion++
+			: this.modelViewMatrixVersion++
 	}
 
 	loadMatrix(m4: M4) {
 		M4.copy(m4, this[this.currentMatrixName])
-		this.currentMatrixName == 'projectionMatrix' ? this.projectionMatrixVersion++ : this.modelViewMatrixVersion++
+		this.currentMatrixName == "projectionMatrix"
+			? this.projectionMatrixVersion++
+			: this.modelViewMatrixVersion++
 	}
 
 	multMatrix(m4: M4) {
@@ -132,7 +139,9 @@ export class TSGLContextBase {
 		const temp = this.resultMatrix
 		this.resultMatrix = this[this.currentMatrixName]
 		this[this.currentMatrixName] = temp
-		this.currentMatrixName == 'projectionMatrix' ? this.projectionMatrixVersion++ : this.modelViewMatrixVersion++
+		this.currentMatrixName == "projectionMatrix"
+			? this.projectionMatrixVersion++
+			: this.modelViewMatrixVersion++
 	}
 
 	mirror(plane: { normal1: V3; w: number }) {
@@ -140,15 +149,41 @@ export class TSGLContextBase {
 	}
 
 	perspective(fovDegrees: number, aspect: number, near: number, far: number) {
-		this.multMatrix(M4.perspectiveRad(fovDegrees * DEG, aspect, near, far, this.tempMatrix))
+		this.multMatrix(
+			M4.perspectiveRad(
+				fovDegrees * DEG,
+				aspect,
+				near,
+				far,
+				this.tempMatrix,
+			),
+		)
 	}
 
-	frustum(left: number, right: number, bottom: number, top: number, near: number, far: number) {
-		this.multMatrix(M4.frustum(left, right, bottom, top, near, far, this.tempMatrix))
+	frustum(
+		left: number,
+		right: number,
+		bottom: number,
+		top: number,
+		near: number,
+		far: number,
+	) {
+		this.multMatrix(
+			M4.frustum(left, right, bottom, top, near, far, this.tempMatrix),
+		)
 	}
 
-	ortho(left: number, right: number, bottom: number, top: number, near: number, far: number) {
-		this.multMatrix(M4.ortho(left, right, bottom, top, near, far, this.tempMatrix))
+	ortho(
+		left: number,
+		right: number,
+		bottom: number,
+		top: number,
+		near: number,
+		far: number,
+	) {
+		this.multMatrix(
+			M4.ortho(left, right, bottom, top, near, far, this.tempMatrix),
+		)
 	}
 
 	scale(x: number, y: number, z?: number): void
@@ -173,7 +208,9 @@ export class TSGLContextBase {
 	}
 
 	rotate(angleDegrees: number, x: number, y: number, z: number) {
-		this.multMatrix(M4.rotate(angleDegrees * DEG, { x, y, z }, this.tempMatrix))
+		this.multMatrix(
+			M4.rotate(angleDegrees * DEG, { x, y, z }, this.tempMatrix),
+		)
 	}
 
 	lookAt(eye: V3, center: V3, up: V3) {
@@ -188,7 +225,9 @@ export class TSGLContextBase {
 		const pop = this.stack.pop()
 		assert(undefined !== pop)
 		this[this.currentMatrixName] = pop as M4
-		this.currentMatrixName == 'projectionMatrix' ? this.projectionMatrixVersion++ : this.modelViewMatrixVersion++
+		this.currentMatrixName == "projectionMatrix"
+			? this.projectionMatrixVersion++
+			: this.modelViewMatrixVersion++
 	}
 
 	/**
@@ -204,7 +243,11 @@ export class TSGLContextBase {
 			0, 0, 1, 0,
 			0, 0, 0, 1,
 		])
-		return M4.product(viewportToScreenMatrix, this.projectionMatrix, this.modelViewMatrix)
+		return M4.product(
+			viewportToScreenMatrix,
+			this.projectionMatrix,
+			this.modelViewMatrix,
+		)
 	}
 
 	/////////// IMMEDIATE MODE
@@ -223,7 +266,10 @@ export class TSGLContextBase {
 	}
 
 	begin(mode: GL.DrawMode) {
-		if (this.immediate.mode != -1) throw new Error('mismatched viewerGL.begin() and viewerGL.end() calls')
+		if (this.immediate.mode != -1)
+			throw new Error(
+				"mismatched viewerGL.begin() and viewerGL.end() calls",
+			)
 		this.immediate.mode = mode
 		this.immediate.mesh.colors = []
 		this.immediate.mesh.coords = []
@@ -238,9 +284,9 @@ export class TSGLContextBase {
 		this.immediate.color =
 			1 == args.length && Array.isArray(args[0])
 				? (args[0] as GL_COLOR)
-				: 1 == args.length && 'number' == typeof args[0]
+				: 1 == args.length && "number" == typeof args[0]
 				? hexIntToGLColor(args[0])
-				: 1 == args.length && 'string' == typeof args[0]
+				: 1 == args.length && "string" == typeof args[0]
 				? chroma.color(args[0]).gl()
 				: [args[0], args[1], args[2], args[3] || 1]
 	}
@@ -261,13 +307,22 @@ export class TSGLContextBase {
 	}
 
 	end(): void {
-		if (this.immediate.mode == -1) throw new Error('mismatched viewerGL.begin() and viewerGL.end() calls')
+		if (this.immediate.mode == -1)
+			throw new Error(
+				"mismatched viewerGL.begin() and viewerGL.end() calls",
+			)
 		this.immediate.mesh.compile()
 		this.immediate.shader
 			.uniforms({
-				useTexture: !!TSGLContextBase.gl.getParameter(this.TEXTURE_BINDING_2D),
+				useTexture: !!TSGLContextBase.gl.getParameter(
+					this.TEXTURE_BINDING_2D,
+				),
 			})
-			.drawBuffers(this.immediate.mesh.vertexBuffers, undefined, this.immediate.mode)
+			.drawBuffers(
+				this.immediate.mesh.vertexBuffers,
+				undefined,
+				this.immediate.mode,
+			)
 		this.immediate.mode = -1
 	}
 
@@ -281,7 +336,13 @@ export class TSGLContextBase {
 	/**
 	 * Starts an animation loop.
 	 */
-	animate(callback: (this: TSGLContextBase, domHighResTimeStamp: number, timeSinceLast: number) => void): () => void {
+	animate(
+		callback: (
+			this: TSGLContextBase,
+			domHighResTimeStamp: number,
+			timeSinceLast: number,
+		) => void,
+	): () => void {
 		const requestAnimationFrame: typeof window.requestAnimationFrame =
 			window.requestAnimationFrame ||
 			(window as any).mozRequestAnimationFrame ||
@@ -340,16 +401,16 @@ export class TSGLContextBase {
 		if (!document.body) {
 			throw new Error(
 				"document.body doesn't exist yet (call viewerGL.fullscreen() from " +
-					'window.onload() or from inside the <body> tag)',
+					"window.onload() or from inside the <body> tag)",
 			)
 		}
 		document.body.appendChild(this.canvas)
-		document.body.style.overflow = 'hidden'
-		this.canvas.style.position = 'absolute'
-		this.canvas.style.left = left + 'px'
-		this.canvas.style.top = top + 'px'
-		this.canvas.style.width = window.innerWidth - left - right + 'px'
-		this.canvas.style.bottom = window.innerHeight - top - bottom + 'px'
+		document.body.style.overflow = "hidden"
+		this.canvas.style.position = "absolute"
+		this.canvas.style.left = left + "px"
+		this.canvas.style.top = top + "px"
+		this.canvas.style.width = window.innerWidth - left - right + "px"
+		this.canvas.style.bottom = window.innerHeight - top - bottom + "px"
 
 		this.addResizeListener()
 
@@ -384,16 +445,25 @@ export class TSGLContextBase {
 			}
 		}
 
-		window.addEventListener('resize', windowOnResize)
+		window.addEventListener("resize", windowOnResize)
 		windowOnResize()
 		return this
 	}
 
 	getMouseLine(e: MouseEvent): { anchor: V3; dir: V3 }
-	getMouseLine(canvasPosX: number, canvasPosY: number): { anchor: V3; dir: V3 }
-	getMouseLine(canvasPosXOrE: number | MouseEvent, canvasPosY?: number): { anchor: V3; dir: V3 } {
+	getMouseLine(
+		canvasPosX: number,
+		canvasPosY: number,
+	): { anchor: V3; dir: V3 }
+	getMouseLine(
+		canvasPosXOrE: number | MouseEvent,
+		canvasPosY?: number,
+	): { anchor: V3; dir: V3 } {
 		if (canvasPosXOrE instanceof MouseEvent) {
-			return this.getMouseLine(canvasPosXOrE.offsetX, canvasPosXOrE.offsetY)
+			return this.getMouseLine(
+				canvasPosXOrE.offsetX,
+				canvasPosXOrE.offsetY,
+			)
 		}
 		const ndc1 = V(
 			(canvasPosXOrE * 2) / this.canvas.offsetWidth - 1,
@@ -432,14 +502,23 @@ export class TSGLContextBase {
 	}
 
 	cachedSDFMeshes: {
-		[str: string]: Mesh & { TRIANGLES: int[]; coords: number[]; width: number; lineCount: int }
+		[str: string]: Mesh & {
+			TRIANGLES: int[]
+			coords: number[]
+			width: number
+			lineCount: int
+		}
 	} = {}
 
 	getSDFMeshForString(str: string) {
 		assert(this.textMetrics)
 		return (
 			this.cachedSDFMeshes[str] ||
-			(this.cachedSDFMeshes[str] = createTextMesh(this.textMetrics, this.textAtlas, str))
+			(this.cachedSDFMeshes[str] = createTextMesh(
+				this.textMetrics,
+				this.textAtlas,
+				str,
+			))
 		)
 	}
 
@@ -447,8 +526,8 @@ export class TSGLContextBase {
 		string: string,
 		color: GL_COLOR,
 		size = 1,
-		xAlign: 'left' | 'center' | 'right' = 'left',
-		baseline: 'top' | 'middle' | 'alphabetic' | 'bottom' = 'bottom',
+		xAlign: "left" | "center" | "right" = "left",
+		baseline: "top" | "middle" | "alphabetic" | "bottom" = "bottom",
 		gamma = 0.05,
 		lineHeight = 1.2,
 	) {
@@ -458,16 +537,29 @@ export class TSGLContextBase {
 		const xTranslate = { left: 0, center: -0.5, right: -1 }
 		const yTranslate = {
 			top: -this.textMetrics.ascender / this.textMetrics.size,
-			middle: (-this.textMetrics.ascender - this.textMetrics.descender) / 2 / this.textMetrics.size,
+			middle:
+				(-this.textMetrics.ascender - this.textMetrics.descender) /
+				2 /
+				this.textMetrics.size,
 			alphabetic: 0,
 			bottom: -this.textMetrics.descender / this.textMetrics.size,
 		}
 		// console.log('yTranslate[baseline]', yTranslate[baseline])
-		this.translate(xTranslate[xAlign] * strMesh.width, yTranslate[baseline], 0)
+		this.translate(
+			xTranslate[xAlign] * strMesh.width,
+			yTranslate[baseline],
+			0,
+		)
 		this.multMatrix(M4.forSys(V3.X, V3.Y, new V3(0, -lineHeight, 0)))
 		this.textAtlas.bind(0)
 		this.textRenderShader
-			.uniforms({ texture: 0, u_color: color, u_debug: 0, u_gamma: gamma, u_buffer: 192 / 256 })
+			.uniforms({
+				texture: 0,
+				u_color: color,
+				u_debug: 0,
+				u_gamma: gamma,
+				u_buffer: 192 / 256,
+			})
 			.draw(strMesh)
 		this.popMatrix()
 
@@ -484,30 +576,39 @@ export class TSGLContextBase {
 	}
 
 	static create(
-		options: Partial<GL.WebGLContextAttributes & { canvas: HTMLCanvasElement; throwOnError: boolean }> = {},
+		options: Partial<
+			GL.WebGLContextAttributes & {
+				canvas: HTMLCanvasElement
+				throwOnError: boolean
+			}
+		> = {},
 	): TSGLContext {
-		const canvas = options.canvas || document.createElement('canvas')
+		const canvas = options.canvas || document.createElement("canvas")
 		if (!options.canvas) {
 			canvas.width = 800
 			canvas.height = 600
 		}
-		if (!('alpha' in options)) options.alpha = false
+		if (!("alpha" in options)) options.alpha = false
 		let newGL: any = undefined
 		try {
-			newGL = canvas.getContext('webgl2', options)
+			newGL = canvas.getContext("webgl2", options)
 			newGL && (newGL.version = 2)
 			if (!newGL) {
-				newGL = canvas.getContext('webgl', options) || canvas.getContext('experimental-webgl', options)
+				newGL =
+					canvas.getContext("webgl", options) ||
+					canvas.getContext("experimental-webgl", options)
 				newGL && (newGL.version = 1)
 			}
-			console.log('getting context')
+			console.log("getting context")
 		} catch (e) {
-			console.log(e, 'Failed to get context')
+			console.log(e, "Failed to get context")
 		}
-		if (!newGL) throw new Error('WebGL not supported')
+		if (!newGL) throw new Error("WebGL not supported")
 		if (options.throwOnError) {
 			newGL = makeDebugContext(newGL, (err, funcName) => {
-				throw new Error(glEnumToString(err) + ' was caused by ' + funcName)
+				throw new Error(
+					glEnumToString(err) + " was caused by " + funcName,
+				)
 			})
 		}
 
@@ -524,12 +625,21 @@ export class TSGLContextBase {
 	 * @param maxPixelRatio A limit for the pixelRatio. Useful for very high DPI devices such as mobile devices.
 	 */
 	fixCanvasRes(maxPixelRatio = Infinity) {
-		this.canvas.width = this.canvas.clientWidth * Math.min(window.devicePixelRatio, maxPixelRatio)
-		this.canvas.height = this.canvas.clientHeight * Math.min(window.devicePixelRatio, maxPixelRatio)
+		this.canvas.width =
+			this.canvas.clientWidth *
+			Math.min(window.devicePixelRatio, maxPixelRatio)
+		this.canvas.height =
+			this.canvas.clientHeight *
+			Math.min(window.devicePixelRatio, maxPixelRatio)
 		this.viewport(0, 0, this.canvas.width, this.canvas.height)
 	}
 
-	drawVector(vector: V3, anchor: V3, color: GL_COLOR = GL_COLOR_BLACK, size = 1) {
+	drawVector(
+		vector: V3,
+		anchor: V3,
+		color: GL_COLOR = GL_COLOR_BLACK,
+		size = 1,
+	) {
 		if (vector.likeO()) return
 		this.pushMatrix()
 
@@ -537,7 +647,9 @@ export class TSGLContextBase {
 		if (headLength > vector.length()) return
 
 		const vT = vector.getPerpendicular().unit()
-		this.multMatrix(M4.forSys(vector.unit(), vT, vector.cross(vT).unit(), anchor))
+		this.multMatrix(
+			M4.forSys(vector.unit(), vT, vector.cross(vT).unit(), anchor),
+		)
 		this.scale(vector.length() - headLength, size / 2, size / 2)
 
 		this.shaders.singleColor
@@ -585,7 +697,14 @@ TSGLContextBase.prototype.HALF_FLOAT_OES = TSGLContextBase.HALF_FLOAT_OES
  a - b
  ```
  */
-export function pushQuad(triangles: int[], flipped: boolean, a: int, b: int, c: int, d: int) {
+export function pushQuad(
+	triangles: int[],
+	flipped: boolean,
+	a: int,
+	b: int,
+	c: int,
+	d: int,
+) {
 	// prettier-ignore
 	if (flipped) {
 		triangles.push(
@@ -599,7 +718,12 @@ export function pushQuad(triangles: int[], flipped: boolean, a: int, b: int, c: 
 }
 
 function hexIntToGLColor(color: int): GL_COLOR {
-	return [(color >> 16) / 255.0, ((color >> 8) & 0xff) / 255.0, (color & 0xff) / 255.0, 1.0]
+	return [
+		(color >> 16) / 255.0,
+		((color >> 8) & 0xff) / 255.0,
+		(color & 0xff) / 255.0,
+		1.0,
+	]
 }
 
 export interface FontJsonMetrics {
@@ -612,7 +736,9 @@ export interface FontJsonMetrics {
 
 	// [width, height, horiBearingX, horiBearingY, horiAdvance, posX, posY]
 	// see https://www.freetype.org/freetype2/docs/tutorial/step2.html
-	chars: { [char: string]: [number, number, number, number, number, number, number] }
+	chars: {
+		[char: string]: [number, number, number, number, number, number, number]
+	}
 
 	descender: number
 	ascender: number
@@ -642,8 +768,15 @@ export interface FontJsonMetrics {
 // const vertexBuffer = gl.createBuffer()
 // const textureBuffer = gl.createBuffer()
 
-function createTextMesh(fontMetrics: FontJsonMetrics, fontTextureAtlas: Texture, str: string, lineHeight = 1) {
-	const mesh = new Mesh().addIndexBuffer('TRIANGLES').addVertexBuffer('coords', 'ts_TexCoord')
+function createTextMesh(
+	fontMetrics: FontJsonMetrics,
+	fontTextureAtlas: Texture,
+	str: string,
+	lineHeight = 1,
+) {
+	const mesh = new Mesh()
+		.addIndexBuffer("TRIANGLES")
+		.addVertexBuffer("coords", "ts_TexCoord")
 
 	let cursorX = 0
 	let cursorY = 0
@@ -652,7 +785,15 @@ function createTextMesh(fontMetrics: FontJsonMetrics, fontTextureAtlas: Texture,
 		const metric = fontMetrics.chars[chr]
 		if (!metric) return
 
-		const [width, height, horiBearingX, horiBearingY, horiAdvance, posX, posY] = metric
+		const [
+			width,
+			height,
+			horiBearingX,
+			horiBearingY,
+			horiAdvance,
+			posX,
+			posY,
+		] = metric
 		const { size, buffer } = fontMetrics
 		const quadStartIndex = mesh.vertices.length
 
@@ -671,8 +812,10 @@ function createTextMesh(fontMetrics: FontJsonMetrics, fontTextureAtlas: Texture,
 			)
 
 			const coordsLeft = posX / fontTextureAtlas.width
-			const coordsRight = (posX + width + 2 * buffer) / fontTextureAtlas.width
-			const coordsBottom = (posY + height + 2 * buffer) / fontTextureAtlas.height
+			const coordsRight =
+				(posX + width + 2 * buffer) / fontTextureAtlas.width
+			const coordsBottom =
+				(posY + height + 2 * buffer) / fontTextureAtlas.height
 			const coordsTop = posY / fontTextureAtlas.height
 			mesh.coords.push(
 				[coordsLeft, coordsBottom],
@@ -682,7 +825,14 @@ function createTextMesh(fontMetrics: FontJsonMetrics, fontTextureAtlas: Texture,
 			)
 			// mesh.coords.push([0, 0], [0, 1], [1, 0], [1, 1])
 
-			pushQuad(mesh.TRIANGLES, false, quadStartIndex, quadStartIndex + 1, quadStartIndex + 2, quadStartIndex + 3)
+			pushQuad(
+				mesh.TRIANGLES,
+				false,
+				quadStartIndex,
+				quadStartIndex + 1,
+				quadStartIndex + 2,
+				quadStartIndex + 3,
+			)
 		}
 
 		// pen.x += Math.ceil(horiAdvance * scale);
@@ -691,7 +841,7 @@ function createTextMesh(fontMetrics: FontJsonMetrics, fontTextureAtlas: Texture,
 
 	for (let i = 0; i < str.length; i++) {
 		const chr = str[i]
-		if ('\n' == chr) {
+		if ("\n" == chr) {
 			cursorX = 0
 			cursorY += lineHeight * fontMetrics.size
 		} else {
@@ -699,5 +849,8 @@ function createTextMesh(fontMetrics: FontJsonMetrics, fontTextureAtlas: Texture,
 		}
 	}
 
-	return Object.assign(mesh.compile(), { width: cursorX / fontMetrics.size, lineCount: cursorY + 1 })
+	return Object.assign(mesh.compile(), {
+		width: cursorX / fontMetrics.size,
+		lineCount: cursorY + 1,
+	})
 }

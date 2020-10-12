@@ -1,15 +1,18 @@
 /// <reference path="../types.d.ts" />
-import { V, V3 } from 'ts3dutils'
-import { Mesh, Shader, Texture, TSGLContext } from 'tsgl'
+import { V, V3 } from "ts3dutils"
+import { Mesh, Shader, Texture, TSGLContext } from "tsgl"
 
 /**
  * Blend two textures while rendering them to a quad.
  */
 export function multiTexture(gl: TSGLContext) {
 	const mesh = Mesh.plane()
-	const texture = Texture.fromURLSwitch('texture.png')
-	const texture2 = Texture.fromURLSwitch('texture2.png')
-	const shader = Shader.create<{ texture: 'SAMPLER_2D'; texture2: 'SAMPLER_2D' }, {}>(
+	const texture = Texture.fromURLSwitch("texture.png")
+	const texture2 = Texture.fromURLSwitch("texture2.png")
+	const shader = Shader.create<
+		{ texture: "SAMPLER_2D"; texture2: "SAMPLER_2D" },
+		{}
+	>(
 		`
 	attribute vec2 ts_TexCoord;
 	attribute vec4 ts_Vertex;

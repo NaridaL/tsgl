@@ -58,7 +58,7 @@
 		"demo:watch": "rollup -c rollup.demo.config.js -w",
 		"demo:build": "rollup -c rollup.demo.config.js",
 		"pre-commit": "npm run lint && npm run build && npm run demo:build && git add dist/*",
-		"prettier": "prettier -l --write \"{src,test}/**/*.ts\""
+		"prettier": "prettier -l --write \"{src,test}/**/*.{ts,json}\""
 	},
 	"pre-commit": [
 		"pre-commit"
@@ -67,11 +67,7 @@
 	"umdGlobal": "tsgl",
 	"version": "1.1.7",
 	"prettier": {
-		"useTabs": true,
 		"semi": false,
-		"singleQuote": true,
-		"trailingComma": "all",
-		"printWidth": 120,
-		"tabWidth": 4
+		"trailingComma": "all"
 	}
 }

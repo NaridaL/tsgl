@@ -1,9 +1,9 @@
 /// <reference path="../types.d.ts" />
-import { color } from 'chroma.ts'
-import { AABB, arrayFromFunction, DEG, M4, time, V, V3 } from 'ts3dutils'
-import { Mesh, Shader, TSGLContext } from 'tsgl'
-import posNormalColorVS from '../shaders/posNormalColorVS.glslx'
-import varyingColorFS from '../shaders/varyingColorFS.glslx'
+import { color } from "chroma.ts"
+import { AABB, arrayFromFunction, DEG, M4, time, V, V3 } from "ts3dutils"
+import { Mesh, Shader, TSGLContext } from "tsgl"
+import posNormalColorVS from "../shaders/posNormalColorVS.glslx"
+import varyingColorFS from "../shaders/varyingColorFS.glslx"
 
 /**
  * Calculate and render magnetic field lines.
@@ -35,7 +35,12 @@ export function mag(gl: TSGLContext) {
 	 * @param start start point of field line
 	 * @param dir step size to take. negative to plot field line in reverse
 	 */
-	function* qPath(fieldCharges: PointCharge[], bounds: AABB, start: V3, dir: number) {
+	function* qPath(
+		fieldCharges: PointCharge[],
+		bounds: AABB,
+		start: V3,
+		dir: number,
+	) {
 		let pos = start,
 			f,
 			i = 0
@@ -61,7 +66,10 @@ export function mag(gl: TSGLContext) {
 		return arrayFromFunction(count * count, (i) => {
 			const x = i % count
 			const y = (i / count) | 0
-			return { pos: V((0.5 + x) / count, (0.5 + y) / count, 0), charge: +(x < count / 2) || -1 }
+			return {
+				pos: V((0.5 + x) / count, (0.5 + y) / count, 0),
+				charge: +(x < count / 2) || -1,
+			}
 		})
 	}
 
@@ -89,7 +97,7 @@ export function mag(gl: TSGLContext) {
 
 	const bounds = new AABB(V3.O, V(1, 1, 0.3))
 	let linesDensity = 10
-	const linesMesh = new Mesh().addIndexBuffer('LINES')
+	const linesMesh = new Mesh().addIndexBuffer("LINES")
 
 	function calculateFieldLines() {
 		const ps: PointCharge[] = []
@@ -107,20 +115,30 @@ export function mag(gl: TSGLContext) {
 		linesMesh.LINES.length = 0
 		linesMesh.vertices.length = 0
 		console.log(
-			'generation took (ms): ' +
+			"generation took (ms): " +
 				time(() => {
-					for (const [x, y, z] of grid3d(linesDensity, linesDensity, Math.ceil(0.4 * linesDensity))) {
+					for (const [x, y, z] of grid3d(
+						linesDensity,
+						linesDensity,
+						Math.ceil(0.4 * linesDensity),
+					)) {
 						const start = V(x, y, z * bounds.max.z)
 						linesMesh.vertices.push(start)
 						const STEP = 0.01
 						for (const p of qPath(ps, bounds, start, STEP)) {
 							linesMesh.vertices.push(p)
-							linesMesh.LINES.push(linesMesh.vertices.length - 2, linesMesh.vertices.length - 1)
+							linesMesh.LINES.push(
+								linesMesh.vertices.length - 2,
+								linesMesh.vertices.length - 1,
+							)
 						}
 						linesMesh.vertices.push(start)
 						for (const p of qPath(ps, bounds, start, -STEP)) {
 							linesMesh.vertices.push(p)
-							linesMesh.LINES.push(linesMesh.vertices.length - 2, linesMesh.vertices.length - 1)
+							linesMesh.LINES.push(
+								linesMesh.vertices.length - 2,
+								linesMesh.vertices.length - 1,
+							)
 						}
 					}
 				}),
@@ -165,19 +183,19 @@ export function mag(gl: TSGLContext) {
 	gl.canvas.tabIndex = 0
 	gl.canvas.focus()
 
-	gl.canvas.addEventListener('keypress', (e) => {
-		const index = e.key.charCodeAt(0) - '1'.charCodeAt(0)
+	gl.canvas.addEventListener("keypress", (e) => {
+		const index = e.key.charCodeAt(0) - "1".charCodeAt(0)
 		if (0 <= index && index <= 4) {
 			enabledBarMagnets[index] = !enabledBarMagnets[index]
 			calculateFieldLines()
 		}
 
-		if (e.key == '+' && linesDensity < 50) {
+		if (e.key == "+" && linesDensity < 50) {
 			linesDensity++
 			calculateFieldLines()
 		}
 
-		if (e.key == '-' && linesDensity > 1) {
+		if (e.key == "-" && linesDensity > 1) {
 			linesDensity--
 			calculateFieldLines()
 		}
@@ -190,20 +208,28 @@ export function mag(gl: TSGLContext) {
 		// gl.translate(-1, -1, -1)
 		// gl.scale(2)
 
-		shader.attributes({ ts_Color: color('black').gl() }).draw(linesMesh, gl.LINES)
+		shader
+			.attributes({ ts_Color: color("black").gl() })
+			.draw(linesMesh, gl.LINES)
 		barMagnetMatrices.forEach((mat, index) => {
 			if (enabledBarMagnets[index]) {
 				gl.pushMatrix()
 				gl.multMatrix(mat)
 				gl.scale(0.5, 1, 1)
-				shader.attributes({ ts_Color: color('red').gl() }).draw(cubeMesh, gl.LINES)
+				shader
+					.attributes({ ts_Color: color("red").gl() })
+					.draw(cubeMesh, gl.LINES)
 				gl.translate(1, 0)
-				shader.attributes({ ts_Color: color('blue').gl() }).draw(cubeMesh, gl.LINES)
+				shader
+					.attributes({ ts_Color: color("blue").gl() })
+					.draw(cubeMesh, gl.LINES)
 				gl.popMatrix()
 			}
 		})
 		gl.scale(bounds.max)
-		shader.attributes({ ts_Color: color('grey').gl() }).draw(cubeMesh, gl.LINES)
+		shader
+			.attributes({ ts_Color: color("grey").gl() })
+			.draw(cubeMesh, gl.LINES)
 		// vectorFieldShader.drawBuffers(vectorFieldMesh.vertexBuffers, undefined, DRAW_MODES.LINES)
 	})
 }
@@ -237,4 +263,5 @@ function grid3d(xCount = 64, yCount = xCount, zCount = 1) {
 	})
 }
 
-;(mag as any).info = 'Press keys 1-5 to toggle magnets, +/- to change to number of field lines.'
+;(mag as any).info =
+	"Press keys 1-5 to toggle magnets, +/- to change to number of field lines."

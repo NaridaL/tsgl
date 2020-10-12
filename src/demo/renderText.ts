@@ -1,13 +1,16 @@
-import { color } from 'chroma.ts'
-import { V, V3 } from 'ts3dutils'
-import { TSGLContext } from 'tsgl'
+import { color } from "chroma.ts"
+import { V, V3 } from "ts3dutils"
+import { TSGLContext } from "tsgl"
 
 /**
  * Render SDF text.
  */
 export async function renderText(gl: TSGLContext) {
 	gl.clearColor(1, 1, 1, 1)
-	await gl.setupTextRendering('font/OpenSans-Regular.png', 'font/OpenSans-Regular.json')
+	await gl.setupTextRendering(
+		"font/OpenSans-Regular.png",
+		"font/OpenSans-Regular.json",
+	)
 
 	gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE)
 
@@ -24,7 +27,7 @@ export async function renderText(gl: TSGLContext) {
 
 	return gl.animate(function (abs, _diff) {
 		const angleDeg = Math.sin(abs / 10000) * 15
-		const textColor = color('brown').darker().gl()
+		const textColor = color("brown").darker().gl()
 		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 		gl.loadIdentity()
 		gl.rotate(angleDeg, 1, 1, 0)
@@ -32,7 +35,14 @@ export async function renderText(gl: TSGLContext) {
 		gl.pushMatrix()
 		gl.translate(-18, 8)
 		;[0, 0.05, 0.1, 0.15, 0.2, 0.5].forEach((gamma) => {
-			gl.renderText('sdf text w/ gamma=' + gamma, textColor, 1, 'left', 'top', gamma)
+			gl.renderText(
+				"sdf text w/ gamma=" + gamma,
+				textColor,
+				1,
+				"left",
+				"top",
+				gamma,
+			)
 			gl.translate(0, -1)
 		})
 		gl.popMatrix()
@@ -41,25 +51,25 @@ export async function renderText(gl: TSGLContext) {
 
 		gl.translate(-18, 0)
 		gl.renderText(
-			'This text has\nmultiple newlines\nand a line height of 1.2.',
+			"This text has\nmultiple newlines\nand a line height of 1.2.",
 			[1, 0, 0, 1],
 			1,
-			'left',
-			'middle',
+			"left",
+			"middle",
 			undefined,
 			1.2,
 		)
 
 		gl.translate(0, -5)
-		gl.renderText('VERY LARGE', [1, 0, 0, 1], 3, 'left', 'middle')
+		gl.renderText("VERY LARGE", [1, 0, 0, 1], 3, "left", "middle")
 
 		gl.translate(0, -3)
 		gl.renderText(
-			'This text is very small yet remains legible. gamma=0.15',
+			"This text is very small yet remains legible. gamma=0.15",
 			[1, 0, 0, 1],
 			0.25,
-			'left',
-			'middle',
+			"left",
+			"middle",
 			0.15,
 		)
 
@@ -67,9 +77,9 @@ export async function renderText(gl: TSGLContext) {
 
 		gl.pushMatrix()
 		gl.translate(0, 8)
-		;['top', 'middle', 'alphabetic', 'bottom'].forEach((baseline) => {
+		;["top", "middle", "alphabetic", "bottom"].forEach((baseline) => {
 			gl.begin(gl.LINES)
-			gl.color('green')
+			gl.color("green")
 			gl.vertex(0, 0, 0)
 			gl.vertex(20, 0, 0)
 			gl.vertex(0, -1, 0)
@@ -78,9 +88,9 @@ export async function renderText(gl: TSGLContext) {
 
 			gl.renderText(
 				'baseline="' + baseline + '"|{}() ABC XYZ yjg Ẫß',
-				color('blue').gl(),
+				color("blue").gl(),
 				1,
-				'left',
+				"left",
 				baseline as any,
 			)
 
@@ -90,16 +100,22 @@ export async function renderText(gl: TSGLContext) {
 
 		gl.pushMatrix()
 		gl.translate(10, -2)
-		;['left', 'center', 'right'].forEach((align) => {
+		;["left", "center", "right"].forEach((align) => {
 			gl.begin(gl.LINES)
-			gl.color('red')
+			gl.color("red")
 			gl.vertex(-10, 0, 0)
 			gl.vertex(10, 0, 0)
 			gl.vertex(0, -1, 0)
 			gl.vertex(0, 1, 0)
 			gl.end()
 
-			gl.renderText('align="' + align + '"', color('blue').gl(), 1, align as any, 'alphabetic')
+			gl.renderText(
+				'align="' + align + '"',
+				color("blue").gl(),
+				1,
+				align as any,
+				"alphabetic",
+			)
 
 			gl.translate(0, -2.2)
 		})

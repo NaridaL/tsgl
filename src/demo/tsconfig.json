@@ -16,6 +16,10 @@
 		"rootDir": "."
 	},
 	"references": [{ "path": "../.." }],
-	"include": ["../../node_modules/webgl-strict-types/index.d.ts", "../types.d.ts", "*.ts"],
+	"include": [
+		"../../node_modules/webgl-strict-types/index.d.ts",
+		"../types.d.ts",
+		"*.ts"
+	],
 	"exclude": []
 }

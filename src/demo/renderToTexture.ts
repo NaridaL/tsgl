@@ -1,7 +1,7 @@
-import { arrayFromFunction, lerp, V, V3 } from 'ts3dutils'
-import { Mesh, Shader, Texture, TSGLContext } from 'tsgl'
+import { arrayFromFunction, lerp, V, V3 } from "ts3dutils"
+import { Mesh, Shader, Texture, TSGLContext } from "tsgl"
 
-import gazeboJSON from '../../gazebo.json'
+import gazeboJSON from "../../gazebo.json"
 
 const { sin, PI } = Math
 
@@ -17,7 +17,7 @@ export function renderToTexture(gl: TSGLContext) {
 	})
 	const cyl = Mesh.offsetVertices(sinVertices, V3.Z, false)
 	const plane = Mesh.plane()
-	const texture = Texture.fromURLSwitch('texture.png')
+	const texture = Texture.fromURLSwitch("texture.png")
 	const overlay = new Texture(1024, 1024)
 	const meshShader = Shader.create(
 		`

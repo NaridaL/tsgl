@@ -1,6 +1,6 @@
 /// <reference path="../types.d.ts" />
-import { V, V3 } from 'ts3dutils'
-import { TSGLContext } from 'tsgl'
+import { V, V3 } from "ts3dutils"
+import { TSGLContext } from "tsgl"
 
 /**
  * OpenGL-style immediate mode.
@@ -51,11 +51,11 @@ export function immediateMode(gl: TSGLContext) {
 
 		gl.lineWidth(2)
 		gl.begin(gl.LINE_LOOP)
-		gl.color('red')
+		gl.color("red")
 		gl.vertex(1, 0, 0)
-		gl.color('green')
+		gl.color("green")
 		gl.vertex(0, 1, 0)
-		gl.color('blue')
+		gl.color("blue")
 		gl.vertex(0, 0, 1)
 		gl.end()
 

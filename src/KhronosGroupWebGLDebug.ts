@@ -63,7 +63,11 @@ function error(msg: string) {
  * @type {!Object.<number, !Object.<number, string>}
  */
 const glValidEnumContexts: {
-	[funcName: string]: { [argCount: number]: { [argIndex: number]: boolean | { enumBitwiseOr: string[] } } }
+	[funcName: string]: {
+		[argCount: number]: {
+			[argIndex: number]: boolean | { enumBitwiseOr: string[] }
+		}
+	}
 } = {
 	// Generic setters and getters
 
@@ -122,7 +126,17 @@ const glValidEnumContexts: {
 
 	// Frame buffer operations (clear, blend, depth test, stencil)
 
-	clear: { 1: { 0: { enumBitwiseOr: ['COLOR_BUFFER_BIT', 'DEPTH_BUFFER_BIT', 'STENCIL_BUFFER_BIT'] } } },
+	clear: {
+		1: {
+			0: {
+				enumBitwiseOr: [
+					"COLOR_BUFFER_BIT",
+					"DEPTH_BUFFER_BIT",
+					"STENCIL_BUFFER_BIT",
+				],
+			},
+		},
+	},
 	depthFunc: { 1: { 0: true } },
 	blendFunc: { 2: { 0: true, 1: true } },
 	blendFuncSeparate: { 4: { 0: true, 1: true, 2: true, 3: true } },
@@ -166,7 +180,16 @@ const glValidEnumContexts: {
 	// WebGL 2 Framebuffer objects
 
 	blitFramebuffer: {
-		10: { 8: { enumBitwiseOr: ['COLOR_BUFFER_BIT', 'DEPTH_BUFFER_BIT', 'STENCIL_BUFFER_BIT'] }, 9: true },
+		10: {
+			8: {
+				enumBitwiseOr: [
+					"COLOR_BUFFER_BIT",
+					"DEPTH_BUFFER_BIT",
+					"STENCIL_BUFFER_BIT",
+				],
+			},
+			9: true,
+		},
 	},
 	framebufferTextureLayer: { 5: { 0: true, 1: true } },
 	invalidateFramebuffer: { 2: { 0: true } },
@@ -262,7 +285,9 @@ const glValidEnumContexts: {
 	// WebGL 2 Sync objects
 
 	fenceSync: { 2: { 0: true, 1: { enumBitwiseOr: [] } } },
-	clientWaitSync: { 3: { 1: { enumBitwiseOr: ['SYNC_FLUSH_COMMANDS_BIT'] } } },
+	clientWaitSync: {
+		3: { 1: { enumBitwiseOr: ["SYNC_FLUSH_COMMANDS_BIT"] } },
+	},
 	waitSync: { 3: { 1: { enumBitwiseOr: [] } } },
 	getSyncParameter: { 2: { 1: true } },
 
@@ -303,11 +328,16 @@ export function init() {
 	if (null === glEnums) {
 		glEnums = {}
 		enumStringToValue = {}
-		const c = (window as any).WebGL2RenderingContext || (window as any).WebGLRenderingContext
-		if (!c) throw new Error('Neither WebGL2RenderingContext nor WebGLRenderingContext exists on window.')
+		const c =
+			(window as any).WebGL2RenderingContext ||
+			(window as any).WebGLRenderingContext
+		if (!c)
+			throw new Error(
+				"Neither WebGL2RenderingContext nor WebGLRenderingContext exists on window.",
+			)
 		for (const propertyName in c) {
 			const prop = c[propertyName]
-			if ('number' === typeof prop) {
+			if ("number" === typeof prop) {
 				glEnums[prop] = propertyName
 				enumStringToValue[propertyName] = prop as any
 			}
@@ -337,7 +367,9 @@ export function mightBeEnum(value: number): boolean {
 export function glEnumToString(value: GL.GLenum<string>): string {
 	init()
 	var name = glEnums[value as any]
-	return name !== undefined ? 'gl.' + name : '/*UNKNOWN WebGL ENUM*/ 0x' + (value as any).toString(16) + ''
+	return name !== undefined
+		? "gl." + name
+		: "/*UNKNOWN WebGL ENUM*/ 0x" + (value as any).toString(16) + ""
 }
 
 /**
@@ -368,7 +400,7 @@ export function glFunctionArgToString(
 		if (funcOverloadInfo !== undefined) {
 			const argInfo = funcOverloadInfo[argumentIndex]
 			if (argInfo) {
-				if (typeof argInfo === 'object') {
+				if (typeof argInfo === "object") {
 					const enums = argInfo.enumBitwiseOr
 					const orEnums = []
 					let orResult = 0
@@ -380,7 +412,7 @@ export function glFunctionArgToString(
 						}
 					}
 					if (orResult === value) {
-						return orEnums.join(' | ')
+						return orEnums.join(" | ")
 					} else {
 						return glEnumToString(value)
 					}
@@ -391,9 +423,9 @@ export function glFunctionArgToString(
 		}
 	}
 	if (value === null) {
-		return 'null'
+		return "null"
 	} else if (value === undefined) {
-		return 'undefined'
+		return "undefined"
 	} else {
 		return value.toString()
 	}
@@ -407,17 +439,26 @@ export function glFunctionArgToString(
  * @param args The arguments.
  * @return The arguments as a string.
  */
-export function glFunctionArgsToString(functionName: string, args: number[]): string {
+export function glFunctionArgsToString(
+	functionName: string,
+	args: number[],
+): string {
 	// apparently we can't do args.join(',')
-	var argStr = ''
+	var argStr = ""
 	var numArgs = args.length
 	for (var ii = 0; ii < numArgs; ++ii) {
-		argStr += (ii == 0 ? '' : ', ') + glFunctionArgToString(functionName, numArgs, ii, args[ii])
+		argStr +=
+			(ii == 0 ? "" : ", ") +
+			glFunctionArgToString(functionName, numArgs, ii, args[ii])
 	}
 	return argStr
 }
 
-function makePropertyWrapper(wrapper: any, original: any, propertyName: string) {
+function makePropertyWrapper(
+	wrapper: any,
+	original: any,
+	propertyName: string,
+) {
 	//log('wrap prop: ' + propertyName)
 	wrapper.__defineGetter__(propertyName, function () {
 		return original[propertyName]
@@ -467,12 +508,22 @@ export function makeDebugContext(
 		opt_onErrorFunc ||
 		function (err, functionName, args) {
 			// apparently we can't do args.join(',')
-			var argStr = ''
+			var argStr = ""
 			var numArgs = args.length
 			for (let i = 0; i < numArgs; ++i) {
-				argStr += (i == 0 ? '' : ', ') + glFunctionArgToString(functionName, numArgs, i, args[i])
+				argStr +=
+					(i == 0 ? "" : ", ") +
+					glFunctionArgToString(functionName, numArgs, i, args[i])
 			}
-			error('WebGL error ' + glEnumToString(err) + ' in ' + functionName + '(' + argStr + ')')
+			error(
+				"WebGL error " +
+					glEnumToString(err) +
+					" in " +
+					functionName +
+					"(" +
+					argStr +
+					")",
+			)
 		}
 
 	// Holds booleans for each GL error so after we get the error ourselves
@@ -480,7 +531,10 @@ export function makeDebugContext(
 	const glErrorShadow: { [k: number]: boolean } = {}
 
 	// Makes a function that calls a WebGL function and then calls getError.
-	function makeErrorWrapper(ctx: WebGLRenderingContextStrict, functionName: string) {
+	function makeErrorWrapper(
+		ctx: WebGLRenderingContextStrict,
+		functionName: string,
+	) {
 		return function (...args: any[]) {
 			if (opt_onFunc) {
 				opt_onFunc(functionName, args)
@@ -500,8 +554,8 @@ export function makeDebugContext(
 	const wrapper: any = {}
 	for (let propertyName in ctx) {
 		const prop = ctx[propertyName as keyof WebGLRenderingContextStrict]
-		if ('function' === typeof prop) {
-			if (propertyName != 'getExtension') {
+		if ("function" === typeof prop) {
+			if (propertyName != "getExtension") {
 				wrapper[propertyName] = makeErrorWrapper(ctx, propertyName)
 			} else {
 				let wrapped = makeErrorWrapper(ctx, propertyName)
@@ -510,7 +564,12 @@ export function makeDebugContext(
 					if (!result) {
 						return null
 					}
-					return makeDebugContext(result, opt_onErrorFunc, opt_onFunc, opt_err_ctx)
+					return makeDebugContext(
+						result,
+						opt_onErrorFunc,
+						opt_onFunc,
+						opt_err_ctx,
+					)
 				}
 			}
 		} else {
@@ -541,7 +600,9 @@ export function isWebGL2RenderingContext(o: any): o is WebGL2RenderingContext {
  * @param ctx The webgl context to
  *     reset.
  */
-export function resetToInitialState(ctx2: WebGL2RenderingContextStrict | WebGLRenderingContextStrict) {
+export function resetToInitialState(
+	ctx2: WebGL2RenderingContextStrict | WebGLRenderingContextStrict,
+) {
 	if (isWebGL2RenderingContext(ctx2)) {
 		ctx2.bindVertexArray(null)
 	}
@@ -600,7 +661,10 @@ export function resetToInitialState(ctx2: WebGL2RenderingContextStrict | WebGLRe
 	ctx2.pixelStorei(ctx2.UNPACK_ALIGNMENT, 4)
 	ctx2.pixelStorei(ctx2.UNPACK_FLIP_Y_WEBGL, false)
 	ctx2.pixelStorei(ctx2.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false)
-	ctx2.pixelStorei(ctx2.UNPACK_COLORSPACE_CONVERSION_WEBGL, ctx2.BROWSER_DEFAULT_WEBGL)
+	ctx2.pixelStorei(
+		ctx2.UNPACK_COLORSPACE_CONVERSION_WEBGL,
+		ctx2.BROWSER_DEFAULT_WEBGL,
+	)
 	ctx2.polygonOffset(0, 0)
 	ctx2.sampleCoverage(1, false)
 	ctx2.scissor(0, 0, ctx2.canvas.width, ctx2.canvas.height)
@@ -608,7 +672,9 @@ export function resetToInitialState(ctx2: WebGL2RenderingContextStrict | WebGLRe
 	ctx2.stencilMask(0xffffffff)
 	ctx2.stencilOp(ctx2.KEEP, ctx2.KEEP, ctx2.KEEP)
 	ctx2.viewport(0, 0, ctx2.canvas.width, ctx2.canvas.height)
-	ctx2.clear(ctx2.COLOR_BUFFER_BIT | ctx2.DEPTH_BUFFER_BIT | ctx2.STENCIL_BUFFER_BIT)
+	ctx2.clear(
+		ctx2.COLOR_BUFFER_BIT | ctx2.DEPTH_BUFFER_BIT | ctx2.STENCIL_BUFFER_BIT,
+	)
 
 	if (isWebGL2RenderingContext(ctx2)) {
 		ctx2.drawBuffers([ctx2.BACK])
@@ -617,7 +683,9 @@ export function resetToInitialState(ctx2: WebGL2RenderingContextStrict | WebGLRe
 		ctx2.bindBuffer(ctx2.COPY_WRITE_BUFFER, null)
 		ctx2.bindBuffer(ctx2.PIXEL_PACK_BUFFER, null)
 		ctx2.bindBuffer(ctx2.PIXEL_UNPACK_BUFFER, null)
-		const numTransformFeedbacks = ctx2.getParameter(ctx2.MAX_TRANSFORM_FEEDBACK_SEPARATE_ATTRIBS)
+		const numTransformFeedbacks = ctx2.getParameter(
+			ctx2.MAX_TRANSFORM_FEEDBACK_SEPARATE_ATTRIBS,
+		)
 		for (let ii = 0; ii < numTransformFeedbacks; ++ii) {
 			ctx2.bindBufferBase(ctx2.TRANSFORM_FEEDBACK_BUFFER, ii, null)
 		}
@@ -666,7 +734,9 @@ export function resetToInitialState(ctx2: WebGL2RenderingContextStrict | WebGLRe
  */
 export function makeLostContextSimulatingCanvas(canvas: HTMLCanvasElement) {
 	const canvas2 = canvas as any
-	let unwrappedContext_: WebGLRenderingContextStrict | WebGL2RenderingContextStrict
+	let unwrappedContext_:
+		| WebGLRenderingContextStrict
+		| WebGL2RenderingContextStrict
 	const onLost_: WebGLContextEventListener[] = []
 	const onRestored_: WebGLContextEventListener[] = []
 	let wrappedContext_: any = {}
@@ -684,19 +754,25 @@ export function makeLostContextSimulatingCanvas(canvas: HTMLCanvasElement) {
 
 	canvas2.getContext = (function (f) {
 		return function () {
-			const ctx = f.apply(canvas2, arguments) as WebGLRenderingContextStrict
+			const ctx = f.apply(
+				canvas2,
+				arguments,
+			) as WebGLRenderingContextStrict
 			// Did we get a context and is it a WebGL context?
 			// @ts-ignore
 			if (
 				ctx instanceof GL ||
-				((window as any).WebGL2RenderingContext && ctx instanceof WebGL2RenderingContext)
+				((window as any).WebGL2RenderingContext &&
+					ctx instanceof WebGL2RenderingContext)
 			) {
 				if (ctx != unwrappedContext_) {
 					if (unwrappedContext_) {
-						throw new Error('got different context')
+						throw new Error("got different context")
 					}
 					unwrappedContext_ = ctx
-					wrappedContext_ = makeLostContextSimulatingContext(unwrappedContext_)
+					wrappedContext_ = makeLostContextSimulatingContext(
+						unwrappedContext_,
+					)
 				}
 				return wrappedContext_
 			}
@@ -704,8 +780,12 @@ export function makeLostContextSimulatingCanvas(canvas: HTMLCanvasElement) {
 		}
 	})(canvas2.getContext)
 
-	function wrapEvent(listener: WebGLContextEventListener | { handleEvent: WebGLContextEventListener }) {
-		if (typeof listener == 'function') {
+	function wrapEvent(
+		listener:
+			| WebGLContextEventListener
+			| { handleEvent: WebGLContextEventListener },
+	) {
+		if (typeof listener == "function") {
 			return listener
 		} else {
 			return function (e: CustomWebGLContextEvent) {
@@ -715,13 +795,17 @@ export function makeLostContextSimulatingCanvas(canvas: HTMLCanvasElement) {
 	}
 
 	function addOnContextLostListener(
-		listener: WebGLContextEventListener | { handleEvent: WebGLContextEventListener },
+		listener:
+			| WebGLContextEventListener
+			| { handleEvent: WebGLContextEventListener },
 	) {
 		onLost_.push(wrapEvent(listener))
 	}
 
 	function addOnContextRestoredListener(
-		listener: WebGLContextEventListener | { handleEvent: WebGLContextEventListener },
+		listener:
+			| WebGLContextEventListener
+			| { handleEvent: WebGLContextEventListener },
 	) {
 		onRestored_.push(wrapEvent(listener))
 	}
@@ -730,10 +814,10 @@ export function makeLostContextSimulatingCanvas(canvas: HTMLCanvasElement) {
 		const f = canvas.addEventListener
 		canvas.addEventListener = function (type: string, listener: any) {
 			switch (type) {
-				case 'webglcontextlost':
+				case "webglcontextlost":
 					addOnContextLostListener(listener)
 					break
-				case 'webglcontextrestored':
+				case "webglcontextrestored":
 					addOnContextRestoredListener(listener)
 					break
 				default:
@@ -751,7 +835,7 @@ export function makeLostContextSimulatingCanvas(canvas: HTMLCanvasElement) {
 			++contextId_
 			while (unwrappedContext_.getError()) clearErrors()
 			glErrorShadow_[unwrappedContext_.CONTEXT_LOST_WEBGL] = true
-			const event = makeWebGLContextEvent('context lost')
+			const event = makeWebGLContextEvent("context lost")
 			const callbacks = onLost_.slice()
 			setTimeout(function () {
 				//log('numCallbacks:' + callbacks.length)
@@ -773,7 +857,9 @@ export function makeLostContextSimulatingCanvas(canvas: HTMLCanvasElement) {
 			if (onRestored_.length) {
 				setTimeout(function () {
 					if (!canRestore_) {
-						throw new Error('can not restore. webglcontestlost listener did not call event.preventDefault')
+						throw new Error(
+							"can not restore. webglcontestlost listener did not call event.preventDefault",
+						)
 					}
 					freeResources()
 					resetToInitialState(unwrappedContext_)
@@ -781,7 +867,7 @@ export function makeLostContextSimulatingCanvas(canvas: HTMLCanvasElement) {
 					numCalls_ = 0
 					canRestore_ = false
 					const callbacks = onRestored_.slice()
-					const event = makeWebGLContextEvent('context restored')
+					const event = makeWebGLContextEvent("context restored")
 					for (let ii = 0; ii < callbacks.length; ++ii) {
 						callbacks[ii](event)
 					}
@@ -792,7 +878,7 @@ export function makeLostContextSimulatingCanvas(canvas: HTMLCanvasElement) {
 
 	canvas2.loseContextInNCalls = function (numCalls: number) {
 		if (contextLost_) {
-			throw new Error('You can not ask a lost context to be lost')
+			throw new Error("You can not ask a lost context to be lost")
 		}
 		numCallsToLoseContext_ = numCalls_ + numCalls
 	}
@@ -844,7 +930,10 @@ export function makeLostContextSimulatingCanvas(canvas: HTMLCanvasElement) {
 	}
 
 	// Makes a function that simulates WebGL when out of context.
-	function makeLostContextFunctionWrapper(ctx: WebGLRenderingContextStrict, functionName: string) {
+	function makeLostContextFunctionWrapper(
+		ctx: WebGLRenderingContextStrict,
+		functionName: string,
+	) {
 		const f = (ctx as any)[functionName]
 		return function () {
 			// log('calling:' + functionName)
@@ -896,7 +985,9 @@ export function makeLostContextSimulatingCanvas(canvas: HTMLCanvasElement) {
 		preventDefault: () => void
 	}
 	type WebGLContextEventListener = (e: CustomWebGLContextEvent) => void
-	function makeWebGLContextEvent(statusMessage: string): CustomWebGLContextEvent {
+	function makeWebGLContextEvent(
+		statusMessage: string,
+	): CustomWebGLContextEvent {
 		return {
 			statusMessage: statusMessage,
 			preventDefault: function () {
@@ -907,11 +998,16 @@ export function makeLostContextSimulatingCanvas(canvas: HTMLCanvasElement) {
 
 	return canvas2
 
-	function makeLostContextSimulatingContext(ctx: WebGLRenderingContextStrict) {
+	function makeLostContextSimulatingContext(
+		ctx: WebGLRenderingContextStrict,
+	) {
 		// copy all functions and properties to wrapper
 		for (const propertyName in ctx) {
-			if (typeof (ctx as any)[propertyName] == 'function') {
-				wrappedContext_[propertyName] = makeLostContextFunctionWrapper(ctx, propertyName)
+			if (typeof (ctx as any)[propertyName] == "function") {
+				wrappedContext_[propertyName] = makeLostContextFunctionWrapper(
+					ctx,
+					propertyName,
+				)
 			} else {
 				makePropertyWrapper(wrappedContext_, ctx, propertyName)
 			}
@@ -936,20 +1032,20 @@ export function makeLostContextSimulatingCanvas(canvas: HTMLCanvasElement) {
 		}
 
 		const creationFunctions = [
-			'createBuffer',
-			'createFramebuffer',
-			'createProgram',
-			'createRenderbuffer',
-			'createShader',
-			'createTexture',
+			"createBuffer",
+			"createFramebuffer",
+			"createProgram",
+			"createRenderbuffer",
+			"createShader",
+			"createTexture",
 		]
 		if (isWebGL2RenderingContext(ctx)) {
 			creationFunctions.push(
-				'createQuery',
-				'createSampler',
-				'fenceSync',
-				'createTransformFeedback',
-				'createVertexArray',
+				"createQuery",
+				"createSampler",
+				"fenceSync",
+				"createTransformFeedback",
+				"createVertexArray",
 			)
 		}
 		for (let i = 0; i < creationFunctions.length; ++i) {
@@ -969,37 +1065,37 @@ export function makeLostContextSimulatingCanvas(canvas: HTMLCanvasElement) {
 		}
 
 		const functionsThatShouldReturnNull = [
-			'getActiveAttrib',
-			'getActiveUniform',
-			'getBufferParameter',
-			'getContextAttributes',
-			'getAttachedShaders',
-			'getFramebufferAttachmentParameter',
-			'getParameter',
-			'getProgramParameter',
-			'getProgramInfoLog',
-			'getRenderbufferParameter',
-			'getShaderParameter',
-			'getShaderInfoLog',
-			'getShaderSource',
-			'getTexParameter',
-			'getUniform',
-			'getUniformLocation',
-			'getVertexAttrib',
+			"getActiveAttrib",
+			"getActiveUniform",
+			"getBufferParameter",
+			"getContextAttributes",
+			"getAttachedShaders",
+			"getFramebufferAttachmentParameter",
+			"getParameter",
+			"getProgramParameter",
+			"getProgramInfoLog",
+			"getRenderbufferParameter",
+			"getShaderParameter",
+			"getShaderInfoLog",
+			"getShaderSource",
+			"getTexParameter",
+			"getUniform",
+			"getUniformLocation",
+			"getVertexAttrib",
 		]
 		if (isWebGL2RenderingContext(ctx)) {
 			functionsThatShouldReturnNull.push(
-				'getInternalformatParameter',
-				'getQuery',
-				'getQueryParameter',
-				'getSamplerParameter',
-				'getSyncParameter',
-				'getTransformFeedbackVarying',
-				'getIndexedParameter',
-				'getUniformIndices',
-				'getActiveUniforms',
-				'getActiveUniformBlockParameter',
-				'getActiveUniformBlockName',
+				"getInternalformatParameter",
+				"getQuery",
+				"getQueryParameter",
+				"getSamplerParameter",
+				"getSyncParameter",
+				"getTransformFeedbackVarying",
+				"getIndexedParameter",
+				"getUniformIndices",
+				"getActiveUniforms",
+				"getActiveUniformBlockParameter",
+				"getActiveUniformBlockName",
 			)
 		}
 		for (let ii = 0; ii < functionsThatShouldReturnNull.length; ++ii) {
@@ -1016,16 +1112,22 @@ export function makeLostContextSimulatingCanvas(canvas: HTMLCanvasElement) {
 		}
 
 		const isFunctions = [
-			'isBuffer',
-			'isEnabled',
-			'isFramebuffer',
-			'isProgram',
-			'isRenderbuffer',
-			'isShader',
-			'isTexture',
+			"isBuffer",
+			"isEnabled",
+			"isFramebuffer",
+			"isProgram",
+			"isRenderbuffer",
+			"isShader",
+			"isTexture",
 		]
 		if (isWebGL2RenderingContext(ctx)) {
-			isFunctions.push('isQuery', 'isSampler', 'isSync', 'isTransformFeedback', 'isVertexArray')
+			isFunctions.push(
+				"isQuery",
+				"isSampler",
+				"isSync",
+				"isTransformFeedback",
+				"isVertexArray",
+			)
 		}
 		for (let ii = 0; ii < isFunctions.length; ++ii) {
 			const functionName = isFunctions[ii]

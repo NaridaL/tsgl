@@ -1,7 +1,7 @@
-import { AABB, clamp, DEG, V, V3 } from 'ts3dutils'
-import { Mesh, Shader, Texture, TSGLContext } from 'tsgl'
+import { AABB, clamp, DEG, V, V3 } from "ts3dutils"
+import { Mesh, Shader, Texture, TSGLContext } from "tsgl"
 
-import cessnaJSON from '../../cessna.json'
+import cessnaJSON from "../../cessna.json"
 
 /**
  * Draw shadow of a mesh using a shadow map.
@@ -18,12 +18,18 @@ export function shadowMap(gl: TSGLContext) {
 	let useBoundingSphere = true
 	const cube = Mesh.cube()
 	const sphere = Mesh.sphere(2).computeWireframeFromFlatTriangles().compile()
-	const plane = Mesh.plane().translate(-0.5, -0.5).scale(300, 300, 1).compile()
+	const plane = Mesh.plane()
+		.translate(-0.5, -0.5)
+		.scale(300, 300, 1)
+		.compile()
 	const depthMap = new Texture(1024, 1024, { format: gl.RGBA })
 	const texturePlane = Mesh.plane()
 	const boundingSphere = mesh.getBoundingSphere()
 	const boundingBox = mesh.getAABB()
-	const frustrumCube = Mesh.cube().scale(2).translate(V3.XYZ.negated()).compile()
+	const frustrumCube = Mesh.cube()
+		.scale(2)
+		.translate(V3.XYZ.negated())
+		.compile()
 	const colorShader = Shader.create(
 		`
 	uniform mat4 ts_ModelViewProjectionMatrix;
@@ -134,8 +140,8 @@ export function shadowMap(gl: TSGLContext) {
 		lastPos = pagePos
 	}
 
-	gl.canvas.contentEditable = 'true'
-	gl.canvas.addEventListener('keypress', () => {
+	gl.canvas.contentEditable = "true"
+	gl.canvas.addEventListener("keypress", () => {
 		useBoundingSphere = !useBoundingSphere
 	})
 
@@ -146,7 +152,12 @@ export function shadowMap(gl: TSGLContext) {
 		const angle = 2 * Math.asin(sphere.radius / distance)
 		gl.matrixMode(gl.PROJECTION)
 		gl.loadIdentity()
-		gl.perspective(angle / DEG, 1, distance - sphere.radius, distance + sphere.radius)
+		gl.perspective(
+			angle / DEG,
+			1,
+			distance - sphere.radius,
+			distance + sphere.radius,
+		)
 		gl.matrixMode(gl.MODELVIEW)
 		gl.loadIdentity()
 		gl.lookAt(light, sphere.center, V3.Y)
@@ -184,7 +195,14 @@ export function shadowMap(gl: TSGLContext) {
 		// Need to fit an oblique view frustum to get optimal bounds
 		gl.matrixMode(gl.PROJECTION)
 		gl.loadIdentity()
-		gl.frustum(slopeNegX * near, slopePosX * near, slopeNegY * near, slopePosY * near, near, far)
+		gl.frustum(
+			slopeNegX * near,
+			slopePosX * near,
+			slopeNegY * near,
+			slopePosY * near,
+			near,
+			far,
+		)
 		gl.matrixMode(gl.MODELVIEW)
 		gl.loadIdentity()
 		gl.lookAt(light, center, V3.Y)
@@ -193,7 +211,11 @@ export function shadowMap(gl: TSGLContext) {
 	return gl.animate(function (abs) {
 		const time = abs / 1000
 		// Move the light around
-		const light = new V3(100 * Math.sin(time * 0.2), 25, 20 * Math.cos(time * 0.2))
+		const light = new V3(
+			100 * Math.sin(time * 0.2),
+			25,
+			20 * Math.cos(time * 0.2),
+		)
 
 		// Construct a camera looking from the light toward the object. The view
 		// frustum is fit so it tightly encloses the bounding volume of the object
@@ -273,7 +295,9 @@ export function shadowMap(gl: TSGLContext) {
 		depthMap.bind(0)
 		displayShader
 			.uniforms({
-				shadowMapMatrix: shadowMapMatrix.times(gl.projectionMatrix.times(gl.modelViewMatrix).inversed()),
+				shadowMapMatrix: shadowMapMatrix.times(
+					gl.projectionMatrix.times(gl.modelViewMatrix).inversed(),
+				),
 				light: gl.modelViewMatrix.transformPoint(light),
 				depthMap: 0,
 			})
@@ -291,4 +315,5 @@ export function shadowMap(gl: TSGLContext) {
 		gl.viewport(0, 0, gl.canvas.width, gl.canvas.height)
 	})
 }
-;(shadowMap as any).info = 'Press any key to toggle between sphere- or AABB-based camera clipping.'
+;(shadowMap as any).info =
+	"Press any key to toggle between sphere- or AABB-based camera clipping."

@@ -1,12 +1,12 @@
-import { V, V3 } from 'ts3dutils'
-import { Mesh, Shader, TSGLContext } from 'tsgl'
+import { V, V3 } from "ts3dutils"
+import { Mesh, Shader, TSGLContext } from "tsgl"
 
 /**
  * Draw a rotating cube.
  */
 export function setupDemo(gl: TSGLContext) {
 	const mesh = Mesh.cube()
-	const shader = Shader.create<{ color: 'FLOAT_VEC4' }, {}>(
+	const shader = Shader.create<{ color: "FLOAT_VEC4" }, {}>(
 		`
 		uniform mat4 ts_ModelViewProjectionMatrix;
 		attribute vec4 ts_Vertex;
