@@ -21,6 +21,7 @@
     "cross-env": "^7.0.2",
     "mocha": "^8.1.3",
     "naridal-tslib-config": "^1.0.4",
+    "npm-run-all": "^4.1.5",
     "opentype.js": "^1.3.3",
     "pre-commit": "^1.2.2",
     "prettier": "^2.1.2",
@@ -57,7 +58,7 @@
     "test:ci": "npm run build && npm run lint && npm test",
     "demo:watch": "rollup -c rollup.demo.config.js -w",
     "demo:build": "rollup -c rollup.demo.config.js",
-    "pre-commit": "npm run lint build prettier demo:build && git add dist/*",
+    "pre-commit": "npm-run-all lint build prettier demo:build && git add dist/*",
     "prettier": "prettier -l --write \"{src,test}/**/*.{ts,json}\" \"*.{ts,json,yml}"
   },
   "pre-commit": [

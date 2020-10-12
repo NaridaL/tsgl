@@ -84,9 +84,7 @@ class Buffer {
             else {
                 buffer = new this.type(this.data);
             }
-            const spacing = this.data.length
-                ? buffer.length / this.data.length
-                : 0;
+            const spacing = this.data.length ? buffer.length / this.data.length : 0;
             assert(spacing % 1 == 0, `buffer ${this.name} elements not of consistent size, average size is ` +
                 spacing);
             if (NLA_DEBUG) {
@@ -174,9 +172,7 @@ class Mesh extends Transformable {
             volume,
             centroid: eq0(volume)
                 ? V3.O
-                : totalCentroidWithZX2
-                    .div(24 * volume)
-                    .schur(new V3(1, 1, 0.5)),
+                : totalCentroidWithZX2.div(24 * volume).schur(new V3(1, 1, 0.5)),
             area: totalAreaX2 / 2,
         };
     }
@@ -312,9 +308,7 @@ class Mesh extends Transformable {
         const HEADER_BYTE_SIZE = 80, FLOAT_BYTE_SIZE = 4;
         const triangles = this.TRIANGLES;
         const triangleCount = triangles.length / 3;
-        const buffer = new ArrayBuffer(HEADER_BYTE_SIZE +
-            4 +
-            triangleCount * (4 * 3 * FLOAT_BYTE_SIZE + 2));
+        const buffer = new ArrayBuffer(HEADER_BYTE_SIZE + 4 + triangleCount * (4 * 3 * FLOAT_BYTE_SIZE + 2));
         const dataView = new DataView(buffer);
         dataView.setUint32(HEADER_BYTE_SIZE, triangleCount, true);
         let bufferPtr = HEADER_BYTE_SIZE + 4;
@@ -592,23 +586,24 @@ class Mesh extends Transformable {
         }
         // indexes of LINES relative to UNIT_CUBE_CORNERS. Mapped to VERTEX_CORNERS.indexOf
         // so they make sense in the context of the mesh
-        // prettier-ignore
         mesh.LINES = [
-            0, 1,
-            0, 2,
-            1, 3,
-            2, 3,
-            0, 4,
-            1, 5,
-            2, 6,
-            3, 7,
-            4, 5,
-            4, 6,
-            5, 7,
-            6, 7,
-        ].map(i => {
+            [0, 1],
+            [0, 2],
+            [1, 3],
+            [2, 3],
+            [0, 4],
+            [1, 5],
+            [2, 6],
+            [3, 7],
+            [4, 5],
+            [4, 6],
+            [5, 7],
+            [6, 7],
+        ]
+            .flatMap((x) => x)
+            .map((i) => {
             let fvi = 0;
-            const fi = VERTEX_CORNERS.findIndex(faceVertexIndexes => (fvi = faceVertexIndexes.indexOf(i)) != -1);
+            const fi = VERTEX_CORNERS.findIndex((faceVertexIndexes) => (fvi = faceVertexIndexes.indexOf(i)) != -1);
             return fi * 4 + fvi;
         });
         mesh.compile();
@@ -727,9 +722,7 @@ class Mesh extends Transformable {
         return mesh;
     }
     static aabb(aabb) {
-        const matrix = M4.product(M4.translate(aabb.min), M4.scale(aabb
-            .size()
-            .max(new V3(NLA_PRECISION, NLA_PRECISION, NLA_PRECISION))));
+        const matrix = M4.product(M4.translate(aabb.min), M4.scale(aabb.size().max(new V3(NLA_PRECISION, NLA_PRECISION, NLA_PRECISION))));
         const mesh = Mesh.cube().transform(matrix);
         // mesh.vertices = aabb.corners()
         mesh.computeNormalLines(20);
@@ -957,32 +950,32 @@ function isIntArray(x) {
 //const x:UniformTypes = undefined as 'FLOAT_VEC4' | 'FLOAT_VEC3'
 class Shader {
     /**
-     * Provides a convenient wrapper for WebGL shaders. A few uniforms and attributes,
-     * prefixed with `gl_`, are automatically added to all shader sources to make
-     * simple shaders easier to write.
-     * Headers for the following variables are automatically prepended to the passed source. The correct variables
-     * are also automatically passed to the shader when drawing.
-     *
-     * For vertex and fragment shaders:
-     uniform mat3 ts_NormalMatrix;
-     uniform mat4 ts_ModelViewMatrix;
-     uniform mat4 ts_ProjectionMatrix;
-     uniform mat4 ts_ModelViewProjectionMatrix;
-     uniform mat4 ts_ModelViewMatrixInverse;
-     uniform mat4 ts_ProjectionMatrixInverse;
-     uniform mat4 ts_ModelViewProjectionMatrixInverse;
-     *
-     *
-     * Example usage:
-     *
-     *  const shader = new GL.Shader(
-     *      `void main() { gl_Position = ts_ModelViewProjectionMatrix * ts_Vertex; }`,
-     *      `uniform vec4 color; void main() { gl_FragColor = color; }`)
-     *
-     *  shader.uniforms({ color: [1, 0, 0, 1] }).draw(mesh)
-     *
-     * Compiles a shader program using the provided vertex and fragment shaders.
-     */
+       * Provides a convenient wrapper for WebGL shaders. A few uniforms and attributes,
+       * prefixed with `gl_`, are automatically added to all shader sources to make
+       * simple shaders easier to write.
+       * Headers for the following variables are automatically prepended to the passed source. The correct variables
+       * are also automatically passed to the shader when drawing.
+       *
+       * For vertex and fragment shaders:
+       uniform mat3 ts_NormalMatrix;
+       uniform mat4 ts_ModelViewMatrix;
+       uniform mat4 ts_ProjectionMatrix;
+       uniform mat4 ts_ModelViewProjectionMatrix;
+       uniform mat4 ts_ModelViewMatrixInverse;
+       uniform mat4 ts_ProjectionMatrixInverse;
+       uniform mat4 ts_ModelViewProjectionMatrixInverse;
+       *
+       *
+       * Example usage:
+       *
+       *  const shader = new GL.Shader(
+       *      `void main() { gl_Position = ts_ModelViewProjectionMatrix * ts_Vertex; }`,
+       *      `uniform vec4 color; void main() { gl_FragColor = color; }`)
+       *
+       *  shader.uniforms({ color: [1, 0, 0, 1] }).draw(mesh)
+       *
+       * Compiles a shader program using the provided vertex and fragment shaders.
+       */
     constructor(vertexSource, fragmentSource, gl = currentGL()) {
         this.projectionMatrixVersion = -1;
         this.modelViewMatrixVersion = -1;
@@ -1049,8 +1042,7 @@ class Shader {
         const gl = this.gl;
         gl.useProgram(this.program);
         for (const name in uniforms) {
-            const location = this.uniformLocations[name] ||
-                gl.getUniformLocation(this.program, name);
+            const location = this.uniformLocations[name] || gl.getUniformLocation(this.program, name);
             // !location && console.warn(name + ' uniform is not used in shader')
             if (!location)
                 continue;
@@ -1092,11 +1084,8 @@ class Shader {
                 value = value.toArray();
             }
             if (gl.FLOAT_VEC4 == info.type && info.size != 1) {
-                if (value instanceof Float32Array ||
-                    value instanceof Float64Array) {
-                    gl.uniform4fv(location, value instanceof Float32Array
-                        ? value
-                        : Float32Array.from(value));
+                if (value instanceof Float32Array || value instanceof Float64Array) {
+                    gl.uniform4fv(location, value instanceof Float32Array ? value : Float32Array.from(value));
                 }
                 else {
                     gl.uniform4fv(location, value.flatMap((x) => x));
@@ -1192,10 +1181,7 @@ class Shader {
                 }
             }
             else {
-                throw new Error('attempted to set uniform "' +
-                    name +
-                    '" to invalid value ' +
-                    value);
+                throw new Error('attempted to set uniform "' + name + '" to invalid value ' + value);
             }
         }
         return this;
@@ -1489,8 +1475,7 @@ class Texture {
             gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebuffer);
             gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.texture, 0);
             gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, depthRenderbuffer);
-            if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !==
-                gl.FRAMEBUFFER_COMPLETE) {
+            if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) {
                 throw new Error("Rendering to this texture is not supported (incomplete this.framebuffer)");
             }
         }
@@ -3009,8 +2994,7 @@ class TSGLContextBase {
      */
     fixCanvasRes(maxPixelRatio = Infinity) {
         this.canvas.width =
-            this.canvas.clientWidth *
-                Math.min(window.devicePixelRatio, maxPixelRatio);
+            this.canvas.clientWidth * Math.min(window.devicePixelRatio, maxPixelRatio);
         this.canvas.height =
             this.canvas.clientHeight *
                 Math.min(window.devicePixelRatio, maxPixelRatio);
