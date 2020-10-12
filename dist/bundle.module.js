@@ -1,4 +1,4 @@
-import { assert, V3, NLA_DEBUG, M4, Transformable, eq0, AABB, arrayFromFunction, NLA_PRECISION, assertVectors, lerp, V, assertf, assertInst, DEG, P3ZX, addOwnProperties } from 'ts3dutils';
+import { assert, V3, NLA_DEBUG, M4, Transformable, eq0, AABB, arrayFromFunction, NLA_PRECISION, assertVectors, TAU, lerp, V, assertf, assertInst, DEG, P3ZX, addOwnProperties } from 'ts3dutils';
 import { __awaiter } from 'tslib';
 import { color } from 'chroma.ts';
 
@@ -375,9 +375,9 @@ class Mesh extends Transformable {
             const b = vertices[bi];
             const c = vertices[ci];
             const normal = b.minus(a).cross(c.minus(a)).unit();
-            normals[ai] = normals[ai].plus(normal);
-            normals[bi] = normals[bi].plus(normal);
-            normals[ci] = normals[ci].plus(normal);
+            normals[ai] = normals[ai] ? normals[ai].plus(normal) : normal;
+            normals[bi] = normals[bi] ? normals[bi].plus(normal) : normal;
+            normals[ci] = normals[ci] ? normals[ci].plus(normal) : normal;
         }
         for (let i = 0; i < vertices.length; i++) {
             normals[i] = normals[i].unit();
@@ -488,7 +488,7 @@ class Mesh extends Transformable {
                 mesh.normals.push(V3.Z);
                 if (i < detailX && j < detailY) {
                     const offset = i + j * (detailX + 1);
-                    mesh.TRIANGLES.push(offset, offset + detailX + 1, offset + 1, offset + detailX + 1, offset + detailX + 2, offset + 1);
+                    mesh.TRIANGLES.push(offset, offset + 1, offset + detailX + 1, offset + detailX + 1, offset + 1, offset + detailX + 2);
                 }
             }
         }
@@ -553,19 +553,19 @@ class Mesh extends Transformable {
             .addIndexBuffer('LINES');
         // basically indexes for faces of the cube. vertices each need to be added 3 times,
         // as they have different normals depending on the face being rendered
-        // prettier-ignore
         const VERTEX_CORNERS = [
-            0, 1, 2, 3,
-            4, 5, 6, 7,
-            0, 4, 1, 5,
-            2, 6, 3, 7,
-            2, 6, 0, 4,
-            3, 7, 1, 5,
+            [0, 4, 6, 2],
+            [1, 3, 7, 5],
+            [0, 1, 5, 4],
+            [2, 6, 7, 3],
+            [0, 2, 3, 1],
+            [4, 5, 7, 6],
         ];
-        mesh.vertices = VERTEX_CORNERS.map((i) => Mesh.UNIT_CUBE_CORNERS[i]);
-        mesh.normals = [V3.X.negated(), V3.X, V3.Y.negated(), V3.Y, V3.Z.negated(), V3.Z].flatMap((v) => [v, v, v, v]);
-        for (let i = 0; i < 6 * 4; i += 4) {
-            pushQuad(mesh.TRIANGLES, 0 != i % 8, VERTEX_CORNERS[i], VERTEX_CORNERS[i + 1], VERTEX_CORNERS[i + 2], VERTEX_CORNERS[i + 3]);
+        const VERTEX_NORMALS = [V3.X.negated(), V3.X, V3.Y.negated(), V3.Y, V3.Z.negated(), V3.Z];
+        for (let i = 0; i < 6; i++) {
+            pushQuad(mesh.TRIANGLES, true, mesh.vertices.length, mesh.vertices.length + 1, mesh.vertices.length + 3, mesh.vertices.length + 2);
+            mesh.vertices.push(...VERTEX_CORNERS[i].map((j) => Mesh.UNIT_CUBE_CORNERS[j]));
+            mesh.normals.push(VERTEX_NORMALS[i], VERTEX_NORMALS[i], VERTEX_NORMALS[i], VERTEX_NORMALS[i]);
         }
         // indexes of LINES relative to UNIT_CUBE_CORNERS. Mapped to VERTEX_CORNERS.indexOf
         // so they make sense in the context of the mesh
@@ -595,7 +595,12 @@ class Mesh extends Transformable {
             const angle = (i / (latitudes - 1)) * PI - PI / 2;
             return new V3(0, cos(angle), sin(angle));
         });
-        return Mesh.rotation(baseVertices, { anchor: V3.O, dir1: V3.Z }, 2 * PI, longitudes, true, baseVertices);
+        const vqs = arrayFromFunction(latitudes, (i) => {
+            const angle = (i / (latitudes - 1)) * PI - PI / 2;
+            const q = cos(angle);
+            return [(i / (latitudes - 1)) * q, q];
+        });
+        return Mesh.rotation(baseVertices, { anchor: V3.O, dir1: V3.Z }, 2 * PI, longitudes, true, baseVertices, vqs);
     }
     /**
      * Returns a sphere mesh with radius 1 created by subdividing the faces of a isocahedron (20-sided) recursively
@@ -728,19 +733,48 @@ class Mesh extends Transformable {
     // should be connected by triangles. If $normals is set (pass an array of V3s of the same length as $vertices),
     // these will also be rotated and correctly added to the mesh.
     // @example const precious = Mesh.rotation([V(10, 0, -2), V(10, 0, 2), V(11, 0, 2), V(11, 0, -2)], , L3.Z, 512)
-    static rotation(vertices, lineAxis, totalRads, steps, close = true, normals) {
+    static rotation(vertices, lineAxis, totalRads, steps, close = true, normals, vqs) {
         const mesh = new Mesh().addIndexBuffer('TRIANGLES');
         normals && mesh.addVertexBuffer('normals', 'ts_Normal');
+        vqs && mesh.addVertexBuffer('coordsUVQ', 'ts_TexCoordUVQ');
         const vc = vertices.length, vTotal = vc * steps;
         const rotMat = new M4();
         const triangles = mesh.TRIANGLES;
         for (let i = 0; i < steps; i++) {
             // add triangles
-            const rads = (totalRads / steps) * i;
+            const rads = totalRads * (i / steps);
             M4.rotateLine(lineAxis.anchor, lineAxis.dir1, rads, rotMat);
             mesh.vertices.push(...rotMat.transformedPoints(vertices));
             normals && mesh.normals.push(...rotMat.transformedVectors(normals));
+            vqs &&
+                mesh.coordsUVQ.push(...vqs.map(([v, q]) => [(i / steps) * q, v, q]));
             if (close || i !== steps - 1) {
+                for (let j = 0; j < vc - 1; j++) {
+                    pushQuad(triangles, false, i * vc + j + 1, i * vc + j, ((i + 1) * vc + j + 1) % vTotal, ((i + 1) * vc + j) % vTotal);
+                }
+            }
+        }
+        mesh.compile();
+        return mesh;
+    }
+    static spiral(vertices, lineAxis, totalRads, steps, gradient, normals, vqs) {
+        const mesh = new Mesh().addIndexBuffer('TRIANGLES');
+        normals && mesh.addVertexBuffer('normals', 'ts_Normal');
+        vqs && mesh.addVertexBuffer('coordsUVQ', 'ts_TexCoordUVQ');
+        const vc = vertices.length, vTotal = vc * steps;
+        const rotMat = new M4();
+        const triangles = mesh.TRIANGLES;
+        for (let i = 0; i < steps; i++) {
+            // add triangles
+            const rads = totalRads * (i / steps);
+            M4.rotateLine(lineAxis.anchor, lineAxis.dir1, rads, rotMat);
+            mesh.vertices.push(...rotMat
+                .translate(lineAxis.dir1.toLength((totalRads / TAU) * (i / steps) * gradient))
+                .transformedPoints(vertices));
+            normals && mesh.normals.push(...rotMat.transformedVectors(normals));
+            vqs &&
+                mesh.coordsUVQ.push(...vqs.map(([v, q]) => [(i / steps) * q, v, q]));
+            if (i !== steps - 1) {
                 for (let j = 0; j < vc - 1; j++) {
                     pushQuad(triangles, false, i * vc + j + 1, i * vc + j, ((i + 1) * vc + j + 1) % vTotal, ((i + 1) * vc + j) % vTotal);
                 }
@@ -792,6 +826,15 @@ class Mesh extends Transformable {
     }
 }
 // unique corners of a unit cube. Used by Mesh.cube to generate a cube mesh.
+//  Z            Y
+//  ^  6      7 /
+//  |  +------+
+//  4/ |   5 /|
+//  +------+  |
+//  |  +---|--+
+//  | /2   | /3
+//  +------+     --> X
+//  0      1
 Mesh.UNIT_CUBE_CORNERS = [
     V3.O,
     new V3(0, 0, 1),
@@ -887,6 +930,7 @@ class Shader {
     constructor(vertexSource, fragmentSource, gl = currentGL()) {
         this.projectionMatrixVersion = -1;
         this.modelViewMatrixVersion = -1;
+        this.outputWarnings = {};
         // const versionRegex = /^(?:\s+|\/\/[\s\S]*?[\r\n]+|\/\*[\s\S]*?\*\/)+(#version\s+(\d+)\s+es)/
         // Headers are prepended to the sources to provide some automatic functionality.
         const header = `
@@ -957,6 +1001,9 @@ class Shader {
             let value = uniforms[name];
             const info = this.uniformInfos[name];
             if (NLA_DEBUG) {
+                if (!info) {
+                    throw new Error(`uniform ${name} is not defined (available = ${Object.keys(this.uniformInfos).join(',')})`);
+                }
                 // TODO: better errors
                 if (gl.SAMPLER_2D == info.type || gl.SAMPLER_CUBE == info.type || gl.INT == info.type) {
                     if (1 == info.size) {
@@ -982,7 +1029,7 @@ class Shader {
                     gl.uniform4fv(location, value instanceof Float32Array ? value : Float32Array.from(value));
                 }
                 else {
-                    gl.uniform4fv(location, value.concatenated());
+                    gl.uniform4fv(location, value.flatMap((x) => x));
                 }
             }
             else if (gl.FLOAT == info.type && info.size != 1) {
@@ -1208,7 +1255,8 @@ class Shader {
                 const buffer = gl.getVertexAttrib(i, gl.VERTEX_ATTRIB_ARRAY_BUFFER_BINDING);
                 if (!buffer) {
                     const info = gl.getActiveAttrib(this.program, i);
-                    if (!this.constantAttributes[info.name]) {
+                    if (!this.constantAttributes[info.name] && !this.outputWarnings[info.name]) {
+                        this.outputWarnings[info.name] = true;
                         console.warn('No buffer is bound to attribute ' + info.name + ' and it was not set with .attributes()');
                     }
                 }
@@ -1319,6 +1367,16 @@ class Texture {
         this.gl.bindTexture(this.gl.TEXTURE_2D, this.texture);
         this.gl.texImage2D(this.gl.TEXTURE_2D, 0, this.internalFormat, this.width, this.height, 0, this.format, this.type, data);
     }
+    downloadData(data) {
+        if (!this.framebuffer) {
+            throw new Error('No framebuffer. You need to draw to this texture before it makes sense to read from it.');
+        }
+        const gl = this.gl;
+        const prevFramebuffer = gl.getParameter(gl.FRAMEBUFFER_BINDING);
+        this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, this.framebuffer);
+        this.gl.readPixels(0, 0, this.width, this.height, this.format, this.type, data, 0);
+        prevFramebuffer !== this.framebuffer && gl.bindFramebuffer(gl.FRAMEBUFFER, prevFramebuffer);
+    }
     bind(unit) {
         this.gl.activeTexture((this.gl.TEXTURE0 + unit));
         this.gl.bindTexture(this.gl.TEXTURE_2D, this.texture);
@@ -1369,6 +1427,9 @@ class Texture {
         temp = other.height;
         other.height = this.height;
         this.height = temp;
+        temp = other.framebuffer;
+        other.framebuffer = this.framebuffer;
+        this.framebuffer = temp;
     }
     /**
      * Return a new texture created from `imgElement`, an `<img>` tag.
@@ -2675,10 +2736,15 @@ class TSGLContextBase {
         this.canvas.style.top = top + 'px';
         this.canvas.style.width = window.innerWidth - left - right + 'px';
         this.canvas.style.bottom = window.innerHeight - top - bottom + 'px';
+        this.addResizeListener();
+        return this;
+    }
+    addResizeListener(options = {}) {
         const gl = this;
         function windowOnResize() {
-            gl.canvas.width = (window.innerWidth - left - right) * window.devicePixelRatio;
-            gl.canvas.height = (window.innerHeight - top - bottom) * window.devicePixelRatio;
+            const bb = gl.canvas.getBoundingClientRect();
+            gl.canvas.width = bb.width * window.devicePixelRatio;
+            gl.canvas.height = bb.height * window.devicePixelRatio;
             gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
             if (options.camera) {
                 gl.matrixMode(TSGLContextBase.PROJECTION);
@@ -2798,6 +2864,27 @@ class TSGLContextBase {
         this.canvas.width = this.canvas.clientWidth * Math.min(window.devicePixelRatio, maxPixelRatio);
         this.canvas.height = this.canvas.clientHeight * Math.min(window.devicePixelRatio, maxPixelRatio);
         this.viewport(0, 0, this.canvas.width, this.canvas.height);
+    }
+    drawVector(vector, anchor, color = GL_COLOR_BLACK, size = 1) {
+        if (vector.likeO())
+            return;
+        this.pushMatrix();
+        const headLength = size * 4;
+        if (headLength > vector.length())
+            return;
+        const vT = vector.getPerpendicular().unit();
+        this.multMatrix(M4.forSys(vector.unit(), vT, vector.cross(vT).unit(), anchor));
+        this.scale(vector.length() - headLength, size / 2, size / 2);
+        this.shaders.singleColor
+            .uniforms({
+            color: color,
+        })
+            .draw(this.meshes.vectorShaft);
+        this.scale(1 / (vector.length() - headLength), 1, 1);
+        this.translate(vector.length() - headLength, 0, 0);
+        this.scale(headLength / 2, 1, 1);
+        this.shaders.singleColor.draw(this.meshes.vectorHead);
+        this.popMatrix();
     }
 }
 TSGLContextBase.MODELVIEW = 0;

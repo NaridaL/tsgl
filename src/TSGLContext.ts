@@ -351,11 +351,25 @@ export class TSGLContextBase {
 		this.canvas.style.width = window.innerWidth - left - right + 'px'
 		this.canvas.style.bottom = window.innerHeight - top - bottom + 'px'
 
+		this.addResizeListener()
+
+		return this
+	}
+
+	addResizeListener(
+		options: {
+			camera?: boolean
+			fov?: number
+			near?: number
+			far?: number
+		} = {},
+	): TSGLContext {
 		const gl = this
 
 		function windowOnResize() {
-			gl.canvas.width = (window.innerWidth - left - right) * window.devicePixelRatio
-			gl.canvas.height = (window.innerHeight - top - bottom) * window.devicePixelRatio
+			const bb = gl.canvas.getBoundingClientRect()
+			gl.canvas.width = bb.width * window.devicePixelRatio
+			gl.canvas.height = bb.height * window.devicePixelRatio
 			gl.viewport(0, 0, gl.canvas.width, gl.canvas.height)
 			if (options.camera) {
 				gl.matrixMode(TSGLContextBase.PROJECTION)
@@ -374,6 +388,7 @@ export class TSGLContextBase {
 		windowOnResize()
 		return this
 	}
+
 	getMouseLine(e: MouseEvent): { anchor: V3; dir: V3 }
 	getMouseLine(canvasPosX: number, canvasPosY: number): { anchor: V3; dir: V3 }
 	getMouseLine(canvasPosXOrE: number | MouseEvent, canvasPosY?: number): { anchor: V3; dir: V3 } {
@@ -512,6 +527,31 @@ export class TSGLContextBase {
 		this.canvas.width = this.canvas.clientWidth * Math.min(window.devicePixelRatio, maxPixelRatio)
 		this.canvas.height = this.canvas.clientHeight * Math.min(window.devicePixelRatio, maxPixelRatio)
 		this.viewport(0, 0, this.canvas.width, this.canvas.height)
+	}
+
+	drawVector(vector: V3, anchor: V3, color: GL_COLOR = GL_COLOR_BLACK, size = 1) {
+		if (vector.likeO()) return
+		this.pushMatrix()
+
+		const headLength = size * 4
+		if (headLength > vector.length()) return
+
+		const vT = vector.getPerpendicular().unit()
+		this.multMatrix(M4.forSys(vector.unit(), vT, vector.cross(vT).unit(), anchor))
+		this.scale(vector.length() - headLength, size / 2, size / 2)
+
+		this.shaders.singleColor
+			.uniforms({
+				color: color,
+			})
+			.draw(this.meshes.vectorShaft)
+
+		this.scale(1 / (vector.length() - headLength), 1, 1)
+		this.translate(vector.length() - headLength, 0, 0)
+		this.scale(headLength / 2, 1, 1)
+
+		this.shaders.singleColor.draw(this.meshes.vectorHead)
+		this.popMatrix()
 	}
 }
 export namespace TSGLContext {

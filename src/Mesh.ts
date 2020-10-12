@@ -10,6 +10,7 @@ import {
 	M4,
 	NLA_PRECISION,
 	raddd,
+	TAU,
 	Transformable,
 	Tuple3,
 	V,
@@ -339,9 +340,9 @@ export class Mesh extends Transformable {
 			const b = vertices[bi]
 			const c = vertices[ci]
 			const normal = b.minus(a).cross(c.minus(a)).unit()
-			normals[ai] = normals[ai].plus(normal)
-			normals[bi] = normals[bi].plus(normal)
-			normals[ci] = normals[ci].plus(normal)
+			normals[ai] = normals[ai] ? normals[ai].plus(normal) : normal
+			normals[bi] = normals[bi] ? normals[bi].plus(normal) : normal
+			normals[ci] = normals[ci] ? normals[ci].plus(normal) : normal
 		}
 		for (let i = 0; i < vertices.length; i++) {
 			normals[i] = normals[i].unit()
@@ -486,11 +487,11 @@ export class Mesh extends Transformable {
 					const offset = i + j * (detailX + 1)
 					mesh.TRIANGLES.push(
 						offset,
-						offset + detailX + 1,
 						offset + 1,
 						offset + detailX + 1,
+						offset + detailX + 1,
+						offset + 1,
 						offset + detailX + 2,
-						offset + 1,
 					)
 				}
 			}
@@ -510,6 +511,15 @@ export class Mesh extends Transformable {
 	}
 
 	// unique corners of a unit cube. Used by Mesh.cube to generate a cube mesh.
+	//  Z            Y
+	//  ^  6      7 /
+	//  |  +------+
+	//  4/ |   5 /|
+	//  +------+  |
+	//  |  +---|--+
+	//  | /2   | /3
+	//  +------+     --> X
+	//  0      1
 	static UNIT_CUBE_CORNERS = [
 		V3.O,
 		new V3(0, 0, 1),
@@ -521,7 +531,6 @@ export class Mesh extends Transformable {
 		new V3(1, 1, 0),
 		V3.XYZ,
 	]
-
 	static box(xDetail: int = 1, yDetail: int = 1, zDetail: int = 1) {
 		const mesh = new Mesh()
 			.addIndexBuffer('LINES')
@@ -575,28 +584,30 @@ export class Mesh extends Transformable {
 
 		// basically indexes for faces of the cube. vertices each need to be added 3 times,
 		// as they have different normals depending on the face being rendered
-		// prettier-ignore
 		const VERTEX_CORNERS = [
-			0, 1, 2, 3, // X = 0
-			4, 5, 6, 7, // X = 1
+			[0, 4, 6, 2], // X = 0
+			[1, 3, 7, 5], // X = 1
 
-			0, 4, 1, 5, // Y = 0
-			2, 6, 3, 7, // Y = 1
+			[0, 1, 5, 4], // Y = 0
+			[2, 6, 7, 3], // Y = 1
 
-			2, 6, 0, 4, // Z = 0
-			3, 7, 1, 5, // Z = 1
+			[0, 2, 3, 1], // Z = 0
+			[4, 5, 7, 6], // Z = 1
 		]
-		mesh.vertices = VERTEX_CORNERS.map((i) => Mesh.UNIT_CUBE_CORNERS[i])
-		mesh.normals = [V3.X.negated(), V3.X, V3.Y.negated(), V3.Y, V3.Z.negated(), V3.Z].flatMap((v) => [v, v, v, v])
-		for (let i = 0; i < 6 * 4; i += 4) {
+
+		const VERTEX_NORMALS = [V3.X.negated(), V3.X, V3.Y.negated(), V3.Y, V3.Z.negated(), V3.Z]
+
+		for (let i = 0; i < 6; i++) {
 			pushQuad(
 				mesh.TRIANGLES,
-				0 != i % 8,
-				VERTEX_CORNERS[i],
-				VERTEX_CORNERS[i + 1],
-				VERTEX_CORNERS[i + 2],
-				VERTEX_CORNERS[i + 3],
+				true,
+				mesh.vertices.length,
+				mesh.vertices.length + 1,
+				mesh.vertices.length + 3,
+				mesh.vertices.length + 2,
 			)
+			mesh.vertices.push(...VERTEX_CORNERS[i].map((j) => Mesh.UNIT_CUBE_CORNERS[j]))
+			mesh.normals.push(VERTEX_NORMALS[i], VERTEX_NORMALS[i], VERTEX_NORMALS[i], VERTEX_NORMALS[i])
 		}
 		// indexes of LINES relative to UNIT_CUBE_CORNERS. Mapped to VERTEX_CORNERS.indexOf
 		// so they make sense in the context of the mesh
@@ -631,7 +642,12 @@ export class Mesh extends Transformable {
 			const angle = (i / (latitudes - 1)) * PI - PI / 2
 			return new V3(0, cos(angle), sin(angle))
 		})
-		return Mesh.rotation(baseVertices, { anchor: V3.O, dir1: V3.Z }, 2 * PI, longitudes, true, baseVertices)
+		const vqs = arrayFromFunction(latitudes, (i) => {
+			const angle = (i / (latitudes - 1)) * PI - PI / 2
+			const q = cos(angle)
+			return [(i / (latitudes - 1)) * q, q]
+		})
+		return Mesh.rotation(baseVertices, { anchor: V3.O, dir1: V3.Z }, 2 * PI, longitudes, true, baseVertices, vqs)
 	}
 
 	/**
@@ -825,9 +841,11 @@ export class Mesh extends Transformable {
 		steps: int,
 		close = true,
 		normals?: V3[],
+		vqs?: [number, number][],
 	) {
 		const mesh = new Mesh().addIndexBuffer('TRIANGLES')
 		normals && mesh.addVertexBuffer('normals', 'ts_Normal')
+		vqs && mesh.addVertexBuffer('coordsUVQ', 'ts_TexCoordUVQ')
 		const vc = vertices.length,
 			vTotal = vc * steps
 
@@ -835,12 +853,67 @@ export class Mesh extends Transformable {
 		const triangles = mesh.TRIANGLES
 		for (let i = 0; i < steps; i++) {
 			// add triangles
-			const rads = (totalRads / steps) * i
+			const rads = totalRads * (i / steps)
 			M4.rotateLine(lineAxis.anchor, lineAxis.dir1, rads, rotMat)
 			mesh.vertices.push(...rotMat.transformedPoints(vertices))
 
 			normals && mesh.normals!.push(...rotMat.transformedVectors(normals))
+			vqs &&
+				((mesh as unknown) as { coordsUVQ: [number, number, number][] }).coordsUVQ.push(
+					...vqs.map(([v, q]): [number, number, number] => [(i / steps) * q, v, q]),
+				)
 			if (close || i !== steps - 1) {
+				for (let j = 0; j < vc - 1; j++) {
+					pushQuad(
+						triangles,
+						false,
+						i * vc + j + 1,
+						i * vc + j,
+						((i + 1) * vc + j + 1) % vTotal,
+						((i + 1) * vc + j) % vTotal,
+					)
+				}
+			}
+		}
+
+		mesh.compile()
+		return mesh
+	}
+
+	static spiral(
+		vertices: V3[],
+		lineAxis: { anchor: V3; dir1: V3 },
+		totalRads: raddd,
+		steps: int,
+		gradient: number,
+		normals?: V3[],
+		vqs?: [number, number][],
+	) {
+		const mesh = new Mesh().addIndexBuffer('TRIANGLES')
+		normals && mesh.addVertexBuffer('normals', 'ts_Normal')
+		vqs && mesh.addVertexBuffer('coordsUVQ', 'ts_TexCoordUVQ')
+		const vc = vertices.length,
+			vTotal = vc * steps
+
+		const rotMat = new M4()
+		const triangles = mesh.TRIANGLES
+		for (let i = 0; i < steps; i++) {
+			// add triangles
+			const rads = totalRads * (i / steps)
+			M4.rotateLine(lineAxis.anchor, lineAxis.dir1, rads, rotMat)
+
+			mesh.vertices.push(
+				...rotMat
+					.translate(lineAxis.dir1.toLength((totalRads / TAU) * (i / steps) * gradient))
+					.transformedPoints(vertices),
+			)
+
+			normals && mesh.normals!.push(...rotMat.transformedVectors(normals))
+			vqs &&
+				((mesh as unknown) as { coordsUVQ: [number, number, number][] }).coordsUVQ.push(
+					...vqs.map(([v, q]): [number, number, number] => [(i / steps) * q, v, q]),
+				)
+			if (i !== steps - 1) {
 				for (let j = 0; j < vc - 1; j++) {
 					pushQuad(
 						triangles,

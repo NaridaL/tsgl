@@ -115,6 +115,17 @@ export class Texture {
 		)
 	}
 
+	downloadData(data: ArrayBufferView) {
+		if (!this.framebuffer) {
+			throw new Error('No framebuffer. You need to draw to this texture before it makes sense to read from it.')
+		}
+		const gl = this.gl
+		const prevFramebuffer = gl.getParameter(gl.FRAMEBUFFER_BINDING)
+		this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, this.framebuffer)
+		this.gl.readPixels(0, 0, this.width, this.height, this.format as any, this.type as any, data as any, 0)
+		prevFramebuffer !== this.framebuffer && gl.bindFramebuffer(gl.FRAMEBUFFER, prevFramebuffer)
+	}
+
 	bind(unit: int) {
 		this.gl.activeTexture((this.gl.TEXTURE0 + unit) as GL.TextureUnit)
 		this.gl.bindTexture(this.gl.TEXTURE_2D, this.texture)
@@ -176,6 +187,10 @@ export class Texture {
 		temp = other.height
 		other.height = this.height
 		this.height = temp
+
+		temp = other.framebuffer
+		other.framebuffer = this.framebuffer
+		this.framebuffer = temp
 	}
 
 	/**

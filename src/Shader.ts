@@ -248,6 +248,11 @@ export class Shader<UniformTypes extends VarTypeMap = any, AttributeTypes extend
 			let value: any = uniforms[name] as any
 			const info = this.uniformInfos[name]
 			if (NLA_DEBUG) {
+				if (!info) {
+					throw new Error(
+						`uniform ${name} is not defined (available = ${Object.keys(this.uniformInfos).join(',')})`,
+					)
+				}
 				// TODO: better errors
 				if (gl.SAMPLER_2D == info.type || gl.SAMPLER_CUBE == info.type || gl.INT == info.type) {
 					if (1 == info.size) {
@@ -276,7 +281,10 @@ export class Shader<UniformTypes extends VarTypeMap = any, AttributeTypes extend
 				if (value instanceof Float32Array || value instanceof Float64Array) {
 					gl.uniform4fv(location, value instanceof Float32Array ? value : Float32Array.from(value))
 				} else {
-					gl.uniform4fv(location, value.concatenated())
+					gl.uniform4fv(
+						location,
+						value.flatMap((x: any[]) => x),
+					)
 				}
 			} else if (gl.FLOAT == info.type && info.size != 1) {
 				gl.uniform1fv(location, value)
@@ -418,6 +426,8 @@ export class Shader<UniformTypes extends VarTypeMap = any, AttributeTypes extend
 		return this.drawBuffers(mesh.vertexBuffers, mesh.indexBuffers[modeName], mode, start, count)
 	}
 
+	private outputWarnings: { [key: string]: boolean } = {}
+
 	/**
 	 * Sets all uniform matrix attributes, binds all relevant buffers, and draws the
 	 * indexed mesh geometry. The `vertexBuffers` argument is a map from attribute
@@ -509,7 +519,8 @@ export class Shader<UniformTypes extends VarTypeMap = any, AttributeTypes extend
 				const buffer = gl.getVertexAttrib(i, gl.VERTEX_ATTRIB_ARRAY_BUFFER_BINDING)
 				if (!buffer) {
 					const info = gl.getActiveAttrib(this.program, i)!
-					if (!this.constantAttributes[info.name]) {
+					if (!this.constantAttributes[info.name] && !this.outputWarnings[info.name]) {
+						this.outputWarnings[info.name] = true
 						console.warn(
 							'No buffer is bound to attribute ' + info.name + ' and it was not set with .attributes()',
 						)

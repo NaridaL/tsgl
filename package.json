@@ -49,7 +49,7 @@
 	"scripts": {
 		"build": "tsc & rollup -c",
 		"config": "node node_modules/naridal-tslib-config",
-		"dev": "concurrently --kill-others \"tsc -w\" \"rollup -c -w\"",
+		"start": "concurrently --kill-others \"tsc -w\" \"rollup -c -w\"",
 		"linky": "npm link && npm link ts3dutils naridal-tslib-config",
 		"lint": "tslint --project tsconfig.json && tslint --project src/demo/tsconfig.json",
 		"minify": "uglifyjs dist/bundle.js --output dist/bundle.min.js --compress --mangle && uglifyjs dist/bundle.module.js --output dist/bundle.module.min.js --compress --mangle",
