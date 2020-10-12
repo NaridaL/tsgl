@@ -19,6 +19,7 @@
 		"rootDir": "src",
 		"skipLibCheck": true,
 		"sourceMap": true,
+		"newLine": "lf",
 		"strictNullChecks": true,
 		"target": "es6",
 		"importHelpers": true,
