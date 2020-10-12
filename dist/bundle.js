@@ -610,7 +610,11 @@ class Mesh extends ts3dutils.Transformable {
             4, 6,
             5, 7,
             6, 7,
-        ].map(i => VERTEX_CORNERS.indexOf(i));
+        ].map(i => {
+            let fvi = 0;
+            const fi = VERTEX_CORNERS.findIndex(faceVertexIndexes => (fvi = faceVertexIndexes.indexOf(i)) != -1);
+            return fi * 4 + fvi;
+        });
         mesh.compile();
         return mesh;
     }
@@ -1461,7 +1465,7 @@ class Texture {
         const gl = this.gl;
         const prevFramebuffer = gl.getParameter(gl.FRAMEBUFFER_BINDING);
         this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, this.framebuffer);
-        this.gl.readPixels(0, 0, this.width, this.height, this.format, this.type, data, 0);
+        this.gl.readPixels(0, 0, this.width, this.height, this.format, this.type, data);
         prevFramebuffer !== this.framebuffer &&
             gl.bindFramebuffer(gl.FRAMEBUFFER, prevFramebuffer);
     }

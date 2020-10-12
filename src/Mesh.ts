@@ -720,7 +720,11 @@ export class Mesh extends Transformable {
 			4, 6,
 			5, 7,
 			6, 7,
-		].map(i => VERTEX_CORNERS.indexOf(i))
+		].map(i => {
+			let fvi:number=0
+			const fi = VERTEX_CORNERS.findIndex(faceVertexIndexes => (fvi=faceVertexIndexes.indexOf(i))!= -1)
+			return fi*4 +fvi
+		})
 
 		mesh.compile()
 		return mesh
@@ -738,7 +742,7 @@ export class Mesh extends Transformable {
 		const vqs = arrayFromFunction(latitudes, (i) => {
 			const angle = (i / (latitudes - 1)) * PI - PI / 2
 			const q = cos(angle)
-			return [(i / (latitudes - 1)) * q, q]
+			return [(i / (latitudes - 1)) * q, q] as [number, number]
 		})
 		return Mesh.rotation(
 			baseVertices,

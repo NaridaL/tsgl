@@ -153,7 +153,6 @@ export class Texture {
 			this.format as any,
 			this.type as any,
 			data as any,
-			0,
 		)
 		prevFramebuffer !== this.framebuffer &&
 			gl.bindFramebuffer(gl.FRAMEBUFFER, prevFramebuffer)
