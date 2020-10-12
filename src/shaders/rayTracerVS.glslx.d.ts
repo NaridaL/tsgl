@@ -2,13 +2,13 @@
 // tslint:disable
 import { ShaderSource } from "tsgl"
 declare const src: ShaderSource<
-	{},
-	{
-		ts_Vertex: "vec4"
-	},
-	{
-		pos: "vec4"
-	},
-	"vertex"
+  {},
+  {
+    ts_Vertex: "vec4"
+  },
+  {
+    pos: "vec4"
+  },
+  "vertex"
 >
 export = src

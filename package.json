@@ -1,73 +1,73 @@
 {
-	"author": "Adrian Leonhard <adrianleonhard@gmail.com> (https://github.com/NaridaL)",
-	"dependencies": {
-		"chroma.ts": "^1.0.9",
-		"ts3dutils": "^1.1.2",
-		"tslib": "^2.0.3"
-	},
-	"description": "Light TypeScript wrapper around WebGL based on https://github.com/evanw/lightgl.js/",
-	"devDependencies": {
-		"@rollup/plugin-alias": "^3.1.1",
-		"@rollup/plugin-json": "^4.1.0",
-		"@rollup/plugin-multi-entry": "^4.0.0",
-		"@rollup/plugin-node-resolve": "^9.0.0",
-		"@rollup/plugin-replace": "^2.3.3",
-		"@rollup/plugin-typescript": "^6.0.0",
-		"@types/chai": "^4.2.13",
-		"@types/mocha": "^8.0.3",
-		"@types/opentype.js": "^1.3.1",
-		"chai": "^4.2.0",
-		"concurrently": "^5.3.0",
-		"cross-env": "^7.0.2",
-		"mocha": "^8.1.3",
-		"naridal-tslib-config": "^1.0.4",
-		"opentype.js": "^1.3.3",
-		"pre-commit": "^1.2.2",
-		"prettier": "^2.1.2",
-		"rollup": "^2.29.0",
-		"rollup-plugin-glsl": "^1.3.0",
-		"rollup-plugin-livereload": "^2.0.0",
-		"rollup-plugin-replace": "^2.2.0",
-		"rollup-plugin-serve": "^1.0.4",
-		"rollup-plugin-sourcemaps": "^0.6.3",
-		"ts-node": "^9.0.0",
-		"tslint": "^6.1.3",
-		"tslint-config-prettier": "^1.18.0",
-		"typescript": "^4.0.3",
-		"uglify-es": "^3.3.9",
-		"webgl-strict-types": "^1.0.3"
-	},
-	"keywords": [
-		"typescript",
-		"webgl",
-		"es6"
-	],
-	"license": "MIT",
-	"main": "dist/bundle.js",
-	"module": "dist/bundle.module.js",
-	"name": "tsgl",
-	"scripts": {
-		"build": "tsc & rollup -c",
-		"config": "node node_modules/naridal-tslib-config",
-		"start": "concurrently --kill-others \"tsc -w\" \"rollup -c -w\"",
-		"linky": "npm link && npm link ts3dutils naridal-tslib-config",
-		"lint": "tslint --project tsconfig.json && tslint --project src/demo/tsconfig.json",
-		"minify": "uglifyjs dist/bundle.js --output dist/bundle.min.js --compress --mangle && uglifyjs dist/bundle.module.js --output dist/bundle.module.min.js --compress --mangle",
-		"test": "(cd tests && mocha --ui tdd --require ts-node/register ./**/*.test.ts)",
-		"test:ci": "npm run build && npm run lint && npm test",
-		"demo:watch": "rollup -c rollup.demo.config.js -w",
-		"demo:build": "rollup -c rollup.demo.config.js",
-		"pre-commit": "npm run lint && npm run build && npm run demo:build && git add dist/*",
-		"prettier": "prettier -l --write \"{src,test}/**/*.{ts,json}\""
-	},
-	"pre-commit": [
-		"pre-commit"
-	],
-	"types": "index.d.ts",
-	"umdGlobal": "tsgl",
-	"version": "1.1.7",
-	"prettier": {
-		"semi": false,
-		"trailingComma": "all"
-	}
+  "author": "Adrian Leonhard <adrianleonhard@gmail.com> (https://github.com/NaridaL)",
+  "dependencies": {
+    "chroma.ts": "^1.0.9",
+    "ts3dutils": "^1.1.2",
+    "tslib": "^2.0.3"
+  },
+  "description": "Light TypeScript wrapper around WebGL based on https://github.com/evanw/lightgl.js/",
+  "devDependencies": {
+    "@rollup/plugin-alias": "^3.1.1",
+    "@rollup/plugin-json": "^4.1.0",
+    "@rollup/plugin-multi-entry": "^4.0.0",
+    "@rollup/plugin-node-resolve": "^9.0.0",
+    "@rollup/plugin-replace": "^2.3.3",
+    "@rollup/plugin-typescript": "^6.0.0",
+    "@types/chai": "^4.2.13",
+    "@types/mocha": "^8.0.3",
+    "@types/opentype.js": "^1.3.1",
+    "chai": "^4.2.0",
+    "concurrently": "^5.3.0",
+    "cross-env": "^7.0.2",
+    "mocha": "^8.1.3",
+    "naridal-tslib-config": "^1.0.4",
+    "opentype.js": "^1.3.3",
+    "pre-commit": "^1.2.2",
+    "prettier": "^2.1.2",
+    "rollup": "^2.29.0",
+    "rollup-plugin-glsl": "^1.3.0",
+    "rollup-plugin-livereload": "^2.0.0",
+    "rollup-plugin-replace": "^2.2.0",
+    "rollup-plugin-serve": "^1.0.4",
+    "rollup-plugin-sourcemaps": "^0.6.3",
+    "ts-node": "^9.0.0",
+    "tslint": "^6.1.3",
+    "tslint-config-prettier": "^1.18.0",
+    "typescript": "^4.0.3",
+    "uglify-es": "^3.3.9",
+    "webgl-strict-types": "^1.0.3"
+  },
+  "keywords": [
+    "typescript",
+    "webgl",
+    "es6"
+  ],
+  "license": "MIT",
+  "main": "dist/bundle.js",
+  "module": "dist/bundle.module.js",
+  "name": "tsgl",
+  "scripts": {
+    "build": "tsc & rollup -c",
+    "config": "node node_modules/naridal-tslib-config",
+    "start": "concurrently --kill-others \"tsc -w\" \"rollup -c -w\"",
+    "linky": "npm link && npm link ts3dutils naridal-tslib-config",
+    "lint": "tslint --project tsconfig.json && tslint --project src/demo/tsconfig.json",
+    "minify": "uglifyjs dist/bundle.js --output dist/bundle.min.js --compress --mangle && uglifyjs dist/bundle.module.js --output dist/bundle.module.min.js --compress --mangle",
+    "test": "(cd tests && mocha --ui tdd --require ts-node/register ./**/*.test.ts)",
+    "test:ci": "npm run build && npm run lint && npm test",
+    "demo:watch": "rollup -c rollup.demo.config.js -w",
+    "demo:build": "rollup -c rollup.demo.config.js",
+    "pre-commit": "npm run lint build prettier demo:build && git add dist/*",
+    "prettier": "prettier -l --write \"{src,test}/**/*.{ts,json}\" \"*.{ts,json,yml}"
+  },
+  "pre-commit": [
+    "pre-commit"
+  ],
+  "types": "index.d.ts",
+  "umdGlobal": "tsgl",
+  "version": "1.1.7",
+  "prettier": {
+    "semi": false,
+    "trailingComma": "all"
+  }
 }

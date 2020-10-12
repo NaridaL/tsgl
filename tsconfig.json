@@ -1,35 +1,35 @@
 {
-	"compilerOptions": {
-		"allowSyntheticDefaultImports": true,
-		"alwaysStrict": true,
-		"declaration": true,
-		"declarationMap": true,
-		"emitDecoratorMetadata": true,
-		"experimentalDecorators": true,
-		"jsx": "react",
-		"jsxFactory": "h",
-		"lib": ["dom", "es2017", "es6"],
-		"module": "es6",
-		"moduleResolution": "node",
-		"noImplicitAny": true,
-		"noUnusedLocals": true,
-		"noUnusedParameters": true,
-		"declarationDir": "out",
-		"outDir": "out",
-		"rootDir": "src",
-		"skipLibCheck": true,
-		"sourceMap": true,
-		"newLine": "lf",
-		"strictNullChecks": true,
-		"target": "es6",
-		"importHelpers": true,
-		"noImplicitReturns": true,
-		"baseUrl": ".",
-		"composite": true,
-		"paths": {
-			"tsgl": ["src/index.ts"]
-		}
-	},
-	"include": ["src/**/*.ts"],
-	"exclude": ["src/demo/**/*.*"]
+  "compilerOptions": {
+    "allowSyntheticDefaultImports": true,
+    "alwaysStrict": true,
+    "declaration": true,
+    "declarationMap": true,
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+    "jsx": "react",
+    "jsxFactory": "h",
+    "lib": ["dom", "es2019"],
+    "module": "es6",
+    "moduleResolution": "node",
+    "noImplicitAny": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "declarationDir": "out",
+    "outDir": "out",
+    "rootDir": "src",
+    "skipLibCheck": true,
+    "sourceMap": true,
+    "newLine": "lf",
+    "strictNullChecks": true,
+    "target": "es6",
+    "importHelpers": true,
+    "noImplicitReturns": true,
+    "baseUrl": ".",
+    "composite": true,
+    "paths": {
+      "tsgl": ["src/index.ts"]
+    }
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["src/demo/**/*.*"]
 }

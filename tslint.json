@@ -1,9 +1,9 @@
 {
-	"extends": ["naridal-tslib-config/tslint.json", "tslint-config-prettier"],
-	"rules": {
-		"no-unnecessary-type-assertion": true,
-		"ordered-imports": {
-			"severity": "warning"
-		}
-	}
+  "extends": ["naridal-tslib-config/tslint.json", "tslint-config-prettier"],
+  "rules": {
+    "no-unnecessary-type-assertion": true,
+    "ordered-imports": {
+      "severity": "warning"
+    }
+  }
 }
