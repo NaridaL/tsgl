@@ -6,12 +6,16 @@ var demo = (function (exports) {
      */
     class JavaMap {
         constructor() {
-            this[Symbol.toStringTag] = 'Map';
+            this[Symbol.toStringTag] = "Map";
             this._map = new Map();
             this._size = 0;
         }
         toString() {
-            return '{' + Array.from(this.entries2()).map(({ key, value }) => key + ':' + value).join(', ') + '}';
+            return ("{" +
+                Array.from(this.entries2())
+                    .map(({ key, value }) => key + ":" + value)
+                    .join(", ") +
+                "}");
         }
         forEach(callbackfn, thisArg) {
             for (const bucket of this._map.values()) {
@@ -49,7 +53,7 @@ var demo = (function (exports) {
             const hashCode = key.hashCode(), bucket = this._map.get(hashCode);
             //assert(hashCode === (hashCode | 0))
             if (bucket) {
-                const pairIndex = bucket.findIndex(pair => pair.key.equals(key));
+                const pairIndex = bucket.findIndex((pair) => pair.key.equals(key));
                 if (-1 == pairIndex) {
                     bucket.push({ key: key, value: val });
                 }
@@ -67,16 +71,16 @@ var demo = (function (exports) {
         has(key) {
             const hashCode = key.hashCode(), bucket = this._map.get(hashCode);
             //assert(hashCode === (hashCode | 0))
-            return undefined !== bucket && bucket.some(pair => pair.key.equals(key));
+            return undefined !== bucket && bucket.some((pair) => pair.key.equals(key));
         }
         get(key) {
-            const hashCode = key.hashCode(), bucket = this._map.get(hashCode), pair = bucket && bucket.find(pair => pair.key.equals(key));
+            const hashCode = key.hashCode(), bucket = this._map.get(hashCode), pair = bucket && bucket.find((pair) => pair.key.equals(key));
             return pair && pair.value;
         }
         getLike(key) {
             for (const hashCode of key.hashCodes()) {
                 const bucket = this._map.get(hashCode);
-                const canonVal = bucket && bucket.find(x => x.key.like(key));
+                const canonVal = bucket && bucket.find((x) => x.key.like(key));
                 if (canonVal)
                     return canonVal;
             }
@@ -84,10 +88,10 @@ var demo = (function (exports) {
         setLike(key, val) {
             return !this.getLike(key) && this.set(key, val);
         }
-        'delete'(key) {
+        delete(key) {
             const hashCode = key.hashCode(), bucket = this._map.get(hashCode);
             if (bucket) {
-                const index = bucket.findIndex(x => x.key.equals(key));
+                const index = bucket.findIndex((x) => x.key.equals(key));
                 if (-1 != index) {
                     if (1 == bucket.length) {
                         this._map.delete(hashCode);
@@ -105,7 +109,7 @@ var demo = (function (exports) {
             for (const hashCode of key.hashCodes()) {
                 const bucket = this._map.get(hashCode);
                 if (bucket) {
-                    const index = bucket.findIndex(x => x.key.like(key));
+                    const index = bucket.findIndex((x) => x.key.like(key));
                     if (-1 != index) {
                         const deleted = bucket[index];
                         if (1 == bucket.length) {
@@ -8399,6 +8403,65 @@ void main() {
 
     /// <reference path="../types.d.ts" />
     /**
+     * OpenGL-style immediate mode.
+     */
+    function immediateMode(gl) {
+        // setup camera
+        gl.disable(gl.CULL_FACE);
+        gl.matrixMode(gl.PROJECTION);
+        gl.loadIdentity();
+        gl.perspective(90, gl.canvas.width / gl.canvas.height, 0.0001, 1000000);
+        gl.lookAt(V(0, -3, 2), V3.O, V3.Z);
+        gl.matrixMode(gl.MODELVIEW);
+        gl.enable(gl.DEPTH_TEST);
+        gl.clearColor(1, 1, 1, 0);
+        return gl.animate(function (abs, _diff) {
+            const angleDeg = (abs / 1000) * 45;
+            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+            gl.loadIdentity();
+            // gl.translate(0, 0, -5)
+            gl.rotate(angleDeg, 0, 0, 1);
+            gl.color(0.5, 0.5, 0.5);
+            gl.lineWidth(1);
+            gl.begin(gl.LINES);
+            for (let i = -10; i <= 10; i++) {
+                gl.vertex(i, -10, 0);
+                gl.vertex(i, +10, 0);
+                gl.vertex(-10, i, 0);
+                gl.vertex(+10, i, 0);
+            }
+            gl.end();
+            gl.pointSize(10);
+            gl.begin(gl.POINTS);
+            gl.color(1, 0, 0);
+            gl.vertex(1, 0, 0);
+            gl.color(0, 1, 0);
+            gl.vertex(0, 1, 0);
+            gl.color(0, 0, 1);
+            gl.vertex(0, 0, 1);
+            gl.end();
+            gl.lineWidth(2);
+            gl.begin(gl.LINE_LOOP);
+            gl.color("red");
+            gl.vertex(1, 0, 0);
+            gl.color("green");
+            gl.vertex(0, 1, 0);
+            gl.color("blue");
+            gl.vertex(0, 0, 1);
+            gl.end();
+            gl.begin(gl.TRIANGLES);
+            gl.color(1, 1, 0);
+            gl.vertex(0.5, 0.5, 0);
+            gl.color(0, 1, 1);
+            gl.vertex(0, 0.5, 0.5);
+            gl.color(1, 0, 1);
+            gl.vertex(0.5, 0, 0.5);
+            gl.end();
+        });
+    }
+
+    /// <reference path="../types.d.ts" />
+    /**
      * Draw soft shadows by calculating a light map in multiple passes.
      */
     function gpuLightMap(gl) {
@@ -8711,65 +8774,6 @@ void main() {
     }
     gpuLightMap.info = "LMB-drag to rotate camera.";
 
-    /// <reference path="../types.d.ts" />
-    /**
-     * OpenGL-style immediate mode.
-     */
-    function immediateMode(gl) {
-        // setup camera
-        gl.disable(gl.CULL_FACE);
-        gl.matrixMode(gl.PROJECTION);
-        gl.loadIdentity();
-        gl.perspective(90, gl.canvas.width / gl.canvas.height, 0.0001, 1000000);
-        gl.lookAt(V(0, -3, 2), V3.O, V3.Z);
-        gl.matrixMode(gl.MODELVIEW);
-        gl.enable(gl.DEPTH_TEST);
-        gl.clearColor(1, 1, 1, 0);
-        return gl.animate(function (abs, _diff) {
-            const angleDeg = (abs / 1000) * 45;
-            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-            gl.loadIdentity();
-            // gl.translate(0, 0, -5)
-            gl.rotate(angleDeg, 0, 0, 1);
-            gl.color(0.5, 0.5, 0.5);
-            gl.lineWidth(1);
-            gl.begin(gl.LINES);
-            for (let i = -10; i <= 10; i++) {
-                gl.vertex(i, -10, 0);
-                gl.vertex(i, +10, 0);
-                gl.vertex(-10, i, 0);
-                gl.vertex(+10, i, 0);
-            }
-            gl.end();
-            gl.pointSize(10);
-            gl.begin(gl.POINTS);
-            gl.color(1, 0, 0);
-            gl.vertex(1, 0, 0);
-            gl.color(0, 1, 0);
-            gl.vertex(0, 1, 0);
-            gl.color(0, 0, 1);
-            gl.vertex(0, 0, 1);
-            gl.end();
-            gl.lineWidth(2);
-            gl.begin(gl.LINE_LOOP);
-            gl.color("red");
-            gl.vertex(1, 0, 0);
-            gl.color("green");
-            gl.vertex(0, 1, 0);
-            gl.color("blue");
-            gl.vertex(0, 0, 1);
-            gl.end();
-            gl.begin(gl.TRIANGLES);
-            gl.color(1, 1, 0);
-            gl.vertex(0.5, 0.5, 0);
-            gl.color(0, 1, 1);
-            gl.vertex(0, 0.5, 0.5);
-            gl.color(1, 0, 1);
-            gl.vertex(0.5, 0, 0.5);
-            gl.end();
-        });
-    }
-
     var varyingColorFS = "precision mediump float;varying vec4 color;void main(){gl_FragColor=color;}";
 
     /// <reference path="../types.d.ts" />
@@ -9033,120 +9037,6 @@ void main() {
                 .draw(mesh);
         });
     }
-
-    var rayTracerFS = "#version 300 es\nprecision highp float;const float INFINITY=1.0e9;const int TRIANGLE_COUNT=1024;uniform vec3 sphereCenters[8];uniform mat4 ts_ModelViewProjectionMatrixInverse;uniform float sphereRadii[8];uniform sampler2D vertices;uniform sampler2D texCoords;uniform sampler2D triangleTexture;in vec4 pos;out vec4 fragColor;float intersectSphere(vec3 origin,vec3 ray,vec3 sphereCenter,float sphereRadius){vec3 toSphere=origin-sphereCenter;float a=dot(ray,ray);float b=2.0*dot(toSphere,ray);float c=dot(toSphere,toSphere)-sphereRadius*sphereRadius;float discriminant=b*b-4.0*a*c;if(discriminant>0.0){float t=(-b-sqrt(discriminant))/(2.0*a);if(t>0.0)return t;}return INFINITY;}struct TriangleHitTest{float t;vec3 hit;float u;float v;};const TriangleHitTest INFINITY_HIT=TriangleHitTest(INFINITY,vec3(0.0),0.0,0.0);TriangleHitTest intersectTriangle(vec3 rayOrigin,vec3 rayVector,vec3 vertex0,vec3 vertex1,vec3 vertex2){const float EPSILON=0.0000001;vec3 edge1,edge2,h,s,q;float a,f,u,v;edge1=vertex1-vertex0;edge2=vertex2-vertex0;h=cross(rayVector,edge2);a=dot(edge1,h);if(a>-EPSILON&&a<EPSILON)return INFINITY_HIT;f=1.0/a;s=rayOrigin-vertex0;u=f*dot(s,h);if(u<0.0||u>1.0)return INFINITY_HIT;q=cross(s,edge1);v=f*dot(rayVector,q);if(v<0.0||u+v>1.0)return INFINITY_HIT;float t=f*dot(edge2,q);if(t>0.0001){return TriangleHitTest(t,rayOrigin+rayVector*t,u,v);}else{return INFINITY_HIT;}}vec3 vertexi(int i){return texelFetch(vertices,ivec2(i,0),0).xyz;}vec3 textcoordi(int i){return texelFetch(texCoords,ivec2(i,0),0).xyz;}void main(){vec3 rayStart=(ts_ModelViewProjectionMatrixInverse*vec4(pos.xy,1.0,1.0)).xyz;vec3 rayEnd=(ts_ModelViewProjectionMatrixInverse*vec4(pos.xy,-1.0,1.0)).xyz;vec3 rayDir=rayEnd-rayStart;fragColor=vec4(0.0,0.0,0.0,1.0);vec4 mask=vec4(1.0,1.0,1.0,1.0);for(int bounce=0;bounce<8;bounce++){vec3 closestHit;vec4 closestColor=vec4(0.0);float closestT=INFINITY;vec3 closestNormal;float closestSpecular=0.0;for(int s=0;s<8;s++){if(sphereRadii[s]==0.0){break;}float sphereT=intersectSphere(rayStart,rayDir,sphereCenters[s],sphereRadii[s]);if(sphereT<closestT){closestT=sphereT;closestHit=rayStart+rayDir*sphereT;closestNormal=(closestHit-sphereCenters[s])/sphereRadii[s];closestSpecular=0.95;closestColor=vec4(0.0);}}for(int i=0;i<TRIANGLE_COUNT;i++){vec3 a=vertexi(i*3);vec3 b=vertexi(i*3+1);vec3 c=vertexi(i*3+2);if(a==vec3(0.0)&&b==vec3(0.0)){break;}TriangleHitTest hitTest=intersectTriangle(rayStart,rayDir,a,b,c);float triangleT=hitTest.t;if(triangleT<closestT){closestT=triangleT;vec3 ab=b-a;vec3 ac=c-a;closestNormal=normalize(cross(ab,ac));closestHit=hitTest.hit;vec3 texCoordsAndSheen=textcoordi(i*3)*(1.0-hitTest.u-hitTest.v)+textcoordi(i*3+1)*(hitTest.u)+textcoordi(i*3+2)*(hitTest.v);closestColor=texture(triangleTexture,texCoordsAndSheen.xy);closestSpecular=texCoordsAndSheen.z;}}if(closestT==INFINITY){fragColor+=mask;break;}fragColor+=mask*(1.0-closestSpecular)*closestColor;if(0.0==closestSpecular){break;}rayDir=reflect(rayDir,closestNormal);rayStart=closestHit;mask*=closestSpecular;}}";
-
-    var rayTracerVS = "#version 300 es\nprecision mediump float;in vec4 ts_Vertex;out vec4 pos;void main(){gl_Position=ts_Vertex;pos=ts_Vertex;}";
-
-    /// <reference path="../types.d.ts" />
-    /**
-     * Realtime GPU ray tracing including reflection.
-     */
-    function rayTracing(gl) {
-        return __awaiter(this, void 0, void 0, function* () {
-            if (!isWebGL2RenderingContext(gl))
-                throw new Error("require webgl2");
-            let angleX = 30;
-            let angleY = 10;
-            // This is the mesh we tell WebGL to draw. It covers the whole view so each pixel will get a fragment shader call.
-            const mesh = Mesh.plane({ startX: -1, startY: -1, width: 2, height: 2 });
-            // floor and dodecahedron are meshes we will ray-trace
-            // add a vertex buffer "specular", which defines how reflective the mesh is.
-            // specular=1 means it is perfectly reflective, specular=0 perfectly matte
-            // meshes neeed coords vertex buffer as we will draw them with meshes
-            const floor = Mesh.plane({ startX: -4, startY: -4, width: 8, height: 8 })
-                .addVertexBuffer("specular", "specular")
-                .rotateX(90 * DEG);
-            floor.specular = floor.vertices.map((_) => 0); // floor doesn't reflect
-            const dodecahedron = Mesh.sphere(0)
-                .addVertexBuffer("specular", "specular")
-                .addVertexBuffer("coords", "ts_TexCoord")
-                .translate(3, 1);
-            // d20 reflects most of the light
-            dodecahedron.specular = dodecahedron.vertices.map((_) => 0.8);
-            // all uv coordinates the same to pick a solid color from the texture
-            dodecahedron.coords = dodecahedron.vertices.map((_) => [0, 0]);
-            // don't transform the vertices at all
-            // out/in pos so we get the world position of the fragments
-            const shader = Shader.create(rayTracerVS, rayTracerFS);
-            // define spheres which we will have the shader ray-trace
-            const sphereCenters = arrayFromFunction(8, (i) => [V(0.0, 1.6, 0.0), V(3, 3, 3), V(-3, 3, 3)][i] || V3.O);
-            const sphereRadii = arrayFromFunction(8, (i) => [1.5, 0.5, 0.5][i] || 0);
-            // texture for ray-traced mesh
-            const floorTexture = yield Texture.fromURL("./mandelbrot.jpg");
-            const showMesh = floor.concat(dodecahedron);
-            const textureWidth = 1024;
-            const textureHeight = 1;
-            // verticesTexture contains the mesh vertices
-            // vertices are unpacked so we don't have an extra index buffer for the triangles
-            const verticesTexture = new Texture(textureWidth, textureHeight);
-            const verticesBuffer = new Float32Array(textureWidth * textureHeight * 3);
-            V3.pack(showMesh.TRIANGLES.map((i) => showMesh.vertices[i]), verticesBuffer);
-            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB32F, textureWidth, textureHeight, 0, gl.RGB, gl.FLOAT, verticesBuffer);
-            // uvTexture contains the uv coordinates for the vertices as wel as the specular value for each vertex
-            const uvTexture = new Texture(textureWidth, textureHeight, {
-                format: gl.RGB,
-                type: gl.FLOAT,
-            });
-            const uvBuffer = new Float32Array(textureWidth * textureHeight * 3);
-            showMesh.TRIANGLES.forEach((i, index) => {
-                uvBuffer[index * 3] = showMesh.coords[i][0];
-                uvBuffer[index * 3 + 1] = showMesh.coords[i][1];
-                uvBuffer[index * 3 + 2] = showMesh.specular[i];
-            });
-            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB32F, textureWidth, textureHeight, 0, gl.RGB, gl.FLOAT, uvBuffer);
-            let lastPos = V3.O;
-            // scene rotation
-            gl.canvas.onmousemove = function (e) {
-                const pagePos = V(e.pageX, e.pageY);
-                const delta = lastPos.to(pagePos);
-                if (e.buttons & 1) {
-                    angleY += delta.x;
-                    angleX = clamp(angleX + delta.y, -90, 90);
-                }
-                lastPos = pagePos;
-            };
-            gl.matrixMode(gl.PROJECTION);
-            gl.loadIdentity();
-            verticesTexture.bind(0);
-            floorTexture.bind(1);
-            uvTexture.bind(2);
-            shader.uniforms({
-                "sphereCenters[0]": sphereCenters,
-                "sphereRadii[0]": sphereRadii,
-                vertices: 0,
-                triangleTexture: 1,
-                texCoords: 2,
-            });
-            return gl.animate(function (_abs, _diff) {
-                // Camera setup
-                gl.matrixMode(gl.MODELVIEW);
-                gl.loadIdentity();
-                // gl.perspective(70, gl.canvas.width / gl.canvas.height, 0.1, 1000)
-                // gl.lookAt(V(0, 200, 200), V(0, 0, 0), V3.Z)
-                gl.translate(0, 0, -10);
-                gl.rotate(angleX, 1, 0, 0);
-                gl.rotate(angleY, 0, 1, 0);
-                gl.scale(0.2);
-                shader.draw(mesh);
-                // Draw debug output to show that the raytraced scene lines up correctly with
-                // the rasterized scene
-                gl.color(0, 0, 0, 0.5);
-                gl.enable(gl.BLEND);
-                gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-                gl.begin(gl.LINES);
-                for (let s = 4, i = -s; i <= s; i++) {
-                    gl.vertex(-s, 0, i);
-                    gl.vertex(s, 0, i);
-                    gl.vertex(i, 0, -s);
-                    gl.vertex(i, 0, s);
-                }
-                gl.end();
-                gl.disable(gl.BLEND);
-            });
-        });
-    }
-    rayTracing.info = "LMB-drag to rotate camera.";
 
     /**
      * Render SDF text.
@@ -51697,45 +51587,119 @@ void main() {
         });
     }
 
+    var rayTracerFS = "#version 300 es\nprecision highp float;const float INFINITY=1.0e9;const int TRIANGLE_COUNT=1024;uniform vec3 sphereCenters[8];uniform mat4 ts_ModelViewProjectionMatrixInverse;uniform float sphereRadii[8];uniform sampler2D vertices;uniform sampler2D texCoords;uniform sampler2D triangleTexture;in vec4 pos;out vec4 fragColor;float intersectSphere(vec3 origin,vec3 ray,vec3 sphereCenter,float sphereRadius){vec3 toSphere=origin-sphereCenter;float a=dot(ray,ray);float b=2.0*dot(toSphere,ray);float c=dot(toSphere,toSphere)-sphereRadius*sphereRadius;float discriminant=b*b-4.0*a*c;if(discriminant>0.0){float t=(-b-sqrt(discriminant))/(2.0*a);if(t>0.0)return t;}return INFINITY;}struct TriangleHitTest{float t;vec3 hit;float u;float v;};const TriangleHitTest INFINITY_HIT=TriangleHitTest(INFINITY,vec3(0.0),0.0,0.0);TriangleHitTest intersectTriangle(vec3 rayOrigin,vec3 rayVector,vec3 vertex0,vec3 vertex1,vec3 vertex2){const float EPSILON=0.0000001;vec3 edge1,edge2,h,s,q;float a,f,u,v;edge1=vertex1-vertex0;edge2=vertex2-vertex0;h=cross(rayVector,edge2);a=dot(edge1,h);if(a>-EPSILON&&a<EPSILON)return INFINITY_HIT;f=1.0/a;s=rayOrigin-vertex0;u=f*dot(s,h);if(u<0.0||u>1.0)return INFINITY_HIT;q=cross(s,edge1);v=f*dot(rayVector,q);if(v<0.0||u+v>1.0)return INFINITY_HIT;float t=f*dot(edge2,q);if(t>0.0001){return TriangleHitTest(t,rayOrigin+rayVector*t,u,v);}else{return INFINITY_HIT;}}vec3 vertexi(int i){return texelFetch(vertices,ivec2(i,0),0).xyz;}vec3 textcoordi(int i){return texelFetch(texCoords,ivec2(i,0),0).xyz;}void main(){vec3 rayStart=(ts_ModelViewProjectionMatrixInverse*vec4(pos.xy,1.0,1.0)).xyz;vec3 rayEnd=(ts_ModelViewProjectionMatrixInverse*vec4(pos.xy,-1.0,1.0)).xyz;vec3 rayDir=rayEnd-rayStart;fragColor=vec4(0.0,0.0,0.0,1.0);vec4 mask=vec4(1.0,1.0,1.0,1.0);for(int bounce=0;bounce<8;bounce++){vec3 closestHit;vec4 closestColor=vec4(0.0);float closestT=INFINITY;vec3 closestNormal;float closestSpecular=0.0;for(int s=0;s<8;s++){if(sphereRadii[s]==0.0){break;}float sphereT=intersectSphere(rayStart,rayDir,sphereCenters[s],sphereRadii[s]);if(sphereT<closestT){closestT=sphereT;closestHit=rayStart+rayDir*sphereT;closestNormal=(closestHit-sphereCenters[s])/sphereRadii[s];closestSpecular=0.95;closestColor=vec4(0.0);}}for(int i=0;i<TRIANGLE_COUNT;i++){vec3 a=vertexi(i*3);vec3 b=vertexi(i*3+1);vec3 c=vertexi(i*3+2);if(a==vec3(0.0)&&b==vec3(0.0)){break;}TriangleHitTest hitTest=intersectTriangle(rayStart,rayDir,a,b,c);float triangleT=hitTest.t;if(triangleT<closestT){closestT=triangleT;vec3 ab=b-a;vec3 ac=c-a;closestNormal=normalize(cross(ab,ac));closestHit=hitTest.hit;vec3 texCoordsAndSheen=textcoordi(i*3)*(1.0-hitTest.u-hitTest.v)+textcoordi(i*3+1)*(hitTest.u)+textcoordi(i*3+2)*(hitTest.v);closestColor=texture(triangleTexture,texCoordsAndSheen.xy);closestSpecular=texCoordsAndSheen.z;}}if(closestT==INFINITY){fragColor+=mask;break;}fragColor+=mask*(1.0-closestSpecular)*closestColor;if(0.0==closestSpecular){break;}rayDir=reflect(rayDir,closestNormal);rayStart=closestHit;mask*=closestSpecular;}}";
+
+    var rayTracerVS = "#version 300 es\nprecision mediump float;in vec4 ts_Vertex;out vec4 pos;void main(){gl_Position=ts_Vertex;pos=ts_Vertex;}";
+
+    /// <reference path="../types.d.ts" />
     /**
-     * Draw a rotating cube.
+     * Realtime GPU ray tracing including reflection.
      */
-    function setupDemo(gl) {
-        const mesh = Mesh.cube();
-        const shader = Shader.create(`
-		uniform mat4 ts_ModelViewProjectionMatrix;
-		attribute vec4 ts_Vertex;
-		varying vec4 foo;
-		void main() {
-			foo = vec4(1.0, 1.0, 1.0, 1.0);
-			gl_Position = ts_ModelViewProjectionMatrix * ts_Vertex;
-		}
-	`, `
-		precision highp float;
-		uniform vec4 color;
-		varying vec4 bar;
-		void main() {
-			gl_FragColor = color;
-		}
-	`);
-        // setup camera
-        gl.matrixMode(gl.PROJECTION);
-        gl.loadIdentity();
-        gl.perspective(70, gl.canvas.width / gl.canvas.height, 0.1, 1000);
-        gl.lookAt(V(0, -2, 1.5), V3.O, V3.Z);
-        gl.matrixMode(gl.MODELVIEW);
-        gl.enable(gl.DEPTH_TEST);
-        return gl.animate(function (abs, _diff) {
-            const angleDeg = (abs / 1000) * 45;
-            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    function rayTracing(gl) {
+        return __awaiter(this, void 0, void 0, function* () {
+            if (!isWebGL2RenderingContext(gl))
+                throw new Error("require webgl2");
+            let angleX = 30;
+            let angleY = 10;
+            // This is the mesh we tell WebGL to draw. It covers the whole view so each pixel will get a fragment shader call.
+            const mesh = Mesh.plane({ startX: -1, startY: -1, width: 2, height: 2 });
+            // floor and dodecahedron are meshes we will ray-trace
+            // add a vertex buffer "specular", which defines how reflective the mesh is.
+            // specular=1 means it is perfectly reflective, specular=0 perfectly matte
+            // meshes neeed coords vertex buffer as we will draw them with meshes
+            const floor = Mesh.plane({ startX: -4, startY: -4, width: 8, height: 8 })
+                .addVertexBuffer("specular", "specular")
+                .rotateX(90 * DEG);
+            floor.specular = floor.vertices.map((_) => 0); // floor doesn't reflect
+            const dodecahedron = Mesh.sphere(0)
+                .addVertexBuffer("specular", "specular")
+                .addVertexBuffer("coords", "ts_TexCoord")
+                .translate(3, 1);
+            // d20 reflects most of the light
+            dodecahedron.specular = dodecahedron.vertices.map((_) => 0.8);
+            // all uv coordinates the same to pick a solid color from the texture
+            dodecahedron.coords = dodecahedron.vertices.map((_) => [0, 0]);
+            // don't transform the vertices at all
+            // out/in pos so we get the world position of the fragments
+            const shader = Shader.create(rayTracerVS, rayTracerFS);
+            // define spheres which we will have the shader ray-trace
+            const sphereCenters = arrayFromFunction(8, (i) => [V(0.0, 1.6, 0.0), V(3, 3, 3), V(-3, 3, 3)][i] || V3.O);
+            const sphereRadii = arrayFromFunction(8, (i) => [1.5, 0.5, 0.5][i] || 0);
+            // texture for ray-traced mesh
+            const floorTexture = yield Texture.fromURL("./mandelbrot.jpg");
+            const showMesh = floor.concat(dodecahedron);
+            const textureWidth = 1024;
+            const textureHeight = 1;
+            // verticesTexture contains the mesh vertices
+            // vertices are unpacked so we don't have an extra index buffer for the triangles
+            const verticesTexture = new Texture(textureWidth, textureHeight);
+            const verticesBuffer = new Float32Array(textureWidth * textureHeight * 3);
+            V3.pack(showMesh.TRIANGLES.map((i) => showMesh.vertices[i]), verticesBuffer);
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB32F, textureWidth, textureHeight, 0, gl.RGB, gl.FLOAT, verticesBuffer);
+            // uvTexture contains the uv coordinates for the vertices as wel as the specular value for each vertex
+            const uvTexture = new Texture(textureWidth, textureHeight, {
+                format: gl.RGB,
+                type: gl.FLOAT,
+            });
+            const uvBuffer = new Float32Array(textureWidth * textureHeight * 3);
+            showMesh.TRIANGLES.forEach((i, index) => {
+                uvBuffer[index * 3] = showMesh.coords[i][0];
+                uvBuffer[index * 3 + 1] = showMesh.coords[i][1];
+                uvBuffer[index * 3 + 2] = showMesh.specular[i];
+            });
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB32F, textureWidth, textureHeight, 0, gl.RGB, gl.FLOAT, uvBuffer);
+            let lastPos = V3.O;
+            // scene rotation
+            gl.canvas.onmousemove = function (e) {
+                const pagePos = V(e.pageX, e.pageY);
+                const delta = lastPos.to(pagePos);
+                if (e.buttons & 1) {
+                    angleY += delta.x;
+                    angleX = clamp(angleX + delta.y, -90, 90);
+                }
+                lastPos = pagePos;
+            };
+            gl.matrixMode(gl.PROJECTION);
             gl.loadIdentity();
-            gl.rotate(angleDeg, 0, 0, 1);
-            gl.scale(1.5);
-            gl.translate(-0.5, -0.5, -0.5);
-            shader.uniforms({ color: [1, 1, 0, 1] }).draw(mesh);
-            shader.uniforms({ color: [0, 0, 0, 1] }).draw(mesh, gl.LINES);
+            verticesTexture.bind(0);
+            floorTexture.bind(1);
+            uvTexture.bind(2);
+            shader.uniforms({
+                "sphereCenters[0]": sphereCenters,
+                "sphereRadii[0]": sphereRadii,
+                vertices: 0,
+                triangleTexture: 1,
+                texCoords: 2,
+            });
+            return gl.animate(function (_abs, _diff) {
+                // Camera setup
+                gl.matrixMode(gl.MODELVIEW);
+                gl.loadIdentity();
+                // gl.perspective(70, gl.canvas.width / gl.canvas.height, 0.1, 1000)
+                // gl.lookAt(V(0, 200, 200), V(0, 0, 0), V3.Z)
+                gl.translate(0, 0, -10);
+                gl.rotate(angleX, 1, 0, 0);
+                gl.rotate(angleY, 0, 1, 0);
+                gl.scale(0.2);
+                shader.draw(mesh);
+                // Draw debug output to show that the raytraced scene lines up correctly with
+                // the rasterized scene
+                gl.color(0, 0, 0, 0.5);
+                gl.enable(gl.BLEND);
+                gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+                gl.begin(gl.LINES);
+                for (let s = 4, i = -s; i <= s; i++) {
+                    gl.vertex(-s, 0, i);
+                    gl.vertex(s, 0, i);
+                    gl.vertex(i, 0, -s);
+                    gl.vertex(i, 0, s);
+                }
+                gl.end();
+                gl.disable(gl.BLEND);
+            });
         });
     }
+    rayTracing.info = "LMB-drag to rotate camera.";
 
     var vertices$1 = [
     	[
@@ -111802,6 +111766,46 @@ void main() {
     shadowMap.info =
         "Press any key to toggle between sphere- or AABB-based camera clipping.";
 
+    /**
+     * Draw a rotating cube.
+     */
+    function setupDemo(gl) {
+        const mesh = Mesh.cube();
+        const shader = Shader.create(`
+		uniform mat4 ts_ModelViewProjectionMatrix;
+		attribute vec4 ts_Vertex;
+		varying vec4 foo;
+		void main() {
+			foo = vec4(1.0, 1.0, 1.0, 1.0);
+			gl_Position = ts_ModelViewProjectionMatrix * ts_Vertex;
+		}
+	`, `
+		precision highp float;
+		uniform vec4 color;
+		varying vec4 bar;
+		void main() {
+			gl_FragColor = color;
+		}
+	`);
+        // setup camera
+        gl.matrixMode(gl.PROJECTION);
+        gl.loadIdentity();
+        gl.perspective(70, gl.canvas.width / gl.canvas.height, 0.1, 1000);
+        gl.lookAt(V(0, -2, 1.5), V3.O, V3.Z);
+        gl.matrixMode(gl.MODELVIEW);
+        gl.enable(gl.DEPTH_TEST);
+        return gl.animate(function (abs, _diff) {
+            const angleDeg = (abs / 1000) * 45;
+            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+            gl.loadIdentity();
+            gl.rotate(angleDeg, 0, 0, 1);
+            gl.scale(1.5);
+            gl.translate(-0.5, -0.5, -0.5);
+            shader.uniforms({ color: [1, 1, 0, 1] }).draw(mesh);
+            shader.uniforms({ color: [0, 0, 0, 1] }).draw(mesh, gl.LINES);
+        });
+    }
+
     exports.camera = camera;
     exports.gpuLightMap = gpuLightMap;
     exports.immediateMode = immediateMode;
@@ -111812,6 +111816,8 @@ void main() {
     exports.renderToTexture = renderToTexture;
     exports.setupDemo = setupDemo;
     exports.shadowMap = shadowMap;
+
+    Object.defineProperty(exports, '__esModule', { value: true });
 
     return exports;
 
