@@ -8401,276 +8401,6 @@ void main() {
     }
     camera.info = "LMB-drag to move camera.";
 
-    var varyingColorFS = "precision mediump float;varying vec4 color;void main(){gl_FragColor=color;}";
-
-    /// <reference path="../types.d.ts" />
-    /**
-     * Calculate and render magnetic field lines.
-     */
-    function mag(gl) {
-        const cubeMesh = Mesh.cube();
-        // simple pos/color
-        const shader = Shader.create(posNormalColorVS, varyingColorFS);
-        gl.clearColor(1, 1, 1, 1);
-        // given a magnetic field created by fieldCharges, calculate the field strength/dir at pos
-        function fieldAtPos(fieldCharges, pos) {
-            const fieldChargeForces = fieldCharges.map((p) => {
-                const posToP = pos.to(p.pos);
-                const r = posToP.length();
-                const partialForceMagnitude = p.charge / r / r;
-                const partialForce = posToP.toLength(partialForceMagnitude);
-                return partialForce;
-            });
-            return V3.add(...fieldChargeForces);
-        }
-        /**
-         * Iteratively calculate a field line
-         * @param fieldCharges charge defining magnetic field
-         * @param bounds within which to calc field lines
-         * @param start start point of field line
-         * @param dir step size to take. negative to plot field line in reverse
-         */
-        function* qPath(fieldCharges, bounds, start, dir) {
-            let pos = start, f, i = 0;
-            while (true) {
-                f = fieldAtPos(fieldCharges, pos);
-                pos = pos.plus(f.toLength(dir));
-                if (!bounds.containsPoint(pos) || // pos outside bounds
-                    i++ > 1000 || // to many iterations
-                    f.squared() > 2.5e7 // force to high, i.e. to close to charge
-                )
-                    break;
-                yield pos;
-            }
-        }
-        /**
-         * Returns array of PointCharges to model a bar magnet.
-         * @param count
-         */
-        function barMagnet(count = 4) {
-            return arrayFromFunction(count * count, (i) => {
-                const x = i % count;
-                const y = (i / count) | 0;
-                return {
-                    pos: V((0.5 + x) / count, (0.5 + y) / count, 0),
-                    charge: +(x < count / 2) || -1,
-                };
-            });
-        }
-        const enabledBarMagnets = [true, true, true, true, true];
-        const barMagnetMatrices = [
-            M4.scale(0.2, 0.1, 0.02)
-                .rotateZ(20 * DEG)
-                .translate(0.5, 0.5, 0.1),
-            M4.scale(0.1, 0.05, 0.02)
-                .rotateZ(60 * DEG)
-                .translate(0.2, 0.1),
-            M4.scale(0.2, 0.02, 0.02)
-                .rotateY(-100 * DEG)
-                .rotateZ(120 * DEG)
-                .translate(0.2, 0.8),
-            M4.scale(0.2, 0.1, 0.02)
-                .rotateX(90 * DEG)
-                .rotateZ(270 * DEG)
-                .translate(0.9, 0.4, 0.1),
-            M4.scale(0.2, 0.1, 0.02)
-                .rotateX(90 * DEG)
-                .rotateZ(270 * DEG)
-                .translate(0.9, 0.9, 0.1),
-        ];
-        const bounds = new AABB(V3.O, V(1, 1, 0.3));
-        let linesDensity = 10;
-        const linesMesh = new Mesh().addIndexBuffer("LINES");
-        function calculateFieldLines() {
-            const ps = [];
-            barMagnetMatrices.forEach((mat, index) => enabledBarMagnets[index] &&
-                ps.push(...barMagnet(6).map((p) => {
-                    p.pos = mat.transformPoint(p.pos);
-                    return p;
-                })));
-            linesMesh.LINES.length = 0;
-            linesMesh.vertices.length = 0;
-            console.log("generation took (ms): " +
-                time(() => {
-                    for (const [x, y, z] of grid3d(linesDensity, linesDensity, Math.ceil(0.4 * linesDensity))) {
-                        const start = V(x, y, z * bounds.max.z);
-                        linesMesh.vertices.push(start);
-                        const STEP = 0.01;
-                        for (const p of qPath(ps, bounds, start, STEP)) {
-                            linesMesh.vertices.push(p);
-                            linesMesh.LINES.push(linesMesh.vertices.length - 2, linesMesh.vertices.length - 1);
-                        }
-                        linesMesh.vertices.push(start);
-                        for (const p of qPath(ps, bounds, start, -STEP)) {
-                            linesMesh.vertices.push(p);
-                            linesMesh.LINES.push(linesMesh.vertices.length - 2, linesMesh.vertices.length - 1);
-                        }
-                    }
-                }));
-            linesMesh.compile();
-        }
-        calculateFieldLines();
-        const vectorFieldMesh = new Mesh();
-        const fieldLinesXSide = 64;
-        const vectorFieldVectorLength = (2 * 0.9) / fieldLinesXSide;
-        vectorFieldMesh.vertices = ballGrid(fieldLinesXSide).flatMap((p) => [
-            new V3(p.x, p.y, -vectorFieldVectorLength / 2),
-            new V3(p.x, p.y, vectorFieldVectorLength / 2),
-        ]);
-        // vectorFieldMesh.vertices = arrayFromFunction(fieldLinesXSide * fieldLinesXSide * 2, i => {
-        //     const startOrEnd = i % 2
-        //     const x = ((i / 2) | 0) % fieldLinesXSide
-        //     const y = ((i / 2 / fieldLinesXSide) | 0) % fieldLinesXSide
-        //     return new V3(x / fieldLinesXSide, y / fieldLinesXSide, (startOrEnd || -1) * 0.01)
-        // })
-        vectorFieldMesh.compile();
-        // setup camera
-        gl.matrixMode(gl.PROJECTION);
-        gl.loadIdentity();
-        gl.perspective(45, gl.canvas.width / gl.canvas.height, 0.1, 1000);
-        gl.lookAt(V(0.5, 2, 1), V(0.5, 0.5), V3.Z);
-        gl.matrixMode(gl.MODELVIEW);
-        gl.clearColor(1, 1, 1, 0);
-        gl.enable(gl.DEPTH_TEST);
-        // vectorFieldShader.uniforms({
-        // 	'ps[0]': ps as any,
-        // 	color: chroma('red').gl(),
-        // })
-        gl.canvas.tabIndex = 0;
-        gl.canvas.focus();
-        gl.canvas.addEventListener("keypress", (e) => {
-            const index = e.key.charCodeAt(0) - "1".charCodeAt(0);
-            if (0 <= index && index <= 4) {
-                enabledBarMagnets[index] = !enabledBarMagnets[index];
-                calculateFieldLines();
-            }
-            if (e.key == "+" && linesDensity < 50) {
-                linesDensity++;
-                calculateFieldLines();
-            }
-            if (e.key == "-" && linesDensity > 1) {
-                linesDensity--;
-                calculateFieldLines();
-            }
-        });
-        return gl.animate(function (abs, _diff) {
-            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-            gl.loadIdentity();
-            gl.multMatrix(M4.rotateLine(V(0.5, 0.5), V3.Z, abs / 5000));
-            // gl.translate(-1, -1, -1)
-            // gl.scale(2)
-            shader
-                .attributes({ ts_Color: color("black").gl() })
-                .draw(linesMesh, gl.LINES);
-            barMagnetMatrices.forEach((mat, index) => {
-                if (enabledBarMagnets[index]) {
-                    gl.pushMatrix();
-                    gl.multMatrix(mat);
-                    gl.scale(0.5, 1, 1);
-                    shader
-                        .attributes({ ts_Color: color("red").gl() })
-                        .draw(cubeMesh, gl.LINES);
-                    gl.translate(1, 0);
-                    shader
-                        .attributes({ ts_Color: color("blue").gl() })
-                        .draw(cubeMesh, gl.LINES);
-                    gl.popMatrix();
-                }
-            });
-            gl.scale(bounds.max);
-            shader.attributes({ ts_Color: color("grey").gl() }).draw(cubeMesh, gl.LINES);
-            // vectorFieldShader.drawBuffers(vectorFieldMesh.vertexBuffers, undefined, DRAW_MODES.LINES)
-        });
-    }
-    /**
-     * Returns a 1d array of V3s in a 2d-grid. The V3s are all within [0; 1]²
-     * The V3s are spaced like circles fit together as tight as possible. i.e. rows offset by half the x-spacing.
-     * .   .   .
-     *   .   .   .
-     * .   .   .
-     *
-     * @param xCount
-     */
-    function ballGrid(xCount = 64) {
-        const xSpacing = 1 / xCount;
-        const ySpacing = (xSpacing * Math.sqrt(3)) / 2;
-        const yCount = (1 / ySpacing) | 0;
-        return arrayFromFunction(xCount * yCount, (i) => {
-            const x = i % xCount;
-            const y = (i / xCount) | 0;
-            return new V3((x + (y % 2) * 0.5) / xCount, y / yCount, 0);
-        });
-    }
-    function grid3d(xCount = 64, yCount = xCount, zCount = 1) {
-        return arrayFromFunction(xCount * yCount * zCount, (i) => {
-            const x = i % xCount;
-            const y = (i / xCount) % yCount | 0;
-            const z = (i / xCount / yCount) | 0;
-            return new V3(x / xCount, y / yCount, z / zCount);
-        });
-    }
-    mag.info =
-        "Press keys 1-5 to toggle magnets, +/- to change to number of field lines.";
-
-    /// <reference path="../types.d.ts" />
-    /**
-     * OpenGL-style immediate mode.
-     */
-    function immediateMode(gl) {
-        // setup camera
-        gl.disable(gl.CULL_FACE);
-        gl.matrixMode(gl.PROJECTION);
-        gl.loadIdentity();
-        gl.perspective(90, gl.canvas.width / gl.canvas.height, 0.0001, 1000000);
-        gl.lookAt(V(0, -3, 2), V3.O, V3.Z);
-        gl.matrixMode(gl.MODELVIEW);
-        gl.enable(gl.DEPTH_TEST);
-        gl.clearColor(1, 1, 1, 0);
-        return gl.animate(function (abs, _diff) {
-            const angleDeg = (abs / 1000) * 45;
-            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-            gl.loadIdentity();
-            // gl.translate(0, 0, -5)
-            gl.rotate(angleDeg, 0, 0, 1);
-            gl.color(0.5, 0.5, 0.5);
-            gl.lineWidth(1);
-            gl.begin(gl.LINES);
-            for (let i = -10; i <= 10; i++) {
-                gl.vertex(i, -10, 0);
-                gl.vertex(i, +10, 0);
-                gl.vertex(-10, i, 0);
-                gl.vertex(+10, i, 0);
-            }
-            gl.end();
-            gl.pointSize(10);
-            gl.begin(gl.POINTS);
-            gl.color(1, 0, 0);
-            gl.vertex(1, 0, 0);
-            gl.color(0, 1, 0);
-            gl.vertex(0, 1, 0);
-            gl.color(0, 0, 1);
-            gl.vertex(0, 0, 1);
-            gl.end();
-            gl.lineWidth(2);
-            gl.begin(gl.LINE_LOOP);
-            gl.color("red");
-            gl.vertex(1, 0, 0);
-            gl.color("green");
-            gl.vertex(0, 1, 0);
-            gl.color("blue");
-            gl.vertex(0, 0, 1);
-            gl.end();
-            gl.begin(gl.TRIANGLES);
-            gl.color(1, 1, 0);
-            gl.vertex(0.5, 0.5, 0);
-            gl.color(0, 1, 1);
-            gl.vertex(0, 0.5, 0.5);
-            gl.color(1, 0, 1);
-            gl.vertex(0.5, 0, 0.5);
-            gl.end();
-        });
-    }
-
     /// <reference path="../types.d.ts" />
     /**
      * Draw soft shadows by calculating a light map in multiple passes.
@@ -8985,6 +8715,276 @@ void main() {
     }
     gpuLightMap.info = "LMB-drag to rotate camera.";
 
+    var varyingColorFS = "precision mediump float;varying vec4 color;void main(){gl_FragColor=color;}";
+
+    /// <reference path="../types.d.ts" />
+    /**
+     * Calculate and render magnetic field lines.
+     */
+    function mag(gl) {
+        const cubeMesh = Mesh.cube();
+        // simple pos/color
+        const shader = Shader.create(posNormalColorVS, varyingColorFS);
+        gl.clearColor(1, 1, 1, 1);
+        // given a magnetic field created by fieldCharges, calculate the field strength/dir at pos
+        function fieldAtPos(fieldCharges, pos) {
+            const fieldChargeForces = fieldCharges.map((p) => {
+                const posToP = pos.to(p.pos);
+                const r = posToP.length();
+                const partialForceMagnitude = p.charge / r / r;
+                const partialForce = posToP.toLength(partialForceMagnitude);
+                return partialForce;
+            });
+            return V3.add(...fieldChargeForces);
+        }
+        /**
+         * Iteratively calculate a field line
+         * @param fieldCharges charge defining magnetic field
+         * @param bounds within which to calc field lines
+         * @param start start point of field line
+         * @param dir step size to take. negative to plot field line in reverse
+         */
+        function* qPath(fieldCharges, bounds, start, dir) {
+            let pos = start, f, i = 0;
+            while (true) {
+                f = fieldAtPos(fieldCharges, pos);
+                pos = pos.plus(f.toLength(dir));
+                if (!bounds.containsPoint(pos) || // pos outside bounds
+                    i++ > 1000 || // to many iterations
+                    f.squared() > 2.5e7 // force to high, i.e. to close to charge
+                )
+                    break;
+                yield pos;
+            }
+        }
+        /**
+         * Returns array of PointCharges to model a bar magnet.
+         * @param count
+         */
+        function barMagnet(count = 4) {
+            return arrayFromFunction(count * count, (i) => {
+                const x = i % count;
+                const y = (i / count) | 0;
+                return {
+                    pos: V((0.5 + x) / count, (0.5 + y) / count, 0),
+                    charge: +(x < count / 2) || -1,
+                };
+            });
+        }
+        const enabledBarMagnets = [true, true, true, true, true];
+        const barMagnetMatrices = [
+            M4.scale(0.2, 0.1, 0.02)
+                .rotateZ(20 * DEG)
+                .translate(0.5, 0.5, 0.1),
+            M4.scale(0.1, 0.05, 0.02)
+                .rotateZ(60 * DEG)
+                .translate(0.2, 0.1),
+            M4.scale(0.2, 0.02, 0.02)
+                .rotateY(-100 * DEG)
+                .rotateZ(120 * DEG)
+                .translate(0.2, 0.8),
+            M4.scale(0.2, 0.1, 0.02)
+                .rotateX(90 * DEG)
+                .rotateZ(270 * DEG)
+                .translate(0.9, 0.4, 0.1),
+            M4.scale(0.2, 0.1, 0.02)
+                .rotateX(90 * DEG)
+                .rotateZ(270 * DEG)
+                .translate(0.9, 0.9, 0.1),
+        ];
+        const bounds = new AABB(V3.O, V(1, 1, 0.3));
+        let linesDensity = 10;
+        const linesMesh = new Mesh().addIndexBuffer("LINES");
+        function calculateFieldLines() {
+            const ps = [];
+            barMagnetMatrices.forEach((mat, index) => enabledBarMagnets[index] &&
+                ps.push(...barMagnet(6).map((p) => {
+                    p.pos = mat.transformPoint(p.pos);
+                    return p;
+                })));
+            linesMesh.LINES.length = 0;
+            linesMesh.vertices.length = 0;
+            console.log("generation took (ms): " +
+                time(() => {
+                    for (const [x, y, z] of grid3d(linesDensity, linesDensity, Math.ceil(0.4 * linesDensity))) {
+                        const start = V(x, y, z * bounds.max.z);
+                        linesMesh.vertices.push(start);
+                        const STEP = 0.01;
+                        for (const p of qPath(ps, bounds, start, STEP)) {
+                            linesMesh.vertices.push(p);
+                            linesMesh.LINES.push(linesMesh.vertices.length - 2, linesMesh.vertices.length - 1);
+                        }
+                        linesMesh.vertices.push(start);
+                        for (const p of qPath(ps, bounds, start, -STEP)) {
+                            linesMesh.vertices.push(p);
+                            linesMesh.LINES.push(linesMesh.vertices.length - 2, linesMesh.vertices.length - 1);
+                        }
+                    }
+                }));
+            linesMesh.compile();
+        }
+        calculateFieldLines();
+        const vectorFieldMesh = new Mesh();
+        const fieldLinesXSide = 64;
+        const vectorFieldVectorLength = (2 * 0.9) / fieldLinesXSide;
+        vectorFieldMesh.vertices = ballGrid(fieldLinesXSide).flatMap((p) => [
+            new V3(p.x, p.y, -vectorFieldVectorLength / 2),
+            new V3(p.x, p.y, vectorFieldVectorLength / 2),
+        ]);
+        // vectorFieldMesh.vertices = arrayFromFunction(fieldLinesXSide * fieldLinesXSide * 2, i => {
+        //     const startOrEnd = i % 2
+        //     const x = ((i / 2) | 0) % fieldLinesXSide
+        //     const y = ((i / 2 / fieldLinesXSide) | 0) % fieldLinesXSide
+        //     return new V3(x / fieldLinesXSide, y / fieldLinesXSide, (startOrEnd || -1) * 0.01)
+        // })
+        vectorFieldMesh.compile();
+        // setup camera
+        gl.matrixMode(gl.PROJECTION);
+        gl.loadIdentity();
+        gl.perspective(45, gl.canvas.width / gl.canvas.height, 0.1, 1000);
+        gl.lookAt(V(0.5, 2, 1), V(0.5, 0.5), V3.Z);
+        gl.matrixMode(gl.MODELVIEW);
+        gl.clearColor(1, 1, 1, 0);
+        gl.enable(gl.DEPTH_TEST);
+        // vectorFieldShader.uniforms({
+        // 	'ps[0]': ps as any,
+        // 	color: chroma('red').gl(),
+        // })
+        gl.canvas.tabIndex = 0;
+        gl.canvas.focus();
+        gl.canvas.addEventListener("keypress", (e) => {
+            const index = e.key.charCodeAt(0) - "1".charCodeAt(0);
+            if (0 <= index && index <= 4) {
+                enabledBarMagnets[index] = !enabledBarMagnets[index];
+                calculateFieldLines();
+            }
+            if (e.key == "+" && linesDensity < 50) {
+                linesDensity++;
+                calculateFieldLines();
+            }
+            if (e.key == "-" && linesDensity > 1) {
+                linesDensity--;
+                calculateFieldLines();
+            }
+        });
+        return gl.animate(function (abs, _diff) {
+            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+            gl.loadIdentity();
+            gl.multMatrix(M4.rotateLine(V(0.5, 0.5), V3.Z, abs / 5000));
+            // gl.translate(-1, -1, -1)
+            // gl.scale(2)
+            shader
+                .attributes({ ts_Color: color("black").gl() })
+                .draw(linesMesh, gl.LINES);
+            barMagnetMatrices.forEach((mat, index) => {
+                if (enabledBarMagnets[index]) {
+                    gl.pushMatrix();
+                    gl.multMatrix(mat);
+                    gl.scale(0.5, 1, 1);
+                    shader
+                        .attributes({ ts_Color: color("red").gl() })
+                        .draw(cubeMesh, gl.LINES);
+                    gl.translate(1, 0);
+                    shader
+                        .attributes({ ts_Color: color("blue").gl() })
+                        .draw(cubeMesh, gl.LINES);
+                    gl.popMatrix();
+                }
+            });
+            gl.scale(bounds.max);
+            shader.attributes({ ts_Color: color("grey").gl() }).draw(cubeMesh, gl.LINES);
+            // vectorFieldShader.drawBuffers(vectorFieldMesh.vertexBuffers, undefined, DRAW_MODES.LINES)
+        });
+    }
+    /**
+     * Returns a 1d array of V3s in a 2d-grid. The V3s are all within [0; 1]²
+     * The V3s are spaced like circles fit together as tight as possible. i.e. rows offset by half the x-spacing.
+     * .   .   .
+     *   .   .   .
+     * .   .   .
+     *
+     * @param xCount
+     */
+    function ballGrid(xCount = 64) {
+        const xSpacing = 1 / xCount;
+        const ySpacing = (xSpacing * Math.sqrt(3)) / 2;
+        const yCount = (1 / ySpacing) | 0;
+        return arrayFromFunction(xCount * yCount, (i) => {
+            const x = i % xCount;
+            const y = (i / xCount) | 0;
+            return new V3((x + (y % 2) * 0.5) / xCount, y / yCount, 0);
+        });
+    }
+    function grid3d(xCount = 64, yCount = xCount, zCount = 1) {
+        return arrayFromFunction(xCount * yCount * zCount, (i) => {
+            const x = i % xCount;
+            const y = (i / xCount) % yCount | 0;
+            const z = (i / xCount / yCount) | 0;
+            return new V3(x / xCount, y / yCount, z / zCount);
+        });
+    }
+    mag.info =
+        "Press keys 1-5 to toggle magnets, +/- to change to number of field lines.";
+
+    /// <reference path="../types.d.ts" />
+    /**
+     * OpenGL-style immediate mode.
+     */
+    function immediateMode(gl) {
+        // setup camera
+        gl.disable(gl.CULL_FACE);
+        gl.matrixMode(gl.PROJECTION);
+        gl.loadIdentity();
+        gl.perspective(90, gl.canvas.width / gl.canvas.height, 0.0001, 1000000);
+        gl.lookAt(V(0, -3, 2), V3.O, V3.Z);
+        gl.matrixMode(gl.MODELVIEW);
+        gl.enable(gl.DEPTH_TEST);
+        gl.clearColor(1, 1, 1, 0);
+        return gl.animate(function (abs, _diff) {
+            const angleDeg = (abs / 1000) * 45;
+            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+            gl.loadIdentity();
+            // gl.translate(0, 0, -5)
+            gl.rotate(angleDeg, 0, 0, 1);
+            gl.color(0.5, 0.5, 0.5);
+            gl.lineWidth(1);
+            gl.begin(gl.LINES);
+            for (let i = -10; i <= 10; i++) {
+                gl.vertex(i, -10, 0);
+                gl.vertex(i, +10, 0);
+                gl.vertex(-10, i, 0);
+                gl.vertex(+10, i, 0);
+            }
+            gl.end();
+            gl.pointSize(10);
+            gl.begin(gl.POINTS);
+            gl.color(1, 0, 0);
+            gl.vertex(1, 0, 0);
+            gl.color(0, 1, 0);
+            gl.vertex(0, 1, 0);
+            gl.color(0, 0, 1);
+            gl.vertex(0, 0, 1);
+            gl.end();
+            gl.lineWidth(2);
+            gl.begin(gl.LINE_LOOP);
+            gl.color("red");
+            gl.vertex(1, 0, 0);
+            gl.color("green");
+            gl.vertex(0, 1, 0);
+            gl.color("blue");
+            gl.vertex(0, 0, 1);
+            gl.end();
+            gl.begin(gl.TRIANGLES);
+            gl.color(1, 1, 0);
+            gl.vertex(0.5, 0.5, 0);
+            gl.color(0, 1, 1);
+            gl.vertex(0, 0.5, 0.5);
+            gl.color(1, 0, 1);
+            gl.vertex(0.5, 0, 0.5);
+            gl.end();
+        });
+    }
+
     /// <reference path="../types.d.ts" />
     /**
      * Blend two textures while rendering them to a quad.
@@ -9035,75 +9035,6 @@ void main() {
                 texture2: 1,
             })
                 .draw(mesh);
-        });
-    }
-
-    /**
-     * Render SDF text.
-     */
-    function renderText(gl) {
-        return __awaiter(this, void 0, void 0, function* () {
-            gl.clearColor(1, 1, 1, 1);
-            yield gl.setupTextRendering("font/OpenSans-Regular.png", "font/OpenSans-Regular.json");
-            gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE);
-            gl.enable(gl.BLEND);
-            // setup camera
-            gl.matrixMode(gl.PROJECTION);
-            gl.loadIdentity();
-            gl.perspective(70, gl.canvas.width / gl.canvas.height, 0.1, 1000);
-            gl.lookAt(V(0, 0, 15), V3.O, V3.Y);
-            gl.matrixMode(gl.MODELVIEW);
-            gl.enable(gl.DEPTH_TEST);
-            return gl.animate(function (abs, _diff) {
-                const angleDeg = Math.sin(abs / 10000) * 15;
-                const textColor = color("brown").darker().gl();
-                gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-                gl.loadIdentity();
-                gl.rotate(angleDeg, 1, 1, 0);
-                gl.pushMatrix();
-                gl.translate(-18, 8);
-                [0, 0.05, 0.1, 0.15, 0.2, 0.5].forEach((gamma) => {
-                    gl.renderText("sdf text w/ gamma=" + gamma, textColor, 1, "left", "top", gamma);
-                    gl.translate(0, -1);
-                });
-                gl.popMatrix();
-                gl.pushMatrix();
-                gl.translate(-18, 0);
-                gl.renderText("This text has\nmultiple newlines\nand a line height of 1.2.", [1, 0, 0, 1], 1, "left", "middle", undefined, 1.2);
-                gl.translate(0, -5);
-                gl.renderText("VERY LARGE", [1, 0, 0, 1], 3, "left", "middle");
-                gl.translate(0, -3);
-                gl.renderText("This text is very small yet remains legible. gamma=0.15", [1, 0, 0, 1], 0.25, "left", "middle", 0.15);
-                gl.popMatrix();
-                gl.pushMatrix();
-                gl.translate(0, 8);
-                ["top", "middle", "alphabetic", "bottom"].forEach((baseline) => {
-                    gl.begin(gl.LINES);
-                    gl.color("green");
-                    gl.vertex(0, 0, 0);
-                    gl.vertex(20, 0, 0);
-                    gl.vertex(0, -1, 0);
-                    gl.vertex(0, 1, 0);
-                    gl.end();
-                    gl.renderText('baseline="' + baseline + '"|{}() ABC XYZ yjg Ẫß', color("blue").gl(), 1, "left", baseline);
-                    gl.translate(0, -2.2);
-                });
-                gl.popMatrix();
-                gl.pushMatrix();
-                gl.translate(10, -2);
-                ["left", "center", "right"].forEach((align) => {
-                    gl.begin(gl.LINES);
-                    gl.color("red");
-                    gl.vertex(-10, 0, 0);
-                    gl.vertex(10, 0, 0);
-                    gl.vertex(0, -1, 0);
-                    gl.vertex(0, 1, 0);
-                    gl.end();
-                    gl.renderText('align="' + align + '"', color("blue").gl(), 1, align, "alphabetic");
-                    gl.translate(0, -2.2);
-                });
-                gl.popMatrix();
-            });
         });
     }
 
@@ -9220,6 +9151,115 @@ void main() {
         });
     }
     rayTracing.info = "LMB-drag to rotate camera.";
+
+    /**
+     * Render SDF text.
+     */
+    function renderText(gl) {
+        return __awaiter(this, void 0, void 0, function* () {
+            gl.clearColor(1, 1, 1, 1);
+            yield gl.setupTextRendering("font/OpenSans-Regular.png", "font/OpenSans-Regular.json");
+            gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE);
+            gl.enable(gl.BLEND);
+            // setup camera
+            gl.matrixMode(gl.PROJECTION);
+            gl.loadIdentity();
+            gl.perspective(70, gl.canvas.width / gl.canvas.height, 0.1, 1000);
+            gl.lookAt(V(0, 0, 15), V3.O, V3.Y);
+            gl.matrixMode(gl.MODELVIEW);
+            gl.enable(gl.DEPTH_TEST);
+            return gl.animate(function (abs, _diff) {
+                const angleDeg = Math.sin(abs / 10000) * 15;
+                const textColor = color("brown").darker().gl();
+                gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+                gl.loadIdentity();
+                gl.rotate(angleDeg, 1, 1, 0);
+                gl.pushMatrix();
+                gl.translate(-18, 8);
+                [0, 0.05, 0.1, 0.15, 0.2, 0.5].forEach((gamma) => {
+                    gl.renderText("sdf text w/ gamma=" + gamma, textColor, 1, "left", "top", gamma);
+                    gl.translate(0, -1);
+                });
+                gl.popMatrix();
+                gl.pushMatrix();
+                gl.translate(-18, 0);
+                gl.renderText("This text has\nmultiple newlines\nand a line height of 1.2.", [1, 0, 0, 1], 1, "left", "middle", undefined, 1.2);
+                gl.translate(0, -5);
+                gl.renderText("VERY LARGE", [1, 0, 0, 1], 3, "left", "middle");
+                gl.translate(0, -3);
+                gl.renderText("This text is very small yet remains legible. gamma=0.15", [1, 0, 0, 1], 0.25, "left", "middle", 0.15);
+                gl.popMatrix();
+                gl.pushMatrix();
+                gl.translate(0, 8);
+                ["top", "middle", "alphabetic", "bottom"].forEach((baseline) => {
+                    gl.begin(gl.LINES);
+                    gl.color("green");
+                    gl.vertex(0, 0, 0);
+                    gl.vertex(20, 0, 0);
+                    gl.vertex(0, -1, 0);
+                    gl.vertex(0, 1, 0);
+                    gl.end();
+                    gl.renderText('baseline="' + baseline + '"|{}() ABC XYZ yjg Ẫß', color("blue").gl(), 1, "left", baseline);
+                    gl.translate(0, -2.2);
+                });
+                gl.popMatrix();
+                gl.pushMatrix();
+                gl.translate(10, -2);
+                ["left", "center", "right"].forEach((align) => {
+                    gl.begin(gl.LINES);
+                    gl.color("red");
+                    gl.vertex(-10, 0, 0);
+                    gl.vertex(10, 0, 0);
+                    gl.vertex(0, -1, 0);
+                    gl.vertex(0, 1, 0);
+                    gl.end();
+                    gl.renderText('align="' + align + '"', color("blue").gl(), 1, align, "alphabetic");
+                    gl.translate(0, -2.2);
+                });
+                gl.popMatrix();
+            });
+        });
+    }
+
+    /**
+     * Draw a rotating cube.
+     */
+    function setupDemo(gl) {
+        const mesh = Mesh.cube();
+        const shader = Shader.create(`
+		uniform mat4 ts_ModelViewProjectionMatrix;
+		attribute vec4 ts_Vertex;
+		varying vec4 foo;
+		void main() {
+			foo = vec4(1.0, 1.0, 1.0, 1.0);
+			gl_Position = ts_ModelViewProjectionMatrix * ts_Vertex;
+		}
+	`, `
+		precision highp float;
+		uniform vec4 color;
+		varying vec4 bar;
+		void main() {
+			gl_FragColor = color;
+		}
+	`);
+        // setup camera
+        gl.matrixMode(gl.PROJECTION);
+        gl.loadIdentity();
+        gl.perspective(70, gl.canvas.width / gl.canvas.height, 0.1, 1000);
+        gl.lookAt(V(0, -2, 1.5), V3.O, V3.Z);
+        gl.matrixMode(gl.MODELVIEW);
+        gl.enable(gl.DEPTH_TEST);
+        return gl.animate(function (abs, _diff) {
+            const angleDeg = (abs / 1000) * 45;
+            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+            gl.loadIdentity();
+            gl.rotate(angleDeg, 0, 0, 1);
+            gl.scale(1.5);
+            gl.translate(-0.5, -0.5, -0.5);
+            shader.uniforms({ color: [1, 1, 0, 1] }).draw(mesh);
+            shader.uniforms({ color: [0, 0, 0, 1] }).draw(mesh, gl.LINES);
+        });
+    }
 
     var vertices = [
     	[
@@ -51698,46 +51738,6 @@ void main() {
             gl.rotate(90, 1, 0, 0);
             gl.translate(0.5, 0);
             planeShader.draw(plane);
-        });
-    }
-
-    /**
-     * Draw a rotating cube.
-     */
-    function setupDemo(gl) {
-        const mesh = Mesh.cube();
-        const shader = Shader.create(`
-		uniform mat4 ts_ModelViewProjectionMatrix;
-		attribute vec4 ts_Vertex;
-		varying vec4 foo;
-		void main() {
-			foo = vec4(1.0, 1.0, 1.0, 1.0);
-			gl_Position = ts_ModelViewProjectionMatrix * ts_Vertex;
-		}
-	`, `
-		precision highp float;
-		uniform vec4 color;
-		varying vec4 bar;
-		void main() {
-			gl_FragColor = color;
-		}
-	`);
-        // setup camera
-        gl.matrixMode(gl.PROJECTION);
-        gl.loadIdentity();
-        gl.perspective(70, gl.canvas.width / gl.canvas.height, 0.1, 1000);
-        gl.lookAt(V(0, -2, 1.5), V3.O, V3.Z);
-        gl.matrixMode(gl.MODELVIEW);
-        gl.enable(gl.DEPTH_TEST);
-        return gl.animate(function (abs, _diff) {
-            const angleDeg = (abs / 1000) * 45;
-            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-            gl.loadIdentity();
-            gl.rotate(angleDeg, 0, 0, 1);
-            gl.scale(1.5);
-            gl.translate(-0.5, -0.5, -0.5);
-            shader.uniforms({ color: [1, 1, 0, 1] }).draw(mesh);
-            shader.uniforms({ color: [0, 0, 0, 1] }).draw(mesh, gl.LINES);
         });
     }
 
