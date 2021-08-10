@@ -367,10 +367,11 @@ export class Mesh extends Transformable {
       const a = vertices[ai]
       const b = vertices[bi]
       const c = vertices[ci]
-      const normal = b.minus(a).cross(c.minus(a)).unit()
-      normals[ai] = normals[ai] ? normals[ai].plus(normal) : normal
-      normals[bi] = normals[bi] ? normals[bi].plus(normal) : normal
-      normals[ci] = normals[ci] ? normals[ci].plus(normal) : normal
+      const normal = b.minus(a).cross(c.minus(a))
+      const normal1 = normal.likeO() ? V3.O : normal.unit()
+      normals[ai] = normals[ai] ? normals[ai].plus(normal1) : normal1
+      normals[bi] = normals[bi] ? normals[bi].plus(normal1) : normal1
+      normals[ci] = normals[ci] ? normals[ci].plus(normal1) : normal1
     }
     for (let i = 0; i < vertices.length; i++) {
       normals[i] = normals[i].unit()

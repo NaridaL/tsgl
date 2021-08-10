@@ -14,6 +14,7 @@ import {
 import { Buffer, currentGL, GL_COLOR, Mesh, TSGLContext } from "./index"
 
 import GL = WebGLRenderingContextStrict
+import formatCompilerError from "gl-format-compiler-error"
 const WGL = (WebGLRenderingContext as any) as WebGLRenderingContextStrict.Constants
 
 /**
@@ -67,6 +68,7 @@ export interface UniformTypesMap {
   FLOAT_VEC2: [number, number] | V3
   FLOAT: number
   INT: int
+  UNSIGNED_INT: int
   FLOAT_MAT4: M4 | number[]
   FLOAT_MAT3: M4 | number[]
   SAMPLER_2D: int
@@ -129,12 +131,11 @@ export class Shader<
   uniformInfos: { [uniformName: string]: GL.WebGLActiveInfo<GL.UniformType> }
   projectionMatrixVersion = -1
   modelViewMatrixVersion = -1
-  gl: TSGLContext
 
   /**
-   * Create shader drom typed vertex and fragment source. Weird generic arguments are because
-   * the vertex shader is required to have the OUT types the fragment shader needs as IN,
-   * but not vice-versa.
+   * Create shader drom typed vertex and fragment source. Weird generic
+   * arguments are because the vertex shader is required to have the OUT types
+   * the fragment shader needs as IN, but not vice-versa.
    */
   static create<
     FragSrc extends ShaderSource<{}, {}, {}, "fragment">,
@@ -145,8 +146,8 @@ export class Shader<
     gl?: TSGLContext,
   ): Shader<VertSrc["U"] & FragSrc["U"], VertSrc["IN"]>
   /**
-   * Create shader from typed vertex and untyped fragment source. Uniform of the fragment shader
-   * can optionally be manually specified.
+   * Create shader from typed vertex and untyped fragment source. Uniform of
+   * the fragment shader can optionally be manually specified.
    */
   static create<
     FU extends VarTypeMap,
@@ -157,8 +158,8 @@ export class Shader<
     gl?: TSGLContext,
   ): Shader<FU & VertSrc["U"], VertSrc["IN"]>
   /**
-   * Create shader from untyped vertex and typed fragment source. Uniform and attribute types of the shader
-   * can optionally be manually specified.
+   * Create shader from untyped vertex and typed fragment source. Uniform and
+   * attribute types of the shader can optionally be manually specified.
    */
   static create<
     VU extends VarTypeMap,
@@ -170,65 +171,69 @@ export class Shader<
     gl?: TSGLContext,
   ): Shader<VU & FragSrc["U"], VA>
   /**
-   * Create shader from untyped vertex and fragment source. Uniform and attribute types of the shader
-   * can optionally be manually specified.
+   * Create shader from untyped vertex and fragment source. Uniform and
+   * attribute types of the shader can optionally be manually specified.
    */
   static create<U extends VarTypeMap = {}, A extends VarTypeMap = {}>(
     vertexSource: string & { IN?: undefined },
     fragmentSource: string & { IN?: undefined },
     gl?: TSGLContext,
+    name?: string,
   ): Shader<U, A>
   static create(
     vertexSource: string,
     fragmentSource: string,
     gl?: TSGLContext,
+    name?: string,
   ) {
-    return new Shader(vertexSource, fragmentSource, gl) as any
+    return new Shader(vertexSource, fragmentSource, gl, name) as any
   }
 
   /**
-	 * Provides a convenient wrapper for WebGL shaders. A few uniforms and attributes,
-	 * prefixed with `gl_`, are automatically added to all shader sources to make
-	 * simple shaders easier to write.
-	 * Headers for the following variables are automatically prepended to the passed source. The correct variables
-	 * are also automatically passed to the shader when drawing.
-	 *
-	 * For vertex and fragment shaders:
-	 uniform mat3 ts_NormalMatrix;
-	 uniform mat4 ts_ModelViewMatrix;
-	 uniform mat4 ts_ProjectionMatrix;
-	 uniform mat4 ts_ModelViewProjectionMatrix;
-	 uniform mat4 ts_ModelViewMatrixInverse;
-	 uniform mat4 ts_ProjectionMatrixInverse;
-	 uniform mat4 ts_ModelViewProjectionMatrixInverse;
-	 *
-	 *
-	 * Example usage:
-	 *
-	 *  const shader = new GL.Shader(
-	 *      `void main() { gl_Position = ts_ModelViewProjectionMatrix * ts_Vertex; }`,
-	 *      `uniform vec4 color; void main() { gl_FragColor = color; }`)
-	 *
-	 *  shader.uniforms({ color: [1, 0, 0, 1] }).draw(mesh)
-	 *
-	 * Compiles a shader program using the provided vertex and fragment shaders.
-	 */
+   * Provides a convenient wrapper for WebGL shaders. A few uniforms and
+   * attributes, prefixed with `gl_`, are automatically added to all shader
+   * sources to make simple shaders easier to write. Headers for the following
+   * variables are automatically prepended to the passed source. The correct
+   * variables are also automatically passed to the shader when drawing.
+   *
+   * For vertex and fragment shaders:
+   uniform mat3 ts_NormalMatrix;
+   uniform mat4 ts_ModelViewMatrix;
+   uniform mat4 ts_ProjectionMatrix;
+   uniform mat4 ts_ModelViewProjectionMatrix;
+   uniform mat4 ts_ModelViewMatrixInverse;
+   uniform mat4 ts_ProjectionMatrixInverse;
+   uniform mat4 ts_ModelViewProjectionMatrixInverse;
+   *
+   *
+   * Example usage:
+   *
+   *  const shader = new GL.Shader(
+   *      `void main() { gl_Position = ts_ModelViewProjectionMatrix *
+   * ts_Vertex; }`,
+   *      `uniform vec4 color; void main() { gl_FragColor = color; }`)
+   *
+   *  shader.uniforms({ color: [1, 0, 0, 1] }).draw(mesh)
+   *
+   * Compiles a shader program using the provided vertex and fragment shaders.
+   */
   protected constructor(
     vertexSource: string,
     fragmentSource: string,
-    gl = currentGL(),
+    readonly gl = currentGL(),
+    readonly name?: string,
   ) {
     // const versionRegex = /^(?:\s+|\/\/[\s\S]*?[\r\n]+|\/\*[\s\S]*?\*\/)+(#version\s+(\d+)\s+es)/
     // Headers are prepended to the sources to provide some automatic functionality.
     const header = `
-		uniform mat3 ts_NormalMatrix;
-		uniform mat4 ts_ModelViewMatrix;
-		uniform mat4 ts_ProjectionMatrix;
-		uniform mat4 ts_ModelViewProjectionMatrix;
-		uniform mat4 ts_ModelViewMatrixInverse;
-		uniform mat4 ts_ProjectionMatrixInverse;
-		uniform mat4 ts_ModelViewProjectionMatrixInverse;
-	`
+    uniform mat3 ts_NormalMatrix;
+    uniform mat4 ts_ModelViewMatrix;
+    uniform mat4 ts_ProjectionMatrix;
+    uniform mat4 ts_ModelViewProjectionMatrix;
+    uniform mat4 ts_ModelViewMatrixInverse;
+    uniform mat4 ts_ProjectionMatrixInverse;
+    uniform mat4 ts_ModelViewProjectionMatrixInverse;
+  `
     const matrixNames = header.match(/\bts_\w+/g)
 
     // Compile and link errors are thrown as strings.
@@ -237,12 +242,14 @@ export class Shader<
       gl.shaderSource(shader, source)
       gl.compileShader(shader)
       if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-        throw new Error("compile error: " + gl.getShaderInfoLog(shader))
+        const shaderInfoLog = gl.getShaderInfoLog(shader)!
+        const fmt = formatCompilerError(shaderInfoLog, source, type)
+        console.warn(fmt.long)
+        throw Object.assign(new Error(fmt.short), { shaderSource: source })
       }
       return shader
     }
 
-    this.gl = gl
     this.program = gl.createProgram()!
     gl.attachShader(this.program, compileSource(gl.VERTEX_SHADER, vertexSource))
     gl.attachShader(
@@ -282,8 +289,9 @@ export class Shader<
   }
 
   /**
-   * Set a uniform for each property of `uniforms`. The correct `viewerGL.uniform*()` method is inferred from the
-   * value types and from the stored uniform sampler flags.
+   * Set a uniform for each property of `uniforms`. The correct
+   * `viewerGL.uniform*()` method is inferred from the value types and from the
+   * stored uniform sampler flags.
    */
   uniforms(
     uniforms: Partial<
@@ -388,19 +396,19 @@ export class Shader<
           case 9:
             // prettier-ignore
             gl.uniformMatrix3fv(location, false, new Float32Array([
-							value[0], value[3], value[6],
-							value[1], value[4], value[7],
-							value[2], value[5], value[8],
-						]))
+              value[0], value[3], value[6],
+              value[1], value[4], value[7],
+              value[2], value[5], value[8],
+            ]))
             break
           case 16:
             // prettier-ignore
             gl.uniformMatrix4fv(location, false, new Float32Array([
-							value[0], value[4], value[8], value[12],
-							value[1], value[5], value[9], value[13],
-							value[2], value[6], value[10], value[14],
-							value[3], value[7], value[11], value[15],
-						]))
+              value[0], value[4], value[8], value[12],
+              value[1], value[5], value[9], value[13],
+              value[2], value[6], value[10], value[14],
+              value[3], value[7], value[11], value[15],
+            ]))
             break
           default:
             throw new Error(
@@ -411,14 +419,10 @@ export class Shader<
             )
         }
       } else if ("number" == typeof value) {
-        if (
-          gl.SAMPLER_2D == info.type ||
-          gl.SAMPLER_CUBE == info.type ||
-          gl.INT == info.type
-        ) {
-          gl.uniform1i(location, value)
-        } else {
+        if (gl.FLOAT === info.type) {
           gl.uniform1f(location, value)
+        } else {
+          gl.uniform1i(location, value)
         }
       } else if ("boolean" == typeof value) {
         gl.uniform1i(location, +value)
@@ -427,21 +431,21 @@ export class Shader<
         if (gl.FLOAT_MAT4 == info.type) {
           // prettier-ignore
           gl.uniformMatrix4fv(location, false, [
-						m[0], m[4], m[8], m[12],
-						m[1], m[5], m[9], m[13],
-						m[2], m[6], m[10], m[14],
-						m[3], m[7], m[11], m[15]])
+            m[0], m[4], m[8], m[12],
+            m[1], m[5], m[9], m[13],
+            m[2], m[6], m[10], m[14],
+            m[3], m[7], m[11], m[15]])
         } else if (gl.FLOAT_MAT3 == info.type) {
           // prettier-ignore
           gl.uniformMatrix3fv(location, false, [
-						m[0], m[4], m[8],
-						m[1], m[5], m[9],
-						m[2], m[6], m[10]])
+            m[0], m[4], m[8],
+            m[1], m[5], m[9],
+            m[2], m[6], m[10]])
         } else if (gl.FLOAT_MAT2 == info.type) {
           // prettier-ignore
           gl.uniformMatrix2fv(location, false, new Float32Array([
-						m[0], m[4],
-						m[1], m[5]]))
+            m[0], m[4],
+            m[1], m[5]]))
         } else {
           throw new Error(`Can't assign M4 to ${info.type}`)
         }
@@ -470,7 +474,7 @@ export class Shader<
       if (location == -1) {
         if (!name.startsWith("ts_")) {
           console.warn(
-            `Vertex buffer ${name} was not bound because the attribute is not active.`,
+            `[shader ${this.name}] Vertex buffer ${name} was not bound because the attribute is not active.`,
           )
         }
         continue
@@ -487,17 +491,17 @@ export class Shader<
       } else {
         gl.vertexAttrib4fv(location, value as number[])
         // switch ((value as number[]).length) {
-        // 	case 1:
-        // 		gl.vertexAttrib1fv(location, value as number[])
-        // 		break
-        // 	case 2:
-        // 		gl.vertexAttrib2fv(location, value as number[])
-        // 		break
-        // 	case 3:
-        // 		gl.vertexAttrib3fv(location, value as number[])
-        // 		break
-        // 	case 4:
-        // 		break
+        //   case 1:
+        //     gl.vertexAttrib1fv(location, value as number[])
+        //     break
+        //   case 2:
+        //     gl.vertexAttrib2fv(location, value as number[])
+        //     break
+        //   case 3:
+        //     gl.vertexAttrib3fv(location, value as number[])
+        //     break
+        //   case 4:
+        //     break
         // }
       }
       this.constantAttributes[name] = true
@@ -506,13 +510,14 @@ export class Shader<
   }
 
   /**
-   * Sets all uniform matrix attributes, binds all relevant buffers, and draws the mesh geometry as indexed
-   * triangles or indexed LINES. Set `mode` to `gl.LINES` (and either add indices to `LINES` or call
+   * Sets all uniform matrix attributes, binds all relevant buffers, and draws
+   * the mesh geometry as indexed triangles or indexed LINES. Set `mode` to
+   * `gl.LINES` (and either add indices to `LINES` or call
    * `computeWireframe()`) to draw the mesh in wireframe.
    *
    * @param mesh
-   * @param mode Defaults to 'TRIANGLES'. Must be passed as string so the correct index buffer can be
-   *     automatically drawn.
+   * @param mode Defaults to 'TRIANGLES'. Must be passed as string so the
+   *   correct index buffer can be automatically drawn.
    * @param start int
    * @param count int
    */
@@ -538,12 +543,13 @@ export class Shader<
   private outputWarnings: { [key: string]: boolean } = {}
 
   /**
-   * Sets all uniform matrix attributes, binds all relevant buffers, and draws the
-   * indexed mesh geometry. The `vertexBuffers` argument is a map from attribute
-   * names to `Buffer` objects of type `WGL.ARRAY_BUFFER`, `indexBuffer` is a `Buffer`
-   * object of type `WGL.ELEMENT_ARRAY_BUFFER`, and `mode` is a WebGL primitive mode
-   * like `WGL.TRIANGLES` or `WGL.LINES`. This method automatically creates and caches
-   * vertex attribute pointers for attributes as needed.
+   * Sets all uniform matrix attributes, binds all relevant buffers, and draws
+   * the indexed mesh geometry. The `vertexBuffers` argument is a map from
+   * attribute names to `Buffer` objects of type `WGL.ARRAY_BUFFER`,
+   * `indexBuffer` is a `Buffer` object of type `WGL.ELEMENT_ARRAY_BUFFER`, and
+   * `mode` is a WebGL primitive mode like `WGL.TRIANGLES` or `WGL.LINES`. This
+   * method automatically creates and caches vertex attribute pointers for
+   * attributes as needed.
    */
   drawBuffers(
     vertexBuffers: { [attributeName: string]: Buffer },
@@ -612,7 +618,7 @@ export class Shader<
       if (location == -1 || !buffer.buffer) {
         if (!attribute.startsWith("ts_")) {
           console.warn(
-            `Vertex buffer ${attribute} was not bound because the attribute is not active.`,
+            `[shader ${this.name}] Vertex buffer ${attribute} was not bound because the attribute is not active.`,
           )
         }
         continue

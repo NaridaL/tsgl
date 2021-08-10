@@ -35,39 +35,39 @@ export function gpuLightMap(gl: TSGLContext & WebGL2RenderingContextStrict) {
   const texturePlane = Mesh.plane()
   const textureShader = Shader.create(
     `
-	attribute vec2 ts_TexCoord;
-	varying vec2 coord;
-	void main() {
-		coord = ts_TexCoord;
-		gl_Position = vec4(coord * 2.0 - 1.0, 0.0, 1.0);
-	}`,
+  attribute vec2 ts_TexCoord;
+  varying vec2 coord;
+  void main() {
+    coord = ts_TexCoord;
+    gl_Position = vec4(coord * 2.0 - 1.0, 0.0, 1.0);
+  }`,
     `
-	precision highp float;
-	uniform sampler2D texture;
-	varying vec2 coord;
-	void main() {
-		gl_FragColor = texture2D(texture, coord);
-	}`,
+  precision highp float;
+  uniform sampler2D texture;
+  varying vec2 coord;
+  void main() {
+    gl_FragColor = texture2D(texture, coord);
+  }`,
   )
 
   const depthMap = new Texture(1024, 1024, { format: gl.RGBA })
   const depthShader = Shader.create(
     `
-	uniform mat4 ts_ModelViewProjectionMatrix;
-	attribute vec4 ts_Vertex;
-	// GL does not make the fragment position in NDC available, (gl_FragCoord is in window coords)
-	// so we have an addition varying pos to calculate it ourselves.
-	varying vec4 pos;
-	void main() {
-	gl_Position = pos = ts_ModelViewProjectionMatrix * ts_Vertex;
-	}`,
+  uniform mat4 ts_ModelViewProjectionMatrix;
+  attribute vec4 ts_Vertex;
+  // GL does not make the fragment position in NDC available, (gl_FragCoord is in window coords)
+  // so we have an addition varying pos to calculate it ourselves.
+  varying vec4 pos;
+  void main() {
+  gl_Position = pos = ts_ModelViewProjectionMatrix * ts_Vertex;
+  }`,
     `
-	precision highp float;
-	varying vec4 pos;
-	void main() {
-		float depth = pos.z / pos.w;
-		gl_FragColor = vec4(depth * 0.5 + 0.5);
-	}`,
+  precision highp float;
+  varying vec4 pos;
+  void main() {
+    float depth = pos.z / pos.w;
+    gl_FragColor = vec4(depth * 0.5 + 0.5);
+  }`,
   )
 
   const shadowTestShader = Shader.create(
@@ -87,7 +87,7 @@ export function gpuLightMap(gl: TSGLContext & WebGL2RenderingContextStrict) {
   }
 `,
     `
-	precision highp float;
+  precision highp float;
   uniform float sampleCount;
   uniform sampler2D depthMap;
   uniform vec3 light;
@@ -156,7 +156,9 @@ export function gpuLightMap(gl: TSGLContext & WebGL2RenderingContextStrict) {
         [new V3(1, 1, 0), V3.Y, V3.XYZ, new V3(0, 1, 1)],
         [V3.Y, V3.O, new V3(0, 1, 1), V3.Z],
       ].forEach((vs) =>
-        (this.addQuad as any)(...(m4 ? m4.transformedPoints(vs) : vs)),
+        this.addQuad(
+          ...((m4 ? m4.transformedPoints(vs) : vs) as [V3, V3, V3, V3]),
+        ),
       )
     }
 
@@ -320,22 +322,22 @@ export function gpuLightMap(gl: TSGLContext & WebGL2RenderingContextStrict) {
   const mesh = quadMesh.mesh
   const textureMapShader = Shader.create(
     `
-		attribute vec4 ts_Vertex;
-		uniform mat4 ts_ModelViewProjectionMatrix;
-        attribute vec2 offsetCoord;
-        varying vec2 coord;
-        void main() {
-            coord = offsetCoord;
-            gl_Position = ts_ModelViewProjectionMatrix * ts_Vertex;
-        }
+    attribute vec4 ts_Vertex;
+    uniform mat4 ts_ModelViewProjectionMatrix;
+    attribute vec2 offsetCoord;
+    varying vec2 coord;
+    void main() {
+        coord = offsetCoord;
+        gl_Position = ts_ModelViewProjectionMatrix * ts_Vertex;
+    }
 `,
     `
-		precision highp float;
-        uniform sampler2D texture;
-        varying vec2 coord;
-        void main() {
-            gl_FragColor = texture2D(texture, coord);
-        }
+    precision highp float;
+    uniform sampler2D texture;
+    varying vec2 coord;
+    void main() {
+        gl_FragColor = texture2D(texture, coord);
+    }
 `,
   )
 

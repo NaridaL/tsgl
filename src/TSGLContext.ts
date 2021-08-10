@@ -10,7 +10,8 @@ import { glEnumToString } from "./KhronosGroupWebGLDebug"
 import GL = WebGLRenderingContextStrict
 export type GL_COLOR = [number, number, number, number]
 /**
- * There's only one constant, use it for default values. Use chroma-js or similar for actual colors.
+ * There's only one constant, use it for default values. Use chroma.ts or
+ * similar for actual colors.
  */
 export const GL_COLOR_BLACK: GL_COLOR = [0, 0, 0, 1]
 
@@ -22,11 +23,9 @@ export function isNumber(obj: any) {
   const str = Object.prototype.toString.call(obj)
   return str == "[object Number]" || str == "[object Boolean]"
 }
-
-export type UniformType = V3 | M4 | number[] | boolean | number
-export type TSGLContext = TSGLContextBase &
-  (WebGLRenderingContextStrict | WebGL2RenderingContextStrict)
-export interface TSGLContextBase extends WebGLRenderingContextStrict {}
+export type TSGLContext = TSGLContextBase & WebGLRenderingContextStrict
+export type TSGL2Context = TSGLContextBase & WebGL2RenderingContextStrict
+export interface TSGLContextBase extends WebGLRenderingContextStrict.Base {}
 export class TSGLContextBase {
   modelViewMatrix: M4 = M4.identity()
   projectionMatrix: M4 = M4.identity()
@@ -57,10 +56,10 @@ export class TSGLContextBase {
   TEXT_TEXTURE_FONT: string
   textMetrics: FontJsonMetrics
   textAtlas: Texture
-  textRenderShader: Shader<any, any>
+  textRenderShader: Shader
 
   protected constructor(
-    gl: TSGLContextBase,
+    gl: TSGLContext,
     private immediate = {
       mesh: new Mesh()
         .addVertexBuffer("coords", "ts_TexCoord")
@@ -71,31 +70,31 @@ export class TSGLContextBase {
       pointSize: 1,
       shader: Shader.create(
         `
-			attribute vec4 ts_Color;
-			attribute vec4 ts_Vertex;
-			uniform mat4 ts_ModelViewProjectionMatrix;
-			attribute vec2 ts_TexCoord;
-            uniform float pointSize;
-            varying vec4 color;
-            varying vec2 coord;
-            void main() {
-                color = ts_Color;
-                coord = ts_TexCoord;
-                gl_Position = ts_ModelViewProjectionMatrix * ts_Vertex;
-                gl_PointSize = pointSize;
-            }
-		`,
+        attribute vec4 ts_Color;
+        attribute vec4 ts_Vertex;
+        uniform mat4 ts_ModelViewProjectionMatrix;
+        attribute vec2 ts_TexCoord;
+        uniform float pointSize;
+        varying vec4 color;
+        varying vec2 coord;
+        void main() {
+            color = ts_Color;
+            coord = ts_TexCoord;
+            gl_Position = ts_ModelViewProjectionMatrix * ts_Vertex;
+            gl_PointSize = pointSize;
+        }
+        `,
         `
-			precision highp float;
-            uniform sampler2D texture;
-            uniform float pointSize;
-            // uniform bool useTexture;
-            varying vec4 color;
-            varying vec2 coord;
-            void main() {
-                gl_FragColor = color;
-                // if (useTexture) gl_FragColor *= texture2D(texture, coord.xy);
-            }
+        precision highp float;
+        uniform sampler2D texture;
+        uniform float pointSize;
+        // uniform bool useTexture;
+        varying vec4 color;
+        varying vec2 coord;
+        void main() {
+            gl_FragColor = color;
+            // if (useTexture) gl_FragColor *= texture2D(texture, coord.xy);
+        }
         `,
         gl,
       ),
@@ -230,11 +229,11 @@ export class TSGLContextBase {
     const [x, y, w, h] = viewport
     // prettier-ignore
     const viewportToScreenMatrix = new M4([
-			w / 2, 0, 0, x + w / 2,
-			h / 2, 0, 0, y + h / 2,
-			0, 0, 1, 0,
-			0, 0, 0, 1,
-		])
+      w / 2, 0, 0, x + w / 2,
+      h / 2, 0, 0, y + h / 2,
+      0, 0, 1, 0,
+      0, 0, 0, 1,
+    ])
     return M4.product(
       viewportToScreenMatrix,
       this.projectionMatrix,
@@ -313,10 +312,10 @@ export class TSGLContextBase {
   }
 
   ////////// MISCELLANEOUS METHODS
-  static gl: TSGLContextBase
+  static gl: TSGLContext
 
   makeCurrent() {
-    TSGLContextBase.gl = this
+    TSGLContextBase.gl = this as any
   }
 
   /**
@@ -390,14 +389,15 @@ export class TSGLContextBase {
           "window.onload() or from inside the <body> tag)",
       )
     }
-    document.body.appendChild(this.canvas)
-    document.body.style.overflow = "hidden"
-    this.canvas.style.position = "absolute"
-    this.canvas.style.left = left + "px"
-    this.canvas.style.top = top + "px"
-    this.canvas.style.width = window.innerWidth - left - right + "px"
-    this.canvas.style.bottom = window.innerHeight - top - bottom + "px"
-
+    //document.body.appendChild(this.canvas)
+    //document.body.style.overflow = "hidden"
+    Object.assign(this.canvas.style, {
+      position: "absolute",
+      left: left + "px",
+      top: top + "px",
+      width: window.innerWidth - left - right + "px",
+      height: window.innerHeight - top - bottom + "px",
+    })
     this.addResizeListener()
 
     return this
@@ -433,7 +433,7 @@ export class TSGLContextBase {
 
     window.addEventListener("resize", windowOnResize)
     windowOnResize()
-    return this
+    return (this as unknown) as TSGLContext
   }
 
   getMouseLine(e: MouseEvent): { anchor: V3; dir: V3 }
@@ -575,7 +575,6 @@ export class TSGLContextBase {
           canvas.getContext("experimental-webgl", options)
         newGL && (newGL.version = 1)
       }
-      console.log("getting context")
     } catch (e) {
       console.log(e, "Failed to get context")
     }
@@ -594,9 +593,10 @@ export class TSGLContextBase {
   }
 
   /**
-   * Sets the canvas render resolution (canvas.width and canvas.height) to match the display. I.e. it takes into
-   * account window.devicePixelRatio.
-   * @param maxPixelRatio A limit for the pixelRatio. Useful for very high DPI devices such as mobile devices.
+   * Sets the canvas render resolution (canvas.width and canvas.height) to
+   * match the display. I.e. it takes into account window.devicePixelRatio.
+   * @param maxPixelRatio A limit for the pixelRatio. Useful for very high DPI
+   *   devices such as mobile devices.
    */
   fixCanvasRes(maxPixelRatio = Infinity) {
     this.canvas.width =
@@ -641,20 +641,21 @@ export class TSGLContextBase {
 }
 export namespace TSGLContext {
   /**
-   * `create()` creates a new WebGL context and augments it with more methods. The alpha channel is disabled
-   * by default because it usually causes unintended transparencies in the canvas.
+   * `create()` creates a new WebGL context and augments it with more methods.
+   * The alpha channel is disabled by default because it usually causes
+   * unintended transparencies in the canvas.
    */
   export const create = TSGLContextBase.create
 }
 
 // enum WGL_ERROR {
-// 	NO_ERROR = WGL.NO_ERROR,
-// 	INVALID_ENUM = WGL.INVALID_ENUM,
-// 	INVALID_VALUE = WGL.INVALID_VALUE,
-// 	INVALID_OPERATION = WGL.INVALID_OPERATION,
-// 	INVALID_FRAMEBUFFER_OPERATION = WGL.INVALID_FRAMEBUFFER_OPERATION,
-// 	OUT_OF_MEMORY = WGL.OUT_OF_MEMORY,
-// 	CONTEXT_LOST_WEBGL = WGL.CONTEXT_LOST_WEBGL,
+//   NO_ERROR = WGL.NO_ERROR,
+//   INVALID_ENUM = WGL.INVALID_ENUM,
+//   INVALID_VALUE = WGL.INVALID_VALUE,
+//   INVALID_OPERATION = WGL.INVALID_OPERATION,
+//   INVALID_FRAMEBUFFER_OPERATION = WGL.INVALID_FRAMEBUFFER_OPERATION,
+//   OUT_OF_MEMORY = WGL.OUT_OF_MEMORY,
+//   CONTEXT_LOST_WEBGL = WGL.CONTEXT_LOST_WEBGL,
 // }
 
 TSGLContextBase.prototype.MODELVIEW = TSGLContextBase.MODELVIEW
@@ -680,14 +681,14 @@ export function pushQuad(
 ) {
   // prettier-ignore
   if (flipped) {
-		triangles.push(
-			a, c, b,
-			b, c, d)
-	} else {
-		triangles.push(
-			a, b, c,
-			b, d, c)
-	}
+    triangles.push(
+      a, c, b,
+      b, c, d)
+  } else {
+    triangles.push(
+      a, b, c,
+      b, d, c)
+  }
 }
 
 function hexIntToGLColor(color: int): GL_COLOR {
@@ -717,17 +718,17 @@ export interface FontJsonMetrics {
   ascender: number
 }
 // function measureText(metrics: FontJsonMetrics, text: string, size: number) {
-// 	const dimensions = {
-// 		advance: 0,
-// 	}
+//   const dimensions = {
+//     advance: 0,
+//   }
 
-// 	const scale = size / metrics.size
-// 	for (let i = 0; i < text.length; i++) {
-// 		const horiAdvance = metrics.chars[text[i]][4]
-// 		dimensions.advance += horiAdvance * scale
-// 	}
+//   const scale = size / metrics.size
+//   for (let i = 0; i < text.length; i++) {
+//     const horiAdvance = metrics.chars[text[i]][4]
+//     dimensions.advance += horiAdvance * scale
+//   }
 
-// 	return dimensions
+//   return dimensions
 // }
 
 // gl.getExtension('OES_standard_derivatives')

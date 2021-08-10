@@ -592,7 +592,9 @@ export function makeDebugContext(
 
   return wrapper
 }
-export function isWebGL2RenderingContext(o: any): o is WebGL2RenderingContext {
+export function isWebGL2RenderingContext(
+  o: any,
+): o is WebGL2RenderingContextStrict {
   return !!o.createTransformFeedback
 }
 /**
