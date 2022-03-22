@@ -10,6 +10,7 @@ import rollupJSON from '@rollup/plugin-json'
 import alias from '@rollup/plugin-alias'
 import * as typescript from 'typescript'
 import * as fs from 'fs'
+import commonjs from '@rollup/plugin-commonjs'
 
 export default {
 	input: 'src/demo/*.ts',
@@ -98,6 +99,7 @@ export default {
 		// 	port: 10002
 		// }
 		process.env.ROLLUP_WATCH && livereload(),
+    commonjs()
 	].filter((x) => x),
 	onwarn: function (warning, warn) {
 		// Suppress this error message... there are hundreds of them. Angular team says to ignore it.

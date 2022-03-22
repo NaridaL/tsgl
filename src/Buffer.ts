@@ -3,7 +3,8 @@ import { assert, int, NLA_DEBUG, V3 } from "ts3dutils"
 import { currentGL, TSGLContext } from "./index"
 
 import GL = WebGLRenderingContextStrict
-const WGL = (WebGLRenderingContext as any) as WebGLRenderingContextStrict.Constants
+const WGL =
+  WebGLRenderingContext as any as WebGLRenderingContextStrict.Constants
 
 export class Buffer {
   buffer: WebGLBuffer | undefined = undefined

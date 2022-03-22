@@ -21,7 +21,8 @@ import { Buffer, currentGL, GL_COLOR, pushQuad, TSGLContext } from "./index"
 
 const { cos, sin, PI, min, max } = Math
 
-const WGL = (WebGLRenderingContext as any) as WebGLRenderingContextStrict.Constants
+const WGL =
+  WebGLRenderingContext as any as WebGLRenderingContextStrict.Constants
 import GL = WebGLRenderingContextStrict
 
 const tempM4_1 = new M4()
@@ -70,9 +71,11 @@ export class Mesh extends Transformable {
    * equivalent to the center of gravity. In general, this calculates the weighted average of the centroids of all the
    * triangle shadow volumes.
    */
-  calcVolume(
-    this: Mesh & { TRIANGLES: int[] },
-  ): { volume: number; centroid: V3; area: number } {
+  calcVolume(this: Mesh & { TRIANGLES: int[] }): {
+    volume: number
+    centroid: V3
+    area: number
+  } {
     let totalVolumeX2 = 0,
       totalCentroidWithZX2 = V3.O,
       totalAreaX2 = 0
@@ -1024,9 +1027,11 @@ export class Mesh extends Transformable {
 
       normals && mesh.normals!.push(...rotMat.transformedVectors(normals))
       vqs &&
-        ((mesh as unknown) as {
-          coordsUVQ: [number, number, number][]
-        }).coordsUVQ.push(
+        (
+          mesh as unknown as {
+            coordsUVQ: [number, number, number][]
+          }
+        ).coordsUVQ.push(
           ...vqs.map(([v, q]): [number, number, number] => [
             (i / steps) * q,
             v,
@@ -1083,9 +1088,11 @@ export class Mesh extends Transformable {
 
       normals && mesh.normals!.push(...rotMat.transformedVectors(normals))
       vqs &&
-        ((mesh as unknown) as {
-          coordsUVQ: [number, number, number][]
-        }).coordsUVQ.push(
+        (
+          mesh as unknown as {
+            coordsUVQ: [number, number, number][]
+          }
+        ).coordsUVQ.push(
           ...vqs.map(([v, q]): [number, number, number] => [
             (i / steps) * q,
             v,

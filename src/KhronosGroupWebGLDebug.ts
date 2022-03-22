@@ -23,7 +23,7 @@
 
 // tslint:disable
 import GL = WebGLRenderingContextStrict
-const GL = (WebGLRenderingContext as any) as new () => WebGLRenderingContextStrict
+const GL = WebGLRenderingContext as any as new () => WebGLRenderingContextStrict
 
 // Various functions for helping debug WebGL apps.
 
@@ -911,7 +911,7 @@ export function makeLostContextSimulatingCanvas(canvas: HTMLCanvasElement) {
   // }
 
   function clearErrors() {
-    const k = (Object.keys(glErrorShadow_) as any) as number[]
+    const k = Object.keys(glErrorShadow_) as any as number[]
     for (let i = 0; i < k.length; ++i) {
       delete glErrorShadow_[k[i]]
     }

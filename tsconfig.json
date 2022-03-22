@@ -27,7 +27,8 @@
     "baseUrl": ".",
     "paths": {
       "tsgl": ["src/index.ts"]
-    }
+    },
+    "esModuleInterop": true
   },
   "include": ["src/**/*.ts"],
   "exclude": ["src/demo/**/*.*"]

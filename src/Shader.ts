@@ -15,7 +15,8 @@ import { Buffer, currentGL, GL_COLOR, Mesh, TSGLContext } from "./index"
 
 import GL = WebGLRenderingContextStrict
 import formatCompilerError from "gl-format-compiler-error"
-const WGL = (WebGLRenderingContext as any) as WebGLRenderingContextStrict.Constants
+const WGL =
+  WebGLRenderingContext as any as WebGLRenderingContextStrict.Constants
 
 /**
  * These are all the draw modes usable in OpenGL ES
@@ -115,13 +116,13 @@ export type ShaderSource<
   U extends VarTypeMap,
   IN extends VarTypeMap,
   OUT extends VarTypeMap,
-  kind extends "vertex" | "fragment"
+  kind extends "vertex" | "fragment",
 > = string & { U: U; IN: IN; OUT: OUT; kind: kind }
 
 //const x:UniformTypes = undefined as 'FLOAT_VEC4' | 'FLOAT_VEC3'
 export class Shader<
   UniformTypes extends VarTypeMap = any,
-  AttributeTypes extends VarTypeMap = any
+  AttributeTypes extends VarTypeMap = any,
 > {
   program: WebGLProgram
   activeMatrices: { [matrixName: string]: boolean }
@@ -139,7 +140,7 @@ export class Shader<
    */
   static create<
     FragSrc extends ShaderSource<{}, {}, {}, "fragment">,
-    VertSrc extends ShaderSource<{}, {}, FragSrc["IN"], "vertex">
+    VertSrc extends ShaderSource<{}, {}, FragSrc["IN"], "vertex">,
   >(
     vertexSource: VertSrc,
     fragmentSource: FragSrc,
@@ -151,7 +152,7 @@ export class Shader<
    */
   static create<
     FU extends VarTypeMap,
-    VertSrc extends ShaderSource<{}, {}, {}, "vertex">
+    VertSrc extends ShaderSource<{}, {}, {}, "vertex">,
   >(
     vertexSource: VertSrc,
     fragmentSource: string & { IN?: undefined },
@@ -164,7 +165,7 @@ export class Shader<
   static create<
     VU extends VarTypeMap,
     VA extends VarTypeMap,
-    FragSrc extends ShaderSource<{}, {}, {}, "vertex">
+    FragSrc extends ShaderSource<{}, {}, {}, "vertex">,
   >(
     vertexSource: string & { IN?: undefined },
     fragmentSource: FragSrc,
@@ -294,9 +295,9 @@ export class Shader<
    * stored uniform sampler flags.
    */
   uniforms(
-    uniforms: Partial<
-      { [K in keyof UniformTypes]: UniformTypesMap[UniformTypes[K]] }
-    >,
+    uniforms: Partial<{
+      [K in keyof UniformTypes]: UniformTypesMap[UniformTypes[K]]
+    }>,
   ): this {
     const gl = this.gl
     gl.useProgram(this.program)
@@ -460,9 +461,9 @@ export class Shader<
   }
 
   attributes(
-    attributes: Partial<
-      { [K in keyof AttributeTypes]: UniformTypesMap[AttributeTypes[K]] }
-    >,
+    attributes: Partial<{
+      [K in keyof AttributeTypes]: UniformTypesMap[AttributeTypes[K]]
+    }>,
   ): this {
     const gl = this.gl
     gl.useProgram(this.program)
@@ -597,9 +598,8 @@ export class Shader<
       (uni["ts_ModelViewProjectionMatrix"] = modelViewProjectionMatrix)
     modelViewProjectionMatrix &&
       on["ts_ModelViewProjectionMatrixInverse"] &&
-      (uni[
-        "ts_ModelViewProjectionMatrixInverse"
-      ] = modelViewProjectionMatrix.inversed())
+      (uni["ts_ModelViewProjectionMatrixInverse"] =
+        modelViewProjectionMatrix.inversed())
     on["ts_NormalMatrix"] &&
       this.modelViewMatrixVersion != gl.modelViewMatrixVersion &&
       (uni["ts_NormalMatrix"] = (modelViewMatrixInverse as M4).transposed())

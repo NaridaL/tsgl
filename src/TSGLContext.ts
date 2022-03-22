@@ -433,7 +433,7 @@ export class TSGLContextBase {
 
     window.addEventListener("resize", windowOnResize)
     windowOnResize()
-    return (this as unknown) as TSGLContext
+    return this as unknown as TSGLContext
   }
 
   getMouseLine(e: MouseEvent): { anchor: V3; dir: V3 }
@@ -759,15 +759,8 @@ function createTextMesh(
     const metric = fontMetrics.chars[chr]
     if (!metric) return
 
-    const [
-      width,
-      height,
-      horiBearingX,
-      horiBearingY,
-      horiAdvance,
-      posX,
-      posY,
-    ] = metric
+    const [width, height, horiBearingX, horiBearingY, horiAdvance, posX, posY] =
+      metric
     const { size, buffer } = fontMetrics
     const quadStartIndex = mesh.vertices.length
 
