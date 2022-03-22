@@ -9786,59 +9786,6 @@ var demo = (function (exports) {
         });
     }
 
-    /// <reference path="../types.d.ts" />
-    /**
-     * Blend two textures while rendering them to a quad.
-     */
-    function multiTexture(gl) {
-        const mesh = Mesh.plane();
-        const texture = Texture.fromURLSwitch("texture.png");
-        const texture2 = Texture.fromURLSwitch("texture2.png");
-        const shader = Shader.create(`
-	attribute vec2 ts_TexCoord;
-	attribute vec4 ts_Vertex;
-	uniform mat4 ts_ModelViewProjectionMatrix;
-  varying vec2 coord;
-  void main() {
-    coord = ts_TexCoord;
-    gl_Position = ts_ModelViewProjectionMatrix * ts_Vertex;
-  }
-`, `
-	precision highp float;
-  uniform sampler2D texture;
-  uniform sampler2D texture2;
-  varying vec2 coord;
-  void main() {
-    //gl_FragColor = vec4(coord.x, coord.y, 0, 1);
-    gl_FragColor = texture2D(texture, coord) - texture2D(texture2, coord);
-  }
-`);
-        gl.clearColor(1, 1, 1, 1);
-        // setup camera
-        gl.matrixMode(gl.PROJECTION);
-        gl.loadIdentity();
-        gl.perspective(40, gl.canvas.width / gl.canvas.height, 0.1, 1000);
-        gl.lookAt(V(0, -2, 1.5), V3.O, V3.Z);
-        gl.matrixMode(gl.MODELVIEW);
-        gl.enable(gl.DEPTH_TEST);
-        return gl.animate(function (abs, _diff) {
-            const angleDeg = (abs / 1000) * 45;
-            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-            gl.loadIdentity();
-            //gl.translate(0, 0, -5)
-            gl.rotate(angleDeg, 0, 0, 1);
-            gl.translate(-0.5, -0.5);
-            texture.bind(0);
-            texture2.bind(1);
-            shader
-                .uniforms({
-                texture: 0,
-                texture2: 1,
-            })
-                .draw(mesh);
-        });
-    }
-
     var posNormalColorVS = "precision mediump float;uniform mat4 ts_ModelViewProjectionMatrix;uniform mat3 ts_NormalMatrix;attribute vec3 ts_Normal;attribute vec4 ts_Vertex;attribute vec4 ts_Color;varying vec3 normal;varying vec4 color;void main(){gl_Position=ts_ModelViewProjectionMatrix*ts_Vertex;normal=ts_NormalMatrix*ts_Normal;color=ts_Color;}";
 
     /// <reference path="../types.d.ts" />
@@ -10244,6 +10191,118 @@ void main() {
     }
     gpuLightMap.info = "LMB-drag to rotate camera.";
 
+    /// <reference path="../types.d.ts" />
+    /**
+     * OpenGL-style immediate mode.
+     */
+    function immediateMode(gl) {
+        // setup camera
+        gl.disable(gl.CULL_FACE);
+        gl.matrixMode(gl.PROJECTION);
+        gl.loadIdentity();
+        gl.perspective(90, gl.canvas.width / gl.canvas.height, 0.0001, 1000000);
+        gl.lookAt(V(0, -3, 2), V3.O, V3.Z);
+        gl.matrixMode(gl.MODELVIEW);
+        gl.enable(gl.DEPTH_TEST);
+        gl.clearColor(1, 1, 1, 0);
+        return gl.animate(function (abs, _diff) {
+            const angleDeg = (abs / 1000) * 45;
+            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+            gl.loadIdentity();
+            // gl.translate(0, 0, -5)
+            gl.rotate(angleDeg, 0, 0, 1);
+            gl.color(0.5, 0.5, 0.5);
+            gl.lineWidth(1);
+            gl.begin(gl.LINES);
+            for (let i = -10; i <= 10; i++) {
+                gl.vertex(i, -10, 0);
+                gl.vertex(i, +10, 0);
+                gl.vertex(-10, i, 0);
+                gl.vertex(+10, i, 0);
+            }
+            gl.end();
+            gl.pointSize(10);
+            gl.begin(gl.POINTS);
+            gl.color(1, 0, 0);
+            gl.vertex(1, 0, 0);
+            gl.color(0, 1, 0);
+            gl.vertex(0, 1, 0);
+            gl.color(0, 0, 1);
+            gl.vertex(0, 0, 1);
+            gl.end();
+            gl.lineWidth(2);
+            gl.begin(gl.LINE_LOOP);
+            gl.color("red");
+            gl.vertex(1, 0, 0);
+            gl.color("green");
+            gl.vertex(0, 1, 0);
+            gl.color("blue");
+            gl.vertex(0, 0, 1);
+            gl.end();
+            gl.begin(gl.TRIANGLES);
+            gl.color(1, 1, 0);
+            gl.vertex(0.5, 0.5, 0);
+            gl.color(0, 1, 1);
+            gl.vertex(0, 0.5, 0.5);
+            gl.color(1, 0, 1);
+            gl.vertex(0.5, 0, 0.5);
+            gl.end();
+        });
+    }
+
+    /// <reference path="../types.d.ts" />
+    /**
+     * Blend two textures while rendering them to a quad.
+     */
+    function multiTexture(gl) {
+        const mesh = Mesh.plane();
+        const texture = Texture.fromURLSwitch("texture.png");
+        const texture2 = Texture.fromURLSwitch("texture2.png");
+        const shader = Shader.create(`
+	attribute vec2 ts_TexCoord;
+	attribute vec4 ts_Vertex;
+	uniform mat4 ts_ModelViewProjectionMatrix;
+  varying vec2 coord;
+  void main() {
+    coord = ts_TexCoord;
+    gl_Position = ts_ModelViewProjectionMatrix * ts_Vertex;
+  }
+`, `
+	precision highp float;
+  uniform sampler2D texture;
+  uniform sampler2D texture2;
+  varying vec2 coord;
+  void main() {
+    //gl_FragColor = vec4(coord.x, coord.y, 0, 1);
+    gl_FragColor = texture2D(texture, coord) - texture2D(texture2, coord);
+  }
+`);
+        gl.clearColor(1, 1, 1, 1);
+        // setup camera
+        gl.matrixMode(gl.PROJECTION);
+        gl.loadIdentity();
+        gl.perspective(40, gl.canvas.width / gl.canvas.height, 0.1, 1000);
+        gl.lookAt(V(0, -2, 1.5), V3.O, V3.Z);
+        gl.matrixMode(gl.MODELVIEW);
+        gl.enable(gl.DEPTH_TEST);
+        return gl.animate(function (abs, _diff) {
+            const angleDeg = (abs / 1000) * 45;
+            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+            gl.loadIdentity();
+            //gl.translate(0, 0, -5)
+            gl.rotate(angleDeg, 0, 0, 1);
+            gl.translate(-0.5, -0.5);
+            texture.bind(0);
+            texture2.bind(1);
+            shader
+                .uniforms({
+                texture: 0,
+                texture2: 1,
+            })
+                .draw(mesh);
+        });
+    }
+
     var varyingColorFS = "precision mediump float;varying vec4 color;void main(){gl_FragColor=color;}";
 
     /// <reference path="../types.d.ts" />
@@ -10455,65 +10514,6 @@ void main() {
     mag.info =
         "Press keys 1-5 to toggle magnets, +/- to change to number of field lines.";
 
-    /// <reference path="../types.d.ts" />
-    /**
-     * OpenGL-style immediate mode.
-     */
-    function immediateMode(gl) {
-        // setup camera
-        gl.disable(gl.CULL_FACE);
-        gl.matrixMode(gl.PROJECTION);
-        gl.loadIdentity();
-        gl.perspective(90, gl.canvas.width / gl.canvas.height, 0.0001, 1000000);
-        gl.lookAt(V(0, -3, 2), V3.O, V3.Z);
-        gl.matrixMode(gl.MODELVIEW);
-        gl.enable(gl.DEPTH_TEST);
-        gl.clearColor(1, 1, 1, 0);
-        return gl.animate(function (abs, _diff) {
-            const angleDeg = (abs / 1000) * 45;
-            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-            gl.loadIdentity();
-            // gl.translate(0, 0, -5)
-            gl.rotate(angleDeg, 0, 0, 1);
-            gl.color(0.5, 0.5, 0.5);
-            gl.lineWidth(1);
-            gl.begin(gl.LINES);
-            for (let i = -10; i <= 10; i++) {
-                gl.vertex(i, -10, 0);
-                gl.vertex(i, +10, 0);
-                gl.vertex(-10, i, 0);
-                gl.vertex(+10, i, 0);
-            }
-            gl.end();
-            gl.pointSize(10);
-            gl.begin(gl.POINTS);
-            gl.color(1, 0, 0);
-            gl.vertex(1, 0, 0);
-            gl.color(0, 1, 0);
-            gl.vertex(0, 1, 0);
-            gl.color(0, 0, 1);
-            gl.vertex(0, 0, 1);
-            gl.end();
-            gl.lineWidth(2);
-            gl.begin(gl.LINE_LOOP);
-            gl.color("red");
-            gl.vertex(1, 0, 0);
-            gl.color("green");
-            gl.vertex(0, 1, 0);
-            gl.color("blue");
-            gl.vertex(0, 0, 1);
-            gl.end();
-            gl.begin(gl.TRIANGLES);
-            gl.color(1, 1, 0);
-            gl.vertex(0.5, 0.5, 0);
-            gl.color(0, 1, 1);
-            gl.vertex(0, 0.5, 0.5);
-            gl.color(1, 0, 1);
-            gl.vertex(0.5, 0, 0.5);
-            gl.end();
-        });
-    }
-
     var rayTracerFS = "#version 300 es\nprecision highp float;const float INFINITY=1.0e9;const int TRIANGLE_COUNT=1024;uniform vec3 sphereCenters[8];uniform mat4 ts_ModelViewProjectionMatrixInverse;uniform float sphereRadii[8];uniform sampler2D vertices;uniform sampler2D texCoords;uniform sampler2D triangleTexture;in vec4 pos;out vec4 fragColor;float intersectSphere(vec3 origin,vec3 ray,vec3 sphereCenter,float sphereRadius){vec3 toSphere=origin-sphereCenter;float a=dot(ray,ray);float b=2.0*dot(toSphere,ray);float c=dot(toSphere,toSphere)-sphereRadius*sphereRadius;float discriminant=b*b-4.0*a*c;if(discriminant>0.0){float t=(-b-sqrt(discriminant))/(2.0*a);if(t>0.0)return t;}return INFINITY;}struct TriangleHitTest{float t;vec3 hit;float u;float v;};const TriangleHitTest INFINITY_HIT=TriangleHitTest(INFINITY,vec3(0.0),0.0,0.0);TriangleHitTest intersectTriangle(vec3 rayOrigin,vec3 rayVector,vec3 vertex0,vec3 vertex1,vec3 vertex2){const float EPSILON=0.0000001;vec3 edge1,edge2,h,s,q;float a,f,u,v;edge1=vertex1-vertex0;edge2=vertex2-vertex0;h=cross(rayVector,edge2);a=dot(edge1,h);if(a>-EPSILON&&a<EPSILON)return INFINITY_HIT;f=1.0/a;s=rayOrigin-vertex0;u=f*dot(s,h);if(u<0.0||u>1.0)return INFINITY_HIT;q=cross(s,edge1);v=f*dot(rayVector,q);if(v<0.0||u+v>1.0)return INFINITY_HIT;float t=f*dot(edge2,q);if(t>0.0001){return TriangleHitTest(t,rayOrigin+rayVector*t,u,v);}else{return INFINITY_HIT;}}vec3 vertexi(int i){return texelFetch(vertices,ivec2(i,0),0).xyz;}vec3 textcoordi(int i){return texelFetch(texCoords,ivec2(i,0),0).xyz;}void main(){vec3 rayStart=(ts_ModelViewProjectionMatrixInverse*vec4(pos.xy,1.0,1.0)).xyz;vec3 rayEnd=(ts_ModelViewProjectionMatrixInverse*vec4(pos.xy,-1.0,1.0)).xyz;vec3 rayDir=rayEnd-rayStart;fragColor=vec4(0.0,0.0,0.0,1.0);vec4 mask=vec4(1.0,1.0,1.0,1.0);for(int bounce=0;bounce<8;bounce++){vec3 closestHit;vec4 closestColor=vec4(0.0);float closestT=INFINITY;vec3 closestNormal;float closestSpecular=0.0;for(int s=0;s<8;s++){if(sphereRadii[s]==0.0){break;}float sphereT=intersectSphere(rayStart,rayDir,sphereCenters[s],sphereRadii[s]);if(sphereT<closestT){closestT=sphereT;closestHit=rayStart+rayDir*sphereT;closestNormal=(closestHit-sphereCenters[s])/sphereRadii[s];closestSpecular=0.95;closestColor=vec4(0.0);}}for(int i=0;i<TRIANGLE_COUNT;i++){vec3 a=vertexi(i*3);vec3 b=vertexi(i*3+1);vec3 c=vertexi(i*3+2);if(a==vec3(0.0)&&b==vec3(0.0)){break;}TriangleHitTest hitTest=intersectTriangle(rayStart,rayDir,a,b,c);float triangleT=hitTest.t;if(triangleT<closestT){closestT=triangleT;vec3 ab=b-a;vec3 ac=c-a;closestNormal=normalize(cross(ab,ac));closestHit=hitTest.hit;vec3 texCoordsAndSheen=textcoordi(i*3)*(1.0-hitTest.u-hitTest.v)+textcoordi(i*3+1)*(hitTest.u)+textcoordi(i*3+2)*(hitTest.v);closestColor=texture(triangleTexture,texCoordsAndSheen.xy);closestSpecular=texCoordsAndSheen.z;}}if(closestT==INFINITY){fragColor+=mask;break;}fragColor+=mask*(1.0-closestSpecular)*closestColor;if(0.0==closestSpecular){break;}rayDir=reflect(rayDir,closestNormal);rayStart=closestHit;mask*=closestSpecular;}}";
 
     var rayTracerVS = "#version 300 es\nprecision mediump float;in vec4 ts_Vertex;out vec4 pos;void main(){gl_Position=ts_Vertex;pos=ts_Vertex;}";
@@ -10627,6 +10627,75 @@ void main() {
         });
     }
     rayTracing.info = "LMB-drag to rotate camera.";
+
+    /**
+     * Render SDF text.
+     */
+    function renderText(gl) {
+        return __awaiter(this, void 0, void 0, function* () {
+            gl.clearColor(1, 1, 1, 1);
+            yield gl.setupTextRendering("font/OpenSans-Regular.png", "font/OpenSans-Regular.json");
+            gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE);
+            gl.enable(gl.BLEND);
+            // setup camera
+            gl.matrixMode(gl.PROJECTION);
+            gl.loadIdentity();
+            gl.perspective(70, gl.canvas.width / gl.canvas.height, 0.1, 1000);
+            gl.lookAt(V(0, 0, 15), V3.O, V3.Y);
+            gl.matrixMode(gl.MODELVIEW);
+            gl.enable(gl.DEPTH_TEST);
+            return gl.animate(function (abs, _diff) {
+                const angleDeg = Math.sin(abs / 10000) * 15;
+                const textColor = color("brown").darker().gl();
+                gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+                gl.loadIdentity();
+                gl.rotate(angleDeg, 1, 1, 0);
+                gl.pushMatrix();
+                gl.translate(-18, 8);
+                [0, 0.05, 0.1, 0.15, 0.2, 0.5].forEach((gamma) => {
+                    gl.renderText("sdf text w/ gamma=" + gamma, textColor, 1, "left", "top", gamma);
+                    gl.translate(0, -1);
+                });
+                gl.popMatrix();
+                gl.pushMatrix();
+                gl.translate(-18, 0);
+                gl.renderText("This text has\nmultiple newlines\nand a line height of 1.2.", [1, 0, 0, 1], 1, "left", "middle", undefined, 1.2);
+                gl.translate(0, -5);
+                gl.renderText("VERY LARGE", [1, 0, 0, 1], 3, "left", "middle");
+                gl.translate(0, -3);
+                gl.renderText("This text is very small yet remains legible. gamma=0.15", [1, 0, 0, 1], 0.25, "left", "middle", 0.15);
+                gl.popMatrix();
+                gl.pushMatrix();
+                gl.translate(0, 8);
+                ["top", "middle", "alphabetic", "bottom"].forEach((baseline) => {
+                    gl.begin(gl.LINES);
+                    gl.color("green");
+                    gl.vertex(0, 0, 0);
+                    gl.vertex(20, 0, 0);
+                    gl.vertex(0, -1, 0);
+                    gl.vertex(0, 1, 0);
+                    gl.end();
+                    gl.renderText('baseline="' + baseline + '"|{}() ABC XYZ yjg Ẫß', color("blue").gl(), 1, "left", baseline);
+                    gl.translate(0, -2.2);
+                });
+                gl.popMatrix();
+                gl.pushMatrix();
+                gl.translate(10, -2);
+                ["left", "center", "right"].forEach((align) => {
+                    gl.begin(gl.LINES);
+                    gl.color("red");
+                    gl.vertex(-10, 0, 0);
+                    gl.vertex(10, 0, 0);
+                    gl.vertex(0, -1, 0);
+                    gl.vertex(0, 1, 0);
+                    gl.end();
+                    gl.renderText('align="' + align + '"', color("blue").gl(), 1, align, "alphabetic");
+                    gl.translate(0, -2.2);
+                });
+                gl.popMatrix();
+            });
+        });
+    }
 
     var vertices$1 = [
     	[
@@ -53105,75 +53174,6 @@ void main() {
             gl.rotate(90, 1, 0, 0);
             gl.translate(0.5, 0);
             planeShader.draw(plane);
-        });
-    }
-
-    /**
-     * Render SDF text.
-     */
-    function renderText(gl) {
-        return __awaiter(this, void 0, void 0, function* () {
-            gl.clearColor(1, 1, 1, 1);
-            yield gl.setupTextRendering("font/OpenSans-Regular.png", "font/OpenSans-Regular.json");
-            gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE);
-            gl.enable(gl.BLEND);
-            // setup camera
-            gl.matrixMode(gl.PROJECTION);
-            gl.loadIdentity();
-            gl.perspective(70, gl.canvas.width / gl.canvas.height, 0.1, 1000);
-            gl.lookAt(V(0, 0, 15), V3.O, V3.Y);
-            gl.matrixMode(gl.MODELVIEW);
-            gl.enable(gl.DEPTH_TEST);
-            return gl.animate(function (abs, _diff) {
-                const angleDeg = Math.sin(abs / 10000) * 15;
-                const textColor = color("brown").darker().gl();
-                gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-                gl.loadIdentity();
-                gl.rotate(angleDeg, 1, 1, 0);
-                gl.pushMatrix();
-                gl.translate(-18, 8);
-                [0, 0.05, 0.1, 0.15, 0.2, 0.5].forEach((gamma) => {
-                    gl.renderText("sdf text w/ gamma=" + gamma, textColor, 1, "left", "top", gamma);
-                    gl.translate(0, -1);
-                });
-                gl.popMatrix();
-                gl.pushMatrix();
-                gl.translate(-18, 0);
-                gl.renderText("This text has\nmultiple newlines\nand a line height of 1.2.", [1, 0, 0, 1], 1, "left", "middle", undefined, 1.2);
-                gl.translate(0, -5);
-                gl.renderText("VERY LARGE", [1, 0, 0, 1], 3, "left", "middle");
-                gl.translate(0, -3);
-                gl.renderText("This text is very small yet remains legible. gamma=0.15", [1, 0, 0, 1], 0.25, "left", "middle", 0.15);
-                gl.popMatrix();
-                gl.pushMatrix();
-                gl.translate(0, 8);
-                ["top", "middle", "alphabetic", "bottom"].forEach((baseline) => {
-                    gl.begin(gl.LINES);
-                    gl.color("green");
-                    gl.vertex(0, 0, 0);
-                    gl.vertex(20, 0, 0);
-                    gl.vertex(0, -1, 0);
-                    gl.vertex(0, 1, 0);
-                    gl.end();
-                    gl.renderText('baseline="' + baseline + '"|{}() ABC XYZ yjg Ẫß', color("blue").gl(), 1, "left", baseline);
-                    gl.translate(0, -2.2);
-                });
-                gl.popMatrix();
-                gl.pushMatrix();
-                gl.translate(10, -2);
-                ["left", "center", "right"].forEach((align) => {
-                    gl.begin(gl.LINES);
-                    gl.color("red");
-                    gl.vertex(-10, 0, 0);
-                    gl.vertex(10, 0, 0);
-                    gl.vertex(0, -1, 0);
-                    gl.vertex(0, 1, 0);
-                    gl.end();
-                    gl.renderText('align="' + align + '"', color("blue").gl(), 1, align, "alphabetic");
-                    gl.translate(0, -2.2);
-                });
-                gl.popMatrix();
-            });
         });
     }
 
